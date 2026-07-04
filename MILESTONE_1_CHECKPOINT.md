@@ -1,11 +1,11 @@
 # BuildTrack Milestone 1 Checkpoint
 
 Milestone: Week 1 & 2  
-Focus: Requirements, UI Design, Database Design, Backend Setup
+Focus: Requirements, UI Design, Database Design, Backend Setup, Frontend Setup
 
 ## Current Summary
 
-Backend setup has started and the FastAPI project is initialized. The team decision changed from PostgreSQL to MongoDB, and from Bootstrap to Tailwind CSS.
+Backend setup has started and the FastAPI project is initialized. The Angular frontend skeleton is now created with Tailwind CSS, auth screens, route guards, and a role-based dashboard. The team decision changed from PostgreSQL to MongoDB, and from Bootstrap to Tailwind CSS.
 
 Overall milestone status:
 
@@ -19,9 +19,9 @@ In Progress
 |---|---|---|---|
 | Backend framework | FastAPI | FastAPI | Done |
 | Database | PostgreSQL | MongoDB | Changed |
-| Frontend framework | Angular | Angular | Pending |
-| Frontend styling |Angular Material + Tailwind CSS |
-| Authentication | JWT | JWT planned | In Progress |
+| Frontend framework | Angular | Angular | Done |
+| Frontend styling | Angular Material + Tailwind CSS | Tailwind CSS | Done |
+| Authentication | JWT | Mock frontend JWT + backend JWT planned | In Progress |
 
 ## Task Checklist
 
@@ -36,9 +36,9 @@ In Progress
 | vii | Design database schema | In Progress | Collections/tables identified. MongoDB schema still needs detailed fields. |
 | viii | Initialize FastAPI project | Done | Backend FastAPI scaffold created. |
 | ix | Configure PostgreSQL | Changed | Replaced with MongoDB configuration. |
-| x | Implement JWT authentication | Pending | Security helper exists, full auth flow not implemented yet. |
-| xi | Create Angular frontend skeleton | Pending | Frontend folder exists but Angular app is not scaffolded yet. |
-| xii | Setup Angular Material and Bootstrap UI framework | Changed / Pending | Bootstrap replaced by Tailwind CSS. Angular Material + Tailwind setup pending. |
+| x | Implement JWT authentication | In Progress | Frontend mock auth exists. Backend register/login/JWT verification still pending. |
+| xi | Create Angular frontend skeleton | Done | Angular standalone app is created and builds successfully. |
+| xii | Setup Angular Material and Bootstrap UI framework | Changed / Done | Bootstrap replaced by Tailwind CSS. Tailwind is configured and building. |
 
 ## Backend Progress
 
@@ -66,6 +66,37 @@ In Progress
 - Backend tests added for health endpoints.
 - Ruff and pytest configured.
 - Backend learning notes created in `backend/BACKEND_NOTES.md`.
+
+## Frontend Progress
+
+### Completed
+
+- Angular standalone application scaffold created in `frontend/`.
+- Tailwind CSS configured using `tailwind.config.js`, `postcss.config.js`, and `src/styles.css`.
+- App bootstrap configured in `src/main.ts`.
+- Route configuration added in `src/app/app.routes.ts`.
+- Authentication screens added:
+  - login
+  - registration
+  - forgot password
+  - profile
+- Dashboard screen added with role-based cards.
+- Frontend auth service added with localStorage-backed mock session handling.
+- Mock administrator account seeded:
+  - email: `admin@buildtrack.local`
+  - password: any value with at least 6 characters
+- Auth, guest, and role guards added.
+- HTTP auth interceptor added to attach the mock bearer token.
+- Frontend build verified with `npm run build`.
+- Frontend guide added in `frontend/FRONTEND_GUIDE.md`.
+
+### Pending
+
+- Connect frontend auth screens to real backend APIs.
+- Replace mock localStorage auth with backend JWT login/register/current-user flow.
+- Add frontend unit/component tests.
+- Add API-backed project, inventory, workforce, procurement, notification, and report pages.
+- Add Angular Material only if the final UI decision still requires it.
 
 ### Pending
 
@@ -108,19 +139,19 @@ Because the project now uses MongoDB, these will be designed as MongoDB collecti
 
 | Screen | Status |
 |---|---|
-| Login Page | Pending |
-| Registration Page | Pending |
-| Password Reset Page | Pending |
+| Login Page | Implemented in Angular |
+| Registration Page | Implemented in Angular |
+| Password Reset Page | Implemented in Angular |
 
 ### Dashboard Screens
 
 | Screen | Status |
 |---|---|
-| Administrator Dashboard | Pending |
-| Project Manager Dashboard | Pending |
-| Site Engineer Dashboard | Pending |
-| Contractor Dashboard | Pending |
-| Client Dashboard | Pending |
+| Administrator Dashboard | Implemented as role-based cards |
+| Project Manager Dashboard | Implemented as role-based cards |
+| Site Engineer Dashboard | Implemented as role-based cards |
+| Contractor Dashboard | Implemented as role-based cards |
+| Client Dashboard | Implemented as role-based cards |
 
 ### Project Management Screens
 
@@ -170,26 +201,27 @@ Because the project now uses MongoDB, these will be designed as MongoDB collecti
 |---|---|---|---|
 | i | UI wireframes completed and approved | Pending | Not completed yet. |
 | ii | User flows finalized | Pending | Not completed yet. |
-| iii | Backend and frontend architecture setup completed | In Progress | Backend started. Frontend pending. |
-| iv | Authentication flow functional | Pending | JWT helper exists, full flow pending. |
+| iii | Backend and frontend architecture setup completed | In Progress | Backend and frontend scaffolds exist. Feature APIs still pending. |
+| iv | Authentication flow functional | In Progress | Frontend mock auth works. Backend JWT auth flow pending. |
 | v | Database schema finalized | Pending | Collections identified, detailed schema pending. |
 | vi | Role-based access configured | Pending | Roles identified, code pending. |
-| vii | Angular application structure prepared | Pending | Frontend folder exists, Angular skeleton pending. |
+| vii | Angular application structure prepared | Done | Angular skeleton, routing, Tailwind, auth screens, guards, and dashboard are prepared. |
 
 ## Current Completion Estimate
 
 Approximate Milestone 1 completion:
 
 ```text
-25%
+40%
 ```
 
 Reason:
 
 - Backend foundation is created.
+- Frontend foundation is created and builds successfully.
 - Project scope and roles are known.
 - Database collection list is known.
-- Main pending work is authentication, MongoDB schema details, Angular skeleton, Tailwind setup, and UI wireframes.
+- Main pending work is backend authentication, MongoDB schema details, feature APIs, API-backed frontend pages, and formal UI wireframes.
 
 ## Recommended Next Steps
 
@@ -200,8 +232,8 @@ Reason:
    - JWT verification
    - current user endpoint
    - role-based access
-3. Scaffold Angular frontend.
-4. Setup Tailwind CSS and Angular Material.
-5. Create Figma wireframes for authentication and dashboards.
-6. Create user flow diagram for each role.
+3. Connect the Angular auth screens to the backend auth APIs.
+4. Create Figma wireframes for authentication and dashboards.
+5. Create user flow diagram for each role.
+6. Add API-backed pages for projects, inventory, workforce, procurement, notifications, and reports.
 
