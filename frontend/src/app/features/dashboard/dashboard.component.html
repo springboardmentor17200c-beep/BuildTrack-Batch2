@@ -1,0 +1,68 @@
+<main class="min-h-screen bg-build-field">
+  <header class="border-b border-build-line bg-white">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-build-green">BuildTrack</p>
+        <h1 class="text-xl font-bold">Construction Control Center</h1>
+      </div>
+      <nav class="flex items-center gap-2">
+        <a class="bt-secondary" routerLink="/rbac">RBAC</a>
+        <a class="bt-secondary" routerLink="/profile">Profile</a>
+        <button class="bt-secondary" type="button" (click)="auth.logout()">Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <section class="rounded-md border border-build-line bg-white p-6 shadow-panel">
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <p class="text-sm font-semibold text-build-green">{{ user()?.role }} dashboard</p>
+            <h2 class="mt-2 text-3xl font-bold">Welcome, {{ user()?.fullName }}</h2>
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-build-steel">
+              Track project status, site responsibilities, workforce activity, inventory movement, budget usage, and reports from one workspace.
+            </p>
+          </div>
+          <span class="inline-flex w-fit rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800">{{ user()?.status }}</span>
+        </div>
+
+        <div class="mt-8 grid gap-4 md:grid-cols-3">
+          <article *ngFor="let card of cards()" class="rounded-md border border-build-line bg-build-field p-5">
+            <p class="text-sm font-semibold text-build-steel">{{ card.label }}</p>
+            <p class="mt-3 text-3xl font-bold">{{ card.value }}</p>
+            <p class="mt-2 text-sm leading-6 text-build-steel">{{ card.note }}</p>
+          </article>
+        </div>
+      </section>
+
+      <aside class="rounded-md border border-build-line bg-white p-6 shadow-panel">
+        <h3 class="text-lg font-bold">Lifecycle Flow</h3>
+        <ol class="mt-5 space-y-3 text-sm text-build-steel">
+          <li class="flex gap-3"><span class="font-bold text-build-green">1</span> Login</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">2</span> Create Project</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">3</span> Assign Manager</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">4</span> Create Milestones</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">5</span> Assign Resources</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">6</span> Daily Progress</li>
+          <li class="flex gap-3"><span class="font-bold text-build-green">7</span> Reports</li>
+        </ol>
+      </aside>
+    </div>
+
+    <section class="mt-6 grid gap-4 lg:grid-cols-3">
+      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
+        <h3 class="font-bold">Role-based access</h3>
+        <p class="mt-2 text-sm leading-6 text-build-steel">Routes are guarded by session and role checks before dashboard access is granted.</p>
+      </article>
+      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
+        <h3 class="font-bold">JWT-ready session</h3>
+        <p class="mt-2 text-sm leading-6 text-build-steel">The client stores an access token and attaches it to API requests with an interceptor.</p>
+      </article>
+      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
+        <h3 class="font-bold">Profile management</h3>
+        <p class="mt-2 text-sm leading-6 text-build-steel">Authenticated users can update their profile details from the protected profile page.</p>
+      </article>
+    </section>
+  </section>
+</main>

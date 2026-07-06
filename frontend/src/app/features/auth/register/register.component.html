@@ -1,0 +1,77 @@
+<main class="min-h-screen bg-build-field px-4 py-8 sm:px-6 lg:px-8">
+  <div class="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.8fr_1fr]">
+    <section class="flex flex-col justify-between rounded-md border border-build-line bg-white p-6 shadow-panel lg:min-h-[720px]">
+      <div>
+        <p class="text-sm font-semibold text-build-green">BuildTrack access</p>
+        <h1 class="mt-3 text-3xl font-bold">Create a role-based account</h1>
+        <p class="mt-4 text-sm leading-6 text-build-steel">
+          Every account is tied to a construction responsibility, from administration to client monitoring.
+        </p>
+      </div>
+
+      <div class="mt-8 grid gap-3 text-sm">
+        <div class="rounded-md border border-build-line bg-build-field p-4">
+          <p class="font-semibold">Administrator</p>
+          <p class="mt-1 text-build-steel">Complete control, users, dashboards, reports.</p>
+        </div>
+        <div class="rounded-md border border-build-line bg-build-field p-4">
+          <p class="font-semibold">Project Manager</p>
+          <p class="mt-1 text-build-steel">Projects, engineers, milestones, budget.</p>
+        </div>
+        <div class="rounded-md border border-build-line bg-build-field p-4">
+          <p class="font-semibold">Site Team</p>
+          <p class="mt-1 text-build-steel">Daily progress, workers, contractors, attendance.</p>
+        </div>
+        <div class="rounded-md border border-build-line bg-build-field p-4">
+          <p class="font-semibold">Client</p>
+          <p class="mt-1 text-build-steel">Project status and milestone monitoring.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-md border border-build-line bg-white p-6 shadow-panel sm:p-8">
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold">Register</h2>
+        <p class="mt-2 text-sm text-build-steel">This creates a local demo account for the Angular module.</p>
+      </div>
+
+      <form class="grid gap-5" [formGroup]="form" (ngSubmit)="submit()">
+        <label class="block">
+          <span class="bt-label">Full name</span>
+          <input class="bt-field mt-1.5" type="text" formControlName="fullName" autocomplete="name">
+        </label>
+
+        <label class="block">
+          <span class="bt-label">Email</span>
+          <input class="bt-field mt-1.5" type="email" formControlName="email" autocomplete="email">
+        </label>
+
+        <label class="block">
+          <span class="bt-label">Company</span>
+          <input class="bt-field mt-1.5" type="text" formControlName="company" autocomplete="organization">
+        </label>
+
+        <label class="block">
+          <span class="bt-label">Role</span>
+          <select class="bt-field mt-1.5" formControlName="role">
+            <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="bt-label">Password</span>
+          <input class="bt-field mt-1.5" type="password" formControlName="password" autocomplete="new-password">
+        </label>
+
+        <p *ngIf="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <button class="bt-primary flex-1" type="submit" [disabled]="isSubmitting">
+            {{ isSubmitting ? "Creating..." : "Create account" }}
+          </button>
+          <a class="bt-secondary flex-1" routerLink="/login">Back to login</a>
+        </div>
+      </form>
+    </section>
+  </div>
+</main>

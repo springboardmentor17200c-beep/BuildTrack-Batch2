@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BuildTrack — Run every jobsite from one set of blueprints</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Tailwind is compiled from tailwind.config.js + globals.css — no CDN script or inline <style> needed here -->
+</head>
+<body>
+
+<main class="bt-page-shell min-h-screen">
+
+  <!-- ================= HEADER ================= -->
+  <header class="bt-navbar">
+    <div class="bt-container flex items-center justify-between py-4">
+      <a href="#" class="flex items-center gap-3">
+        <div class="flex h-11 w-11 items-center justify-center rounded-full bg-build-blueprint font-mono text-base font-bold text-white">
+          BT
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-build-ink">BuildTrack</h1>
+          <p class="text-xs font-mono text-build-steel-light">Site-to-office coordination</p>
+        </div>
+      </a>
+
+      <nav class="hidden items-center gap-8 lg:flex">
+        <a href="#features" class="font-medium text-build-steel transition hover:text-build-blueprint">Modules</a>
+        <a href="#roles" class="font-medium text-build-steel transition hover:text-build-blueprint">Team Roles</a>
+        <a href="#workflow" class="font-medium text-build-steel transition hover:text-build-blueprint">Site Workflow</a>
+        <a href="#contact" class="font-medium text-build-steel transition hover:text-build-blueprint">Contact</a>
+      </nav>
+
+      <a routerLink="/login" class="bt-primary">Sign in</a>
+    </div>
+  </header>
+
+  <!-- ================= HERO ================= -->
+  <section class="bt-light-section py-24">
+    <div class="bt-container">
+      <div class="grid items-center gap-16 lg:grid-cols-2">
+
+        <!-- Left: copy -->
+        <div>
+          <span class="bt-light-kicker">Built for jobsites, not spreadsheets</span>
+          <h1 class="mt-6 text-5xl font-bold leading-tight text-build-ink lg:text-6xl">
+            Run every jobsite<br/>from one set of
+            <span class="text-build-safety-dark">blueprints.</span>
+          </h1>
+          <p class="mt-6 max-w-xl text-lg leading-8 text-build-steel">
+            BuildTrack puts scheduling, crews, materials, budgets, and daily site
+            reports on one shared record — so the office and the field are always
+            looking at the same set of facts.
+          </p>
+
+          <div class="mt-10 flex flex-wrap gap-4">
+            <a routerLink="/login" class="bt-primary px-8">Sign in</a>
+            <a href="#features" class="bt-secondary px-8">See the modules</a>
+          </div>
+
+          <div class="mt-10 flex flex-wrap gap-8 font-mono text-sm text-build-steel-light">
+            <span>NO. OF ROLE TYPES <b class="text-build-ink">06</b></span>
+            <span>CORE MODULES <b class="text-build-ink">06</b></span>
+            <span>SITE-READY <b class="text-build-ink">MOBILE + WEB</b></span>
+          </div>
+        </div>
+
+        <!-- Right: signature blueprint diagram -->
+        <div class="bt-crop bt-hero-card">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-build-ink">Site Elevation — Block C</h3>
+            <span class="font-mono text-xs text-build-steel-light">DWG. 04-C / REV 3</span>
+          </div>
+
+          <svg viewBox="0 0 460 300" class="mt-5 h-auto w-full" role="img" aria-label="Schematic elevation of a building under construction with a tower crane and progress annotations">
+            <!-- ground -->
+            <line x1="20" y1="250" x2="440" y2="250" stroke="#DADDD9" stroke-width="2"/>
+            <!-- building floors -->
+            <g stroke="#0E2A47" stroke-width="2" fill="none">
+              <rect x="90" y="70" width="150" height="180"/>
+              <line x1="90" y1="100" x2="240" y2="100"/>
+              <line x1="90" y1="130" x2="240" y2="130"/>
+              <line x1="90" y1="160" x2="240" y2="160"/>
+              <line x1="90" y1="190" x2="240" y2="190"/>
+              <line x1="90" y1="220" x2="240" y2="220"/>
+            </g>
+            <!-- windows -->
+            <g fill="#4A7FB5" opacity="0.55">
+              <rect x="102" y="76" width="18" height="18"/>
+              <rect x="132" y="76" width="18" height="18"/>
+              <rect x="162" y="76" width="18" height="18"/>
+              <rect x="192" y="76" width="18" height="18"/>
+              <rect x="102" y="106" width="18" height="18"/>
+              <rect x="132" y="106" width="18" height="18"/>
+              <rect x="162" y="106" width="18" height="18"/>
+              <rect x="192" y="106" width="18" height="18"/>
+              <rect x="102" y="136" width="18" height="18"/>
+              <rect x="132" y="136" width="18" height="18"/>
+              <rect x="162" y="136" width="18" height="18"/>
+              <rect x="192" y="136" width="18" height="18"/>
+            </g>
+            <!-- unfinished top floors (dashed = planned) -->
+            <g stroke="#8A939C" stroke-width="1.5" stroke-dasharray="4 3" fill="none">
+              <rect x="90" y="40" width="150" height="30"/>
+            </g>
+            <!-- crane -->
+            <g stroke="#14181C" stroke-width="2" fill="none">
+              <line x1="330" y1="250" x2="330" y2="55"/>
+              <line x1="300" y1="55" x2="420" y2="55"/>
+              <line x1="330" y1="55" x2="300" y2="90"/>
+              <line x1="405" y1="55" x2="405" y2="95"/>
+              <line x1="330" y1="55" x2="345" y2="40"/>
+            </g>
+            <circle cx="330" cy="250" r="3" fill="#14181C"/>
+
+            <!-- dimension line -->
+            <line x1="90" y1="268" x2="240" y2="268" stroke="#4A7FB5" stroke-width="1.5"/>
+            <line x1="90" y1="262" x2="90" y2="274" stroke="#4A7FB5" stroke-width="1.5"/>
+            <line x1="240" y1="262" x2="240" y2="274" stroke="#4A7FB5" stroke-width="1.5"/>
+            <text x="165" y="286" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#545E67">FLOORS 1–5 ENCLOSED</text>
+
+            <!-- callout leaders -->
+            <line x1="240" y1="80" x2="290" y2="65" stroke="#8A939C" stroke-width="1"/>
+            <text x="294" y="68" font-family="IBM Plex Mono" font-size="10" fill="#545E67">CREW ON SITE: 34</text>
+            <line x1="240" y1="130" x2="290" y2="145" stroke="#8A939C" stroke-width="1"/>
+            <text x="294" y="148" font-family="IBM Plex Mono" font-size="10" fill="#545E67">MATERIALS: ON SCHEDULE</text>
+          </svg>
+
+          <div class="mt-6 grid grid-cols-2 gap-5">
+            <div class="bt-card-soft">
+              <h4 class="font-semibold text-build-ink">Daily progress</h4>
+              <p class="mt-2 text-sm text-build-steel">Photo logs and inspection notes, tied to the schedule.</p>
+            </div>
+            <div class="bt-card-soft">
+              <h4 class="font-semibold text-build-ink">Cost visibility</h4>
+              <p class="mt-2 text-sm text-build-steel">Spend tracked against budget line, updated as it happens.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FEATURES / MODULES ================= -->
+  <section id="features" class="bt-light-section border-t border-build-line py-24">
+    <div class="bt-container">
+      <div class="text-center">
+        <span class="bt-light-kicker">Core modules</span>
+        <h2 class="bt-light-title mt-3">Six modules. One project record.</h2>
+        <p class="bt-light-copy">
+          Every module reads and writes to the same project, so a change on
+          the schedule shows up in the budget, and a delivery logged in
+          inventory shows up on the site engineer's task list.
+        </p>
+      </div>
+
+      <div class="mt-16 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-01</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Project Scheduling</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            Build phased timelines, set milestones, and see which tasks are
+            blocking the next crew from starting.
+          </p>
+        </div>
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-02</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Workforce & Crews</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            Assign project managers, engineers, contractors and workers to
+            specific sites, shifts and trades.
+          </p>
+        </div>
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-03</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Materials & Inventory</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            Track stock by site, flag low supply automatically, and route
+            procurement requests to the right approver.
+          </p>
+        </div>
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-04</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Equipment & Maintenance</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            See which machinery is on which site, and get ahead of
+            maintenance before it causes downtime.
+          </p>
+        </div>
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-05</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Budget & Cost Control</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            Compare committed, actual and forecast spend against the
+            original estimate, line by line.
+          </p>
+        </div>
+
+        <div class="bt-feature-card">
+          <span class="bt-spec-code">MOD-06</span>
+          <h3 class="mt-2 text-xl font-semibold text-build-ink">Daily Reports & Photos</h3>
+          <div class="bt-card-accent"></div>
+          <p class="mt-4 text-build-steel">
+            Site engineers log progress and site conditions from a phone;
+            clients see a clean summary, not the raw feed.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= USER ROLES ================= -->
+  <section id="roles" class="border-y border-build-line bg-build-surface py-24">
+    <div class="bt-container">
+      <div class="text-center">
+        <span class="bt-light-kicker">Team roles</span>
+        <h2 class="bt-light-title mt-3">Everyone sees only what their job needs</h2>
+        <p class="bt-light-copy">
+          Access is scoped by role, not by trust. Each person opens a
+          dashboard built around what they're responsible for.
+        </p>
+      </div>
+
+      <div class="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Full access</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Administrator</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Manages user accounts, permissions and platform-wide settings.
+          </p>
+        </div>
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Project-level</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Project Manager</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Builds the schedule, allocates crews and materials, and signs off on budget changes.
+          </p>
+        </div>
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Site-level</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Site Engineer</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Submits daily progress, inspection results and site condition reports.
+          </p>
+        </div>
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Task-level</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Contractor</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Executes assigned work packages and manages their own field team.
+          </p>
+        </div>
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Task-level</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Worker</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Clocks attendance and marks assigned tasks complete from a phone.
+          </p>
+        </div>
+
+        <div class="bt-role-card">
+          <span class="bt-role-badge">Read-only</span>
+          <h3 class="mt-3 text-lg font-semibold text-build-ink">Client</h3>
+          <p class="mt-2 text-sm text-build-steel">
+            Follows project status and progress reports without seeing internal costs.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WORKFLOW ================= -->
+  <section id="workflow" class="bt-dark-section py-24">
+    <div class="bt-container relative">
+      <div class="text-center">
+        <span class="bt-section-kicker">Site workflow</span>
+        <h2 class="bt-section-title mt-3">From sign-in to sign-off</h2>
+        <p class="bt-section-copy">A project moves through the same six stages every time — so nothing gets skipped.</p>
+      </div>
+
+      <div class="mt-20 hidden lg:block">
+        <div class="grid grid-cols-6 items-start gap-2">
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">01 Sign in</p></div>
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">02 Set up project</p></div>
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">03 Assign crews & materials</p></div>
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">04 Log daily progress</p></div>
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">05 Review costs & reports</p></div>
+          <div class="text-center"><div class="bt-dim-node mx-auto"></div><p class="bt-dim-step mt-3">06 Close out project</p></div>
+        </div>
+        <div class="bt-dim-track mx-6 mt-[-52px]"></div>
+      </div>
+
+      <!-- mobile fallback -->
+      <div class="mx-auto mt-14 flex max-w-sm flex-col gap-4 lg:hidden">
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">01 Sign in</p></div>
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">02 Set up project</p></div>
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">03 Assign crews & materials</p></div>
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">04 Log daily progress</p></div>
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">05 Review costs & reports</p></div>
+        <div class="flex items-center gap-4"><div class="bt-dim-node"></div><p class="bt-dim-step">06 Close out project</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CTA ================= -->
+  <section class="bt-dark-section border-t border-build-blueprint-light/30 py-24">
+    <div class="bt-container relative">
+      <div class="mx-auto max-w-3xl text-center">
+        <span class="bt-section-kicker">Get started</span>
+        <h2 class="bt-section-title mt-4">Put the office and the field on the same drawing</h2>
+        <p class="bt-section-copy">
+          Set up your first project, invite your team, and start logging
+          progress the same day.
+        </p>
+        <div class="mt-10 flex flex-wrap justify-center gap-4">
+          <a routerLink="/login" class="bt-primary px-8">Sign in</a>
+          <a href="#features" class="rounded-full border-2 border-white px-8 py-3 font-semibold text-white transition hover:bg-white hover:text-build-blueprint">See the modules</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer id="contact" class="border-t border-build-line bg-build-surface">
+    <div class="mx-auto max-w-7xl px-6 py-16">
+      <div class="grid gap-12 md:grid-cols-3">
+
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-build-blueprint font-mono font-bold text-white">BT</div>
+            <div>
+              <h3 class="text-xl font-bold text-build-ink">BuildTrack</h3>
+              <p class="text-sm text-build-steel-light">Site-to-office coordination</p>
+            </div>
+          </div>
+          <p class="mt-6 max-w-sm leading-7 text-build-steel">
+            BuildTrack keeps scheduling, crews, materials, equipment, budget
+            and daily site reports on one shared project record — built for
+            teams who split their time between the office and the field.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-build-ink">Platform</h4>
+          <ul class="mt-6 space-y-3">
+            <li><a href="#features" class="text-build-steel transition hover:text-build-blueprint">Modules</a></li>
+            <li><a href="#roles" class="text-build-steel transition hover:text-build-blueprint">Team Roles</a></li>
+            <li><a href="#workflow" class="text-build-steel transition hover:text-build-blueprint">Site Workflow</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-build-ink">Quick access</h4>
+          <div class="mt-6 flex flex-col gap-3">
+            <a routerLink="/login" class="bt-primary w-fit">Sign in</a>
+            <a routerLink="/register" class="bt-secondary w-fit">Register</a>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="mt-16 flex flex-col items-center justify-between gap-4 border-t border-build-line pt-8 text-sm text-build-steel-light md:flex-row">
+        <p>© 2026 BuildTrack. All rights reserved.</p>
+        <div class="flex gap-6">
+          <a href="#" class="transition hover:text-build-blueprint">Privacy Policy</a>
+          <a href="#" class="transition hover:text-build-blueprint">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</main>
+</body>
+</html>

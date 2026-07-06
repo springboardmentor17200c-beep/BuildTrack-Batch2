@@ -1,0 +1,52 @@
+<main class="grid min-h-screen bg-build-field lg:grid-cols-[1.05fr_0.95fr]">
+  <section class="flex min-h-[40vh] items-end bg-[linear-gradient(rgba(23,32,27,0.18),rgba(23,32,27,0.70)),url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1500&q=80')] bg-cover bg-center p-6 text-white lg:min-h-screen lg:p-12">
+    <div class="max-w-xl">
+      <p class="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-amber-200">Construction operations platform</p>
+      <h1 class="text-4xl font-bold leading-tight sm:text-5xl">BuildTrack</h1>
+      <p class="mt-4 max-w-lg text-base leading-7 text-white/85">
+        Manage projects, site teams, contractors, inventory, machinery, budgets, and progress from one secure workspace.
+      </p>
+    </div>
+  </section>
+
+  <section class="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
+    <div class="w-full max-w-md">
+      <div class="mb-8">
+        <p class="text-sm font-semibold text-build-green">Module 1</p>
+        <h2 class="mt-2 text-3xl font-bold">Sign in</h2>
+        <p class="mt-2 text-sm leading-6 text-build-steel">Access dashboards based on your BuildTrack role.</p>
+      </div>
+
+      <form class="space-y-5" [formGroup]="form" (ngSubmit)="submit()">
+        <label class="block">
+          <span class="bt-label">Email</span>
+          <input class="bt-field mt-1.5" type="email" formControlName="email" autocomplete="email">
+        </label>
+
+        <label class="block">
+          <span class="bt-label">Password</span>
+          <input class="bt-field mt-1.5" type="password" formControlName="password" autocomplete="current-password">
+        </label>
+
+        <div class="flex items-center justify-between text-sm">
+          <label class="flex items-center gap-2 text-build-steel">
+            <input class="h-4 w-4 rounded border-build-line text-build-green focus:ring-build-green" type="checkbox">
+            Remember me
+          </label>
+          <a class="font-semibold text-build-green hover:underline" routerLink="/forgot-password">Forgot password?</a>
+        </div>
+
+        <p *ngIf="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+
+        <button class="bt-primary w-full" type="submit" [disabled]="isSubmitting">
+          {{ isSubmitting ? "Signing in..." : "Sign in" }}
+        </button>
+      </form>
+
+      <p class="mt-6 text-sm text-build-steel">
+        New to BuildTrack?
+        <a class="font-semibold text-build-green hover:underline" routerLink="/register">Create an account</a>
+      </p>
+    </div>
+  </section>
+</main>
