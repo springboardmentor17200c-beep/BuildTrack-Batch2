@@ -6,13 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.db.mongodb import mongo_client
+from app.db.mongodb import mongo_client, ping_database
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup: Check database connection
+    try:
+        await ping_database()
+        print("✓ Database connection successful!")
+    except Exception as e:
+        print(f"✗ Database connection failed: {str(e)}")
+    
     yield
+    
+    # Shutdown: Close connection
     mongo_client.close()
+    print("Database connection closed.")
 
 
 def create_app() -> FastAPI:
