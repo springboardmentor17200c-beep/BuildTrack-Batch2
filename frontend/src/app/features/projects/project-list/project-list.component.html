@@ -1,0 +1,133 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Projects</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search projects..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> New Project</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Project Name</th>
+            <th>Manager</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Start Date</th>
+            <th>Actions</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filteredProjects">
+            <td>
+              <a [routerLink]="['/projects', p.id]" class="cell-title" style="color:inherit">{{ p.name }}</a>
+            </td>
+            <td>{{ p.manager }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(p.status)">{{ p.status }}</span></td>
+            <td>
+              <div class="progress-row">
+                <div class="progress-mini"><span [style.width.%]="p.progress"></span></div>
+                {{ p.progress }}%
+              </div>
+            </td>
+            <td>{{ p.startDate }}</td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit project" (click)="openEdit(p)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete project" (click)="deleteProject(p)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+            <td><a [routerLink]="['/projects', p.id]" class="link">View →</a></td>
+          </tr>
+          <tr *ngIf="filteredProjects.length === 0">
+            <td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">
+              No projects match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredProjects.length }} of {{ data.projects.length }} projects</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showAddModal()" (click)="closeAdd()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingProject() ? 'Edit Project' : 'New Project' }}</h3>
+      <button class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="pname">Project Name</label>
+          <input id="pname" type="text" formControlName="name" placeholder="e.g. Riverside Apartments" />
+          <p class="modal-error" *ngIf="form.get('name')?.touched && form.get('name')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field">
+          <label for="pmanager">Manager</label>
+          <input id="pmanager" type="text" formControlName="manager" placeholder="e.g. Priya Sharma" />
+          <p class="modal-error" *ngIf="form.get('manager')?.touched && form.get('manager')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="pcategory">Category</label>
+            <select id="pcategory" formControlName="category">
+              <option value="Residential">Residential</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Infrastructure">Infrastructure</option>
+              <option value="Government">Government</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label for="pstatus">Status</label>
+            <select id="pstatus" formControlName="status">
+              <option value="Not Started">Not Started</option>
+              <option value="In Progress">In Progress</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label for="pstart">Start Date</label>
+          <input id="pstart" type="date" formControlName="startDate" />
+          <p class="modal-error" *ngIf="form.get('startDate')?.touched && form.get('startDate')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field">
+          <label for="pbudget">Budget</label>
+          <input id="pbudget" type="number" min="0" formControlName="budget" />
+          <p class="modal-error" *ngIf="form.get('budget')?.touched && form.get('budget')?.invalid">Required.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingProject() ? 'Save Changes' : 'Create Project' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

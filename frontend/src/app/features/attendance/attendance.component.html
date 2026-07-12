@@ -1,0 +1,119 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Attendance</p>
+  <div class="page-header">
+    <h1>Attendance</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search workers..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ today() }}</button>
+      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-outline"><i class="fa-solid fa-file-export"></i> Export</button>
+      <button class="btn btn-primary" type="button" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Entry</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of filteredAttendance">
+            <td class="cell-title">{{ a.workerName }}</td>
+            <td>{{ a.role }}</td>
+            <td>{{ a.checkIn || '—' }}</td>
+            <td>{{ a.checkOut || '—' }}</td>
+            <td><span class="badge" [ngClass]="statusClass(a.status)">{{ a.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit attendance" (click)="openEdit(a)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete attendance" (click)="deleteAttendance(a)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredAttendance.length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              No entries match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredAttendance.length }} of {{ data.attendance.length }} entries</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showAddModal()">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>{{ editingAttendance() ? 'Edit Attendance' : 'Add Attendance' }}</h3>
+      <button type="button" class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="aworker">Worker Name</label>
+          <input id="aworker" type="text" formControlName="workerName" />
+          <p class="modal-error" *ngIf="form.get('workerName')?.touched && form.get('workerName')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="arole">Role</label>
+            <input id="arole" type="text" formControlName="role" />
+          </div>
+          <div class="modal-field">
+            <label for="adate">Date</label>
+            <input id="adate" type="date" formControlName="date" />
+          </div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="ain">Check In</label>
+            <input id="ain" type="time" formControlName="checkIn" />
+          </div>
+          <div class="modal-field">
+            <label for="aout">Check Out</label>
+            <input id="aout" type="time" formControlName="checkOut" />
+          </div>
+        </div>
+        <div class="modal-field">
+          <label for="astatus">Status</label>
+          <select id="astatus" formControlName="status">
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+            <option value="On Leave">On Leave</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingAttendance() ? 'Save Changes' : 'Save Entry' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

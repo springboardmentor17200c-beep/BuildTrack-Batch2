@@ -1,0 +1,265 @@
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.donut-section {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  align-items: center;
+  gap: 26px;
+  padding: 18px 26px 24px;
+}
+
+.donut-chart {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.donut-chart::after {
+  content: '';
+  position: absolute;
+  inset: 34px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px 20px 20px;
+}
+
+.donut-section .legend {
+  padding: 0;
+}
+
+.legend.slim {
+  padding-top: 0;
+}
+
+.legend__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--slate);
+
+  b {
+    margin-left: auto;
+    color: var(--navy);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+  }
+}
+
+.line-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 12px 24px 0;
+  color: var(--slate);
+  font-size: 12.5px;
+}
+
+.line-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.line-legend i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid currentColor;
+}
+
+.line-chart {
+  position: relative;
+  height: 250px;
+  padding: 8px 26px 0;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.grid-lines line {
+  stroke: #e8edf5;
+  stroke-width: 1;
+}
+
+.trend {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend.completed {
+  stroke: var(--green);
+}
+
+.trend.progress {
+  stroke: var(--blue);
+}
+
+.trend.hold {
+  stroke: var(--amber);
+}
+
+.trend.not-started {
+  stroke: #94a3b8;
+}
+
+.axis-labels text {
+  fill: #64748b;
+  font-size: 12px;
+}
+
+.line-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.status-bars {
+  display: grid;
+  gap: 12px;
+  padding: 0 20px 22px;
+}
+
+.status-bars.compact {
+  padding-top: 14px;
+}
+
+.status-bar__label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--slate);
+  font-weight: 700;
+}
+
+.status-bar__track {
+  height: 9px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.status-bar__track span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+}
+
+.proj-list,
+.milestone-list {
+  padding: 4px 8px 12px;
+}
+
+.proj-row,
+.milestone-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+
+  &:hover {
+    background: #fafbfd;
+  }
+}
+
+.proj-row__text,
+.milestone-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-row__pct {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--navy);
+  width: 40px;
+  text-align: right;
+}
+
+.milestone-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .donut-section {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+/* ── New additions for the dynamic line chart ── */
+
+.chart-period {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* wrapper that positions y-labels left of the svg */
+.line-chart {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.y-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 8px 4px 20px 0;
+  font-size: 10.5px;
+  color: var(--muted);
+  min-width: 20px;
+}
+
+/* override: make svg fill the remaining width */
+.line-chart svg {
+  flex: 1;
+}
+
+.axis-labels text {
+  fill: #64748b;
+  font-size: 13px;
+}
+
+/* make dots visible at all scales */
+.trend {
+  stroke-width: 2.5;
+}

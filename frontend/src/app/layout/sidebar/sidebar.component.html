@@ -1,0 +1,50 @@
+<aside class="sidebar" [class.open]="open">
+  <div class="sidebar__brand">
+    <span class="sidebar__mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 21h18" stroke="white" stroke-width="2" stroke-linecap="round" />
+        <path d="M5 21V9l6-5 6 5v12" stroke="white" stroke-width="2" stroke-linejoin="round" />
+        <path d="M10 21v-6h4v6" stroke="white" stroke-width="2" stroke-linejoin="round" />
+      </svg>
+    </span>
+    <span class="sidebar__name">Build<b>Track</b></span>
+    <button class="sidebar__close" (click)="linkClick.emit()" aria-label="Close menu">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <nav class="sidebar__nav">
+    <a
+      *ngFor="let item of navItems()"
+      [routerLink]="item.route"
+      routerLinkActive="active"
+      class="sidebar__link"
+      (click)="linkClick.emit()"
+    >
+      <i class="fa-solid" [ngClass]="item.icon"></i>
+      <span>{{ item.label }}</span>
+    </a>
+  </nav>
+
+  <a
+    *ngIf="canSeeSettings()"
+    routerLink="/settings"
+    routerLinkActive="active"
+    class="sidebar__link sidebar__settings"
+    (click)="linkClick.emit()"
+  >
+    <i class="fa-solid fa-gear"></i>
+    <span>Settings</span>
+  </a>
+
+  <div class="sidebar__profile" *ngIf="auth.currentUser() as user">
+    <img [src]="user.avatarUrl || 'assets/default-avatar.svg'" alt="" />
+    <div>
+      <p class="name">{{ user.name }}</p>
+      <p class="role">{{ user.role }}</p>
+    </div>
+    <button class="logout" (click)="auth.logout()" title="Sign out">
+      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+    </button>
+  </div>
+</aside>

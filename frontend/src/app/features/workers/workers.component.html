@@ -1,0 +1,121 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Workers</p>
+  <div class="page-header">
+    <h1>Worker Management</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search workers..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Worker</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Contact</th>
+            <th>Attendance</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let w of filteredWorkers">
+            <td>
+              <div class="row-avatar">
+                <img [src]="w.avatarUrl" alt="" />
+                <span class="cell-title">{{ w.name }}</span>
+              </div>
+            </td>
+            <td>{{ w.role }}</td>
+            <td>{{ w.contact }}</td>
+            <td>{{ w.attendancePct }}%</td>
+            <td>
+              <span class="badge" [ngClass]="w.status === 'Active' ? 'badge-green' : 'badge-red'">{{ w.status }}</span>
+            </td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit worker" (click)="openEdit(w)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete worker" (click)="deleteWorker(w)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredWorkers.length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              No workers match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredWorkers.length }} of {{ data.workers.length }} workers</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showAddModal()" (click)="closeAdd()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingWorker() ? 'Edit Worker' : 'Add Worker' }}</h3>
+      <button class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="wname">Full Name</label>
+          <input id="wname" type="text" formControlName="name" placeholder="e.g. Deepak Rao" />
+          <p class="modal-error" *ngIf="form.get('name')?.touched && form.get('name')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="wrole">Role</label>
+            <input id="wrole" type="text" formControlName="role" placeholder="e.g. Mason" />
+            <p class="modal-error" *ngIf="form.get('role')?.touched && form.get('role')?.invalid">Required.</p>
+          </div>
+          <div class="modal-field">
+            <label for="wskill">Skill Type</label>
+            <input id="wskill" type="text" formControlName="skillType" placeholder="e.g. Masonry" />
+            <p class="modal-error" *ngIf="form.get('skillType')?.touched && form.get('skillType')?.invalid">Required.</p>
+          </div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="wcontact">Contact</label>
+            <input id="wcontact" type="text" formControlName="contact" placeholder="e.g. 9876500000" />
+            <p class="modal-error" *ngIf="form.get('contact')?.touched && form.get('contact')?.invalid">Required.</p>
+          </div>
+          <div class="modal-field">
+            <label for="wstatus">Status</label>
+            <select id="wstatus" formControlName="status">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingWorker() ? 'Save Changes' : 'Add Worker' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

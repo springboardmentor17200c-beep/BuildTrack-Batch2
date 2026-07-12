@@ -1,68 +1,167 @@
-<main class="min-h-screen bg-build-field">
-  <header class="border-b border-build-line bg-white">
-    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-build-green">BuildTrack</p>
-        <h1 class="text-xl font-bold">Construction Control Center</h1>
+<div class="page">
+
+  <!-- ── Stat cards ── -->
+  <div class="stat-grid">
+    <div class="stat-card" *ngFor="let s of stats">
+      <div class="stat-card__top">
+        <span class="stat-card__icon" [style.background]="s.bg" [style.color]="s.color">
+          <i class="fa-solid" [ngClass]="s.icon"></i>
+        </span>
       </div>
-      <nav class="flex items-center gap-2">
-        <a class="bt-secondary" routerLink="/rbac">RBAC</a>
-        <a class="bt-secondary" routerLink="/profile">Profile</a>
-        <button class="bt-secondary" type="button" (click)="auth.logout()">Sign out</button>
-      </nav>
+      <p class="stat-card__label">{{ s.label }}</p>
+      <p class="stat-card__value">{{ s.value }}</p>
+      <p class="stat-card__delta" [ngClass]="s.trend">
+        <i class="fa-solid"
+           [class.fa-arrow-up]="s.trend === 'up'"
+           [class.fa-arrow-down]="s.trend === 'down'"></i>
+        {{ s.delta }}
+      </p>
     </div>
-  </header>
+  </div>
 
-  <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <section class="rounded-md border border-build-line bg-white p-6 shadow-panel">
-        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <p class="text-sm font-semibold text-build-green">{{ user()?.role }} dashboard</p>
-            <h2 class="mt-2 text-3xl font-bold">Welcome, {{ user()?.fullName }}</h2>
-            <p class="mt-3 max-w-2xl text-sm leading-6 text-build-steel">
-              Track project status, site responsibilities, workforce activity, inventory movement, budget usage, and reports from one workspace.
-            </p>
+  <!-- ── Charts row ── -->
+  <div class="grid-2">
+
+    <!-- Donut -->
+    <div class="panel">
+      <div class="panel-header"><h3>Project Overview</h3></div>
+      <div class="donut-section">
+        <div class="donut-chart" [style.background]="donutStyle"></div>
+        <div class="legend">
+          <div class="legend__item" *ngFor="let item of statusLegend">
+            <span class="dot" [style.background]="item.color"></span>
+            {{ item.label }}
+            <b>{{ item.count }} ({{ item.percent }}%)</b>
           </div>
-          <span class="inline-flex w-fit rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800">{{ user()?.status }}</span>
         </div>
-
-        <div class="mt-8 grid gap-4 md:grid-cols-3">
-          <article *ngFor="let card of cards()" class="rounded-md border border-build-line bg-build-field p-5">
-            <p class="text-sm font-semibold text-build-steel">{{ card.label }}</p>
-            <p class="mt-3 text-3xl font-bold">{{ card.value }}</p>
-            <p class="mt-2 text-sm leading-6 text-build-steel">{{ card.note }}</p>
-          </article>
-        </div>
-      </section>
-
-      <aside class="rounded-md border border-build-line bg-white p-6 shadow-panel">
-        <h3 class="text-lg font-bold">Lifecycle Flow</h3>
-        <ol class="mt-5 space-y-3 text-sm text-build-steel">
-          <li class="flex gap-3"><span class="font-bold text-build-green">1</span> Login</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">2</span> Create Project</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">3</span> Assign Manager</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">4</span> Create Milestones</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">5</span> Assign Resources</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">6</span> Daily Progress</li>
-          <li class="flex gap-3"><span class="font-bold text-build-green">7</span> Reports</li>
-        </ol>
-      </aside>
+      </div>
     </div>
 
-    <section class="mt-6 grid gap-4 lg:grid-cols-3">
-      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
-        <h3 class="font-bold">Role-based access</h3>
-        <p class="mt-2 text-sm leading-6 text-build-steel">Routes are guarded by session and role checks before dashboard access is granted.</p>
-      </article>
-      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
-        <h3 class="font-bold">JWT-ready session</h3>
-        <p class="mt-2 text-sm leading-6 text-build-steel">The client stores an access token and attaches it to API requests with an interceptor.</p>
-      </article>
-      <article class="rounded-md border border-build-line bg-white p-5 shadow-panel">
-        <h3 class="font-bold">Profile management</h3>
-        <p class="mt-2 text-sm leading-6 text-build-steel">Authenticated users can update their profile details from the protected profile page.</p>
-      </article>
-    </section>
-  </section>
-</main>
+    <!-- Line chart (rolling 6-month, anchored to today) -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Status</h3>
+        <span class="chart-period">Last 6 months · as of {{ statusTrend.currentMonth }}</span>
+      </div>
+
+      <div class="line-legend">
+        <span *ngFor="let item of statusTrend.series" [style.color]="item.color">
+          <i [style.background]="item.color"></i>{{ item.label }}
+        </span>
+      </div>
+
+      <div class="line-chart">
+        <ng-container *ngIf="data.projects.length; else noData">
+          <!-- Y-axis labels -->
+          <div class="y-labels">
+            <span>{{ statusTrend.max }}</span>
+            <span>{{ (statusTrend.max / 2) | number:'1.0-0' }}</span>
+            <span>0</span>
+          </div>
+
+          <svg viewBox="0 0 500 200" preserveAspectRatio="none" aria-label="Project status trend by month">
+            <!-- horizontal grid lines -->
+            <g class="grid-lines">
+              <line x1="20" y1="40"  x2="470" y2="40"></line>
+              <line x1="20" y1="75"  x2="470" y2="75"></line>
+              <line x1="20" y1="110" x2="470" y2="110"></line>
+              <line x1="20" y1="145" x2="470" y2="145"></line>
+              <line x1="20" y1="180" x2="470" y2="180"></line>
+            </g>
+
+            <!-- trend lines per status -->
+            <polyline
+              *ngFor="let item of statusTrend.series"
+              class="trend"
+              [class]="item.className"
+              [attr.stroke]="item.color"
+              [attr.points]="item.points"
+            ></polyline>
+
+            <!-- data point dots -->
+            <ng-container *ngFor="let item of statusTrend.series">
+              <ng-container *ngFor="let pt of item.points.split(' '); let pi = index">
+                <circle
+                  [attr.cx]="pt.split(',')[0]"
+                  [attr.cy]="pt.split(',')[1]"
+                  r="4"
+                  [attr.fill]="item.color"
+                  [attr.stroke]="'white'"
+                  stroke-width="1.5"
+                ></circle>
+              </ng-container>
+            </ng-container>
+
+            <!-- X-axis month labels -->
+            <g class="axis-labels">
+              <text
+                *ngFor="let label of statusTrend.labels; let i = index"
+                [attr.x]="20 + (statusTrend.labels.length > 1 ? i * (450 / (statusTrend.labels.length - 1)) : 225)"
+                y="198"
+                text-anchor="middle"
+              >{{ label }}</text>
+            </g>
+          </svg>
+        </ng-container>
+
+        <ng-template #noData>
+          <div class="line-empty">No project data yet</div>
+        </ng-template>
+      </div>
+
+      <!-- Counts below the chart -->
+      <div class="legend slim">
+        <div class="legend__item" *ngFor="let item of statusTrend.series">
+          <span class="dot" [style.background]="item.color"></span>
+          {{ item.label }}
+          <b>{{ item.count }}</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recent Projects + Upcoming Milestones ── -->
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Recent Projects</h3>
+        <a routerLink="/projects">View all projects →</a>
+      </div>
+      <div class="proj-list">
+        <div class="proj-row" *ngFor="let p of data.projects | slice:0:5">
+          <span class="thumb"><i class="fa-solid fa-building"></i></span>
+          <div class="proj-row__text">
+            <p class="cell-title">{{ p.name }}</p>
+            <p class="cell-sub">{{ p.category || 'Project' }}</p>
+          </div>
+          <span class="badge" [ngClass]="statusBadgeClass(p.status)">{{ p.status }}</span>
+          <span class="proj-row__pct">{{ p.progress }}%</span>
+        </div>
+        <p *ngIf="!data.projects.length" style="padding: 24px; color: var(--muted);">
+          No projects yet.
+        </p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Upcoming Milestones</h3>
+        <a routerLink="/projects">View all milestones →</a>
+      </div>
+      <div class="milestone-list">
+        <div class="milestone-row" *ngFor="let m of data.upcomingMilestones">
+          <span class="thumb"><i class="fa-regular fa-flag"></i></span>
+          <div class="milestone-row__text">
+            <p class="cell-title">{{ m.title }}</p>
+            <p class="cell-sub">{{ m.project }}</p>
+          </div>
+          <span class="milestone-date">{{ m.date }}</span>
+        </div>
+        <p *ngIf="!data.upcomingMilestones.length" style="padding: 24px; color: var(--muted);">
+          No milestones yet.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

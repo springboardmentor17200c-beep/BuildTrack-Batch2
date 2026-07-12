@@ -1,0 +1,115 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Procurement</p>
+  <div class="page-header">
+    <h1>Purchase Orders</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search orders..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> New Order</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>PO No.</th>
+            <th>Supplier</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let o of filteredOrders">
+            <td class="cell-title">{{ o.poNo }}</td>
+            <td>{{ o.supplier }}</td>
+            <td>₹{{ o.amount | number }}</td>
+            <td><span class="badge" [ngClass]="statusClass(o.status)">{{ o.status }}</span></td>
+            <td>{{ o.requestDate }}</td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit order" (click)="openEdit(o)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete order" (click)="deleteOrder(o)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredOrders.length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              No orders match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredOrders.length }} of {{ data.purchaseOrders.length }} orders</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showAddModal()" (click)="closeAdd()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingOrder() ? 'Edit Purchase Order' : 'New Purchase Order' }}</h3>
+      <button class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="osupplier">Supplier</label>
+          <input id="osupplier" type="text" formControlName="supplier" placeholder="e.g. Steel Corp" />
+          <p class="modal-error" *ngIf="form.get('supplier')?.touched && form.get('supplier')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field">
+          <label for="oitems">Items</label>
+          <input id="oitems" type="text" formControlName="itemsSummary" placeholder="e.g. Steel rods, 5 ton" />
+          <p class="modal-error" *ngIf="form.get('itemsSummary')?.touched && form.get('itemsSummary')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="oamount">Amount (₹)</label>
+            <input id="oamount" type="number" min="1" formControlName="amount" />
+            <p class="modal-error" *ngIf="form.get('amount')?.touched && form.get('amount')?.invalid">Required.</p>
+          </div>
+          <div class="modal-field">
+            <label for="ostatus">Status</label>
+            <select id="ostatus" formControlName="status">
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label for="odate">Request Date</label>
+          <input id="odate" type="date" formControlName="requestDate" />
+          <p class="modal-error" *ngIf="form.get('requestDate')?.touched && form.get('requestDate')?.invalid">Required.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingOrder() ? 'Save Changes' : 'Create Order' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

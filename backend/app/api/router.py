@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.modules.auth.router import router as auth_router
+from app.modules.frontend_data.router import router as frontend_data_router
 from app.modules.health.router import router as health_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.notifications.router import router as notifications_router
@@ -14,6 +15,9 @@ api_router = APIRouter()
 
 # Auth routes
 api_router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+
+# Frontend-friendly MongoDB data routes
+api_router.include_router(frontend_data_router, prefix="/frontend-data", tags=["Frontend Data"])
 
 # Health check
 api_router.include_router(health_router, prefix="/health", tags=["Health"])

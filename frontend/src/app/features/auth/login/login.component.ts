@@ -1,45 +1,58 @@
-import { CommonModule } from "@angular/common";
-import { Component, inject } from "@angular/core";
-import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
-
-import { AuthService } from "../../../core/services/auth.service";
+import { CommonModule } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
-  selector: "bt-login",
+  selector: 'app-login',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
-  templateUrl: "./login.component.html"
+  templateUrl: './login.component.html',
+  styleUrl: './login.component.scss',
 })
 export class LoginComponent {
-  private readonly fb = inject(FormBuilder);
-  private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
+  private fb = inject(FormBuilder);
+  private auth = inject(AuthService);
+  private router = inject(Router);
 
-  errorMessage = "";
-  isSubmitting = false;
+  showPassword = signal(false);
+  isSubmitting = signal(false);
+  errorMessage = signal('');
 
-  readonly form = this.fb.nonNullable.group({
-    email: ["admin@buildtrack.local", [Validators.required, Validators.email]],
-    password: ["password", [Validators.required, Validators.minLength(6)]]
+  form = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    rememberMe: [true],
   });
 
-  async submit(): Promise<void> {
+  togglePassword(): void {
+    this.showPassword.update((v) => !v);
+  }
+
+  submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    this.errorMessage = "";
-    this.isSubmitting = true;
+    this.isSubmitting.set(true);
+    this.errorMessage.set('');
 
-    try {
-      await this.auth.login(this.form.getRawValue());
-      await this.router.navigateByUrl("/dashboard");
-    } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : "Login failed.";
-    } finally {
-      this.isSubmitting = false;
-    }
+    const { email, password } = this.form.getRawValue();
+    this.auth.login({ email: email!, password: password! }).subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.router.navigate(['/dashboard']);
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set('Invalid email or password. Please try again.');
+      },
+    });
+  }
+
+  continueWith(provider: 'google' | 'microsoft'): void {
+    this.errorMessage.set(`${provider === 'google' ? 'Google' : 'Microsoft'} sign-in will be added in Milestone 2.`);
   }
 }

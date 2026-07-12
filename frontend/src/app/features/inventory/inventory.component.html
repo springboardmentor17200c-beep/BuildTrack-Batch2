@@ -1,0 +1,119 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Inventory</p>
+  <div class="page-header">
+    <h1>Inventory</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search items..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Item</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th>Unit</th>
+            <th>Stock</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let i of filteredInventory">
+            <td class="cell-title">{{ i.itemName }}</td>
+            <td>{{ i.category }}</td>
+            <td>{{ i.unit }}</td>
+            <td>{{ i.stock }}</td>
+            <td><span class="badge" [ngClass]="statusClass(i.status)">{{ i.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit item" (click)="openEdit(i)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete item" (click)="deleteItem(i)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredInventory.length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              No items match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredInventory.length }} of {{ data.inventory.length }} items</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showAddModal()" (click)="closeAdd()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingItem() ? 'Edit Item' : 'Add Item' }}</h3>
+      <button class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="iname">Item Name</label>
+          <input id="iname" type="text" formControlName="itemName" placeholder="e.g. Paint Buckets" />
+          <p class="modal-error" *ngIf="form.get('itemName')?.touched && form.get('itemName')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="icategory">Category</label>
+            <select id="icategory" formControlName="category">
+              <option value="Construction">Construction</option>
+              <option value="Finishing">Finishing</option>
+              <option value="Electrical">Electrical</option>
+              <option value="Plumbing">Plumbing</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label for="istatus">Status</label>
+            <select id="istatus" formControlName="status">
+              <option value="In Stock">In Stock</option>
+              <option value="Low Stock">Low Stock</option>
+              <option value="Out of Stock">Out of Stock</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="istock">Stock</label>
+            <input id="istock" type="number" min="0" formControlName="stock" />
+          </div>
+          <div class="modal-field">
+            <label for="iunit">Unit</label>
+            <input id="iunit" type="text" formControlName="unit" placeholder="e.g. Bags" />
+            <p class="modal-error" *ngIf="form.get('unit')?.touched && form.get('unit')?.invalid">Required.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingItem() ? 'Save Changes' : 'Add Item' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

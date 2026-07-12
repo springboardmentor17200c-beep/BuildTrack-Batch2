@@ -1,52 +1,94 @@
-<main class="grid min-h-screen bg-build-field lg:grid-cols-[1.05fr_0.95fr]">
-  <section class="flex min-h-[40vh] items-end bg-[linear-gradient(rgba(23,32,27,0.18),rgba(23,32,27,0.70)),url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1500&q=80')] bg-cover bg-center p-6 text-white lg:min-h-screen lg:p-12">
-    <div class="max-w-xl">
-      <p class="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-amber-200">Construction operations platform</p>
-      <h1 class="text-4xl font-bold leading-tight sm:text-5xl">BuildTrack</h1>
-      <p class="mt-4 max-w-lg text-base leading-7 text-white/85">
-        Manage projects, site teams, contractors, inventory, machinery, budgets, and progress from one secure workspace.
-      </p>
-    </div>
-  </section>
+<div class="auth-page">
+  <div class="auth-skyline"></div>
 
-  <section class="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
-    <div class="w-full max-w-md">
-      <div class="mb-8">
-        <p class="text-sm font-semibold text-build-green">Module 1</p>
-        <h2 class="mt-2 text-3xl font-bold">Sign in</h2>
-        <p class="mt-2 text-sm leading-6 text-build-steel">Access dashboards based on your BuildTrack role.</p>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-brand__mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 21h18" stroke="white" stroke-width="2" stroke-linecap="round" />
+          <path d="M5 21V9l6-5 6 5v12" stroke="white" stroke-width="2" stroke-linejoin="round" />
+          <path d="M10 21v-6h4v6" stroke="white" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <div class="auth-brand__name">Build<span>Track</span></div>
+    </div>
+    <p class="auth-tagline">Construction Project Management &amp; Site Monitoring Platform</p>
+
+    <h1 class="auth-title">Welcome back!</h1>
+    <p class="auth-subtitle">Please sign in to your account</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label class="field-label" for="email">Email</label>
+      <div class="input-wrap">
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="Enter your email"
+          autocomplete="email"
+        />
+      </div>
+      <p class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+        Enter a valid email address.
+      </p>
+
+      <label class="field-label" for="password">Password</label>
+      <div class="input-wrap">
+        <input
+          id="password"
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+        <button type="button" class="input-toggle" (click)="togglePassword()">
+          <i class="fa-regular" [class.fa-eye]="!showPassword()" [class.fa-eye-slash]="showPassword()"></i>
+        </button>
+      </div>
+      <p class="field-error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+        Password must be at least 6 characters.
+      </p>
+
+      <div class="row-between">
+        <label class="checkbox">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span class="checkbox__box"><i class="fa-solid fa-check" *ngIf="form.get('rememberMe')?.value"></i></span>
+          Remember me
+        </label>
+        <a class="link" routerLink="/auth/forgot-password">Forgot Password?</a>
       </div>
 
-      <form class="space-y-5" [formGroup]="form" (ngSubmit)="submit()">
-        <label class="block">
-          <span class="bt-label">Email</span>
-          <input class="bt-field mt-1.5" type="email" formControlName="email" autocomplete="email">
-        </label>
+      <p class="field-error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
 
-        <label class="block">
-          <span class="bt-label">Password</span>
-          <input class="bt-field mt-1.5" type="password" formControlName="password" autocomplete="current-password">
-        </label>
+      <button type="submit" class="auth-submit" [disabled]="isSubmitting()">
+        <span *ngIf="!isSubmitting()">Sign In</span>
+        <span *ngIf="isSubmitting()">Signing in…</span>
+      </button>
+    </form>
 
-        <div class="flex items-center justify-between text-sm">
-          <label class="flex items-center gap-2 text-build-steel">
-            <input class="h-4 w-4 rounded border-build-line text-build-green focus:ring-build-green" type="checkbox">
-            Remember me
-          </label>
-          <a class="font-semibold text-build-green hover:underline" routerLink="/forgot-password">Forgot password?</a>
-        </div>
+    <div class="auth-divider"><span>or continue with</span></div>
 
-        <p *ngIf="errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
-
-        <button class="bt-primary w-full" type="submit" [disabled]="isSubmitting">
-          {{ isSubmitting ? "Signing in..." : "Sign in" }}
-        </button>
-      </form>
-
-      <p class="mt-6 text-sm text-build-steel">
-        New to BuildTrack?
-        <a class="font-semibold text-build-green hover:underline" routerLink="/register">Create an account</a>
-      </p>
+    <div class="auth-social">
+      <button type="button" class="btn-social" [disabled]="isSubmitting()" (click)="continueWith('google')">
+        <svg width="16" height="16" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" />
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6 29.6 4 24 4c-7.5 0-14 4.2-17.7 10.7z" />
+          <path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.4C29.6 35.4 27 36 24 36c-5.3 0-9.6-3.4-11.3-8l-6.6 5.1C9.9 39.6 16.4 44 24 44z" />
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4 5.5l6.6 5.4C41.5 35.6 44 30.2 44 24c0-1.3-.1-2.7-.4-3.5z" />
+        </svg>
+        Google
+      </button>
+      <button type="button" class="btn-social" [disabled]="isSubmitting()" (click)="continueWith('microsoft')">
+        <svg width="16" height="16" viewBox="0 0 23 23">
+          <path fill="#f35325" d="M1 1h10v10H1z" />
+          <path fill="#81bc06" d="M12 1h10v10H12z" />
+          <path fill="#05a6f0" d="M1 12h10v10H1z" />
+          <path fill="#ffba08" d="M12 12h10v10H12z" />
+        </svg>
+        Microsoft
+      </button>
     </div>
-  </section>
-</main>
+
+    <p class="auth-footer">Don't have an account? <a class="link" routerLink="/auth/register">Sign up</a></p>
+  </div>
+</div>

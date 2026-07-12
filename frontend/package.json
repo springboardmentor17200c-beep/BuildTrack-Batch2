@@ -1,32 +1,32 @@
 {
-  "name": "buildtrack-frontend",
-  "version": "0.1.0",
-  "private": true,
+  "name": "buildtrack",
+  "version": "1.0.0",
   "scripts": {
-    "ng": "ng",
-    "start": "ng serve --host 127.0.0.1 --port 4200",
-    "build": "ng build",
-    "test": "ng test"
+    "start": "ng serve",
+    "start:api": "ng serve --proxy-config proxy.conf.json",
+    "build": "ng build"
   },
   "dependencies": {
-    "@angular/animations": "20.3.25",
-    "@angular/common": "20.3.25",
-    "@angular/compiler": "20.3.25",
-    "@angular/core": "20.3.25",
-    "@angular/forms": "20.3.25",
-    "@angular/platform-browser": "20.3.25",
-    "@angular/router": "20.3.25",
-    "rxjs": "^7.8.1",
-    "tslib": "^2.8.1",
-    "zone.js": "^0.15.0"
+    "@angular/animations": "^18.0.0",
+    "@angular/cdk": "^18.0.0",
+    "@angular/common": "^18.0.0",
+    "@angular/compiler": "^18.0.0",
+    "@angular/core": "^18.0.0",
+    "@angular/forms": "^18.0.0",
+    "@angular/material": "^18.0.0",
+    "@angular/platform-browser": "^18.0.0",
+    "@angular/platform-browser-dynamic": "^18.0.0",
+    "@angular/router": "^18.0.0",
+    "bootstrap": "^5.3.3",
+    "chart.js": "^4.4.3",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.6.0",
+    "zone.js": "~0.14.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "20.3.31",
-    "@angular/cli": "20.3.31",
-    "@angular/compiler-cli": "20.3.25",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.8.2"
+    "@angular-devkit/build-angular": "^18.0.0",
+    "@angular/cli": "^18.0.0",
+    "@angular/compiler-cli": "^18.0.0",
+    "typescript": "~5.4.0"
   }
 }

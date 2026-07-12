@@ -1,156 +1,226 @@
-import { Injectable, computed, signal } from "@angular/core";
-import { Router } from "@angular/router";
+import { Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { Observable, of, tap, delay, switchMap, map } from 'rxjs';
+import { User, UserRole, UserStatus } from '../models/models';
+import { environment } from '../../../environments/environment';
 
-import {
-  AuthSession,
-  LoginRequest,
-  ProfileUpdateRequest,
-  RegisterRequest,
-  User,
-  UserRole
-} from "../models/auth.models";
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
 
-const SESSION_KEY = "buildtrack.session";
-const USERS_KEY = "buildtrack.users";
+export interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}
 
-@Injectable({ providedIn: "root" })
+export interface SocialLoginPayload {
+  provider: 'google' | 'microsoft';
+  email: string;
+  fullName: string;
+  role: UserRole;
+}
+
+interface BackendUser {
+  _id?: string;
+  id?: string;
+  email: string;
+  full_name: string;
+  role: string;
+  status?: string;
+}
+
+interface BackendLoginResponse {
+  access_token: string;
+  token_type: string;
+  user: BackendUser;
+}
+
+interface BackendRegisterResponse {
+  message: string;
+  user: BackendUser;
+}
+
+const TOKEN_KEY = 'buildtrack_token';
+const USER_KEY = 'buildtrack_user';
+
+/** Handles BuildTrack FastAPI auth and keeps the app's user shape stable. */
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly sessionSignal = signal<AuthSession | null>(this.loadSession());
+  private readonly apiBase = environment.apiBaseUrl;
+  private readonly useMockApi = false;
 
-  readonly session = this.sessionSignal.asReadonly();
-  readonly currentUser = computed(() => this.sessionSignal()?.user ?? null);
-  readonly isAuthenticated = computed(() => Boolean(this.sessionSignal()?.accessToken));
+  currentUser = signal<User | null>(this.readStoredUser());
 
-  constructor(private readonly router: Router) {
-    this.seedAdministrator();
-  }
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+  ) {}
 
-  get token(): string | null {
-    return this.sessionSignal()?.accessToken ?? null;
-  }
-
-  login(request: LoginRequest): Promise<AuthSession> {
-    const users = this.loadUsers();
-    const user = users.find((item) => item.email.toLowerCase() === request.email.toLowerCase());
-
-    if (!user || request.password.length < 6) {
-      return Promise.reject(new Error("Use a registered email and a password with at least 6 characters."));
+  login(payload: LoginPayload): Observable<{ token: string; user: User }> {
+    if (this.useMockApi) {
+      const mockUser: User = {
+        id: 'u1',
+        name: 'Subhash Nath',
+        email: payload.email,
+        role: 'Worker',
+      };
+      return of({ token: 'mock-jwt-token', user: mockUser }).pipe(
+        delay(600),
+        tap((res) => this.persistSession(res.token, res.user)),
+      );
     }
-
-    return Promise.resolve(this.startSession(user));
+    return this.http
+      .post<BackendLoginResponse>(`${this.apiBase}/auth/login`, {
+        email: payload.email,
+        password: payload.password,
+      })
+      .pipe(
+        map((res) => ({
+          token: res.access_token,
+          user: this.toFrontendUser(res.user),
+        })),
+        tap((res) => this.persistSession(res.token, res.user)),
+      );
   }
 
-  register(request: RegisterRequest): Promise<AuthSession> {
-    const users = this.loadUsers();
-    const exists = users.some((item) => item.email.toLowerCase() === request.email.toLowerCase());
-
-    if (exists) {
-      return Promise.reject(new Error("An account already exists for this email."));
+  register(payload: RegisterPayload): Observable<{ token: string; user: User }> {
+    if (this.useMockApi) {
+      const mockUser: User = {
+        id: 'u2',
+        name: payload.fullName,
+        email: payload.email,
+        role: 'Project Manager',
+        avatarUrl: 'https://i.pravatar.cc/64?img=32',
+      };
+      return of({ token: 'mock-jwt-token', user: mockUser }).pipe(
+        delay(600),
+        tap((res) => this.persistSession(res.token, res.user)),
+      );
     }
-
-    const user: User = {
-      id: crypto.randomUUID(),
-      fullName: request.fullName,
-      email: request.email,
-      company: request.company,
-      role: request.role,
-      status: request.role === UserRole.Client ? "Pending" : "Active"
-    };
-
-    localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]));
-    return Promise.resolve(this.startSession(user));
+    return this.http
+      .post<BackendRegisterResponse>(`${this.apiBase}/auth/register`, {
+        full_name: payload.fullName,
+        email: payload.email,
+        password: payload.password,
+        role: this.toBackendRole(payload.role),
+        status: 'active',
+      })
+      .pipe(switchMap(() => this.login({ email: payload.email, password: payload.password })));
   }
 
-  requestPasswordReset(email: string): Promise<void> {
-    const users = this.loadUsers();
-    const exists = users.some((item) => item.email.toLowerCase() === email.toLowerCase());
-
-    if (!exists) {
-      return Promise.reject(new Error("No BuildTrack account was found for this email."));
-    }
-
-    return Promise.resolve();
+  socialLogin(payload: SocialLoginPayload): Observable<{ token: string; user: User }> {
+    return this.http
+      .post<BackendLoginResponse>(`${this.apiBase}/auth/social-login`, {
+        provider: payload.provider,
+        email: payload.email,
+        full_name: payload.fullName,
+        role: this.toBackendRole(payload.role),
+        status: 'active',
+      })
+      .pipe(
+        map((res) => ({
+          token: res.access_token,
+          user: this.toFrontendUser(res.user),
+        })),
+        tap((res) => this.persistSession(res.token, res.user)),
+      );
   }
 
-  updateProfile(request: ProfileUpdateRequest): Promise<User> {
-    const session = this.sessionSignal();
-
-    if (!session) {
-      return Promise.reject(new Error("Please sign in again to update your profile."));
+  requestPasswordReset(email: string): Observable<{ message: string }> {
+    if (this.useMockApi) {
+      return of({ message: 'Reset link sent' }).pipe(delay(600));
     }
-
-    const updatedUser: User = {
-      ...session.user,
-      ...request
-    };
-    const users = this.loadUsers().map((user) => (user.id === updatedUser.id ? updatedUser : user));
-
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    this.persistSession({ ...session, user: updatedUser });
-    return Promise.resolve(updatedUser);
+    // The current backend does not expose password reset yet.
+    return of({ message: `Reset flow is not enabled yet for ${email}.` }).pipe(delay(300));
   }
 
   logout(): void {
-    localStorage.removeItem(SESSION_KEY);
-    this.sessionSignal.set(null);
-    this.router.navigateByUrl("/login");
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    this.currentUser.set(null);
+    this.router.navigate(['/auth/login']);
   }
 
-  private startSession(user: User): AuthSession {
-    const session: AuthSession = {
-      accessToken: this.createMockJwt(user),
-      user
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem(TOKEN_KEY);
+  }
+
+  /** True if the logged-in user's role is in the given list. */
+  hasRole(roles: UserRole[]): boolean {
+    const role = this.currentUser()?.role;
+    return !!role && roles.includes(role);
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  private persistSession(token: string, user: User): void {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
+  }
+
+  private toFrontendUser(user: BackendUser): User {
+    return {
+      id: user.id ?? user._id ?? user.email,
+      name: user.full_name,
+      email: user.email,
+      role: this.toFrontendRole(user.role),
+      status: this.toFrontendStatus(user.status),
+    };
+  }
+
+  private toFrontendRole(role: string): UserRole {
+    const normalized = role.toLowerCase().replace(/[_-]/g, ' ');
+    const roleMap: Record<string, UserRole> = {
+      admin: 'Administrator',
+      administrator: 'Administrator',
+      manager: 'Project Manager',
+      'project manager': 'Project Manager',
+      engineer: 'Site Engineer',
+      'site engineer': 'Site Engineer',
+      contractor: 'Contractor',
+      worker: 'Worker',
+      client: 'Client',
     };
 
-    this.persistSession(session);
-    return session;
+    return roleMap[normalized] ?? 'Worker';
   }
 
-  private persistSession(session: AuthSession): void {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    this.sessionSignal.set(session);
+  private toBackendRole(role: UserRole): string {
+    const roleMap: Record<UserRole, string> = {
+      Administrator: 'admin',
+      'Project Manager': 'manager',
+      'Site Engineer': 'engineer',
+      Contractor: 'contractor',
+      Worker: 'worker',
+      Client: 'client',
+    };
+
+    return roleMap[role];
   }
 
-  private loadSession(): AuthSession | null {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as AuthSession) : null;
-  }
+  private toFrontendStatus(status?: string): UserStatus {
+    const normalized = status?.toLowerCase();
 
-  private loadUsers(): User[] {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? (JSON.parse(raw) as User[]) : [];
-  }
-
-  private seedAdministrator(): void {
-    const users = this.loadUsers();
-
-    if (users.length > 0) {
-      return;
+    if (normalized === 'suspended') {
+      return 'Suspended';
     }
 
-    const admin: User = {
-      id: "admin-seed",
-      fullName: "BuildTrack Administrator",
-      email: "admin@buildtrack.local",
-      company: "BuildTrack",
-      role: UserRole.Administrator,
-      status: "Active"
-    };
+    if (normalized === 'pending') {
+      return 'Pending';
+    }
 
-    localStorage.setItem(USERS_KEY, JSON.stringify([admin]));
+    return 'Active';
   }
 
-  private createMockJwt(user: User): string {
-    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-    const payload = btoa(
-      JSON.stringify({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60
-      })
-    );
-
-    return `${header}.${payload}.local-signature`;
+  private readStoredUser(): User | null {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
   }
 }

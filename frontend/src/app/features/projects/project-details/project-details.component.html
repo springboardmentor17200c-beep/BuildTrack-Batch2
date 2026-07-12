@@ -1,0 +1,122 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; <a routerLink="/projects" class="link">Projects</a></p>
+
+  <div class="page-header">
+    <div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <h1>{{ project.name }}</h1>
+        <span class="badge badge-blue">{{ project.status }}</span>
+      </div>
+      <p class="crumb" style="margin-top:6px;">{{ project.category }} Project</p>
+    </div>
+    <button class="btn btn-outline" type="button" (click)="openEdit()"><i class="fa-solid fa-pen"></i> Edit Project</button>
+  </div>
+
+  <div class="tabs">
+    <button
+      *ngFor="let t of tabs"
+      class="tab"
+      [class.active]="activeTab === t"
+      (click)="activeTab = t"
+    >
+      {{ t }}
+    </button>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h3>Project Information</h3></div>
+      <div class="info-grid">
+        <div><p class="info-label">Manager</p><p class="info-value">{{ project.manager }}</p></div>
+        <div><p class="info-label">Client</p><p class="info-value">{{ project.client || '—' }}</p></div>
+        <div><p class="info-label">Start Date</p><p class="info-value">{{ project.startDate }}</p></div>
+        <div><p class="info-label">End Date</p><p class="info-value">{{ project.endDate || '—' }}</p></div>
+        <div><p class="info-label">Budget</p><p class="info-value">₹{{ project.budget ? (project.budget | number) : '—' }}</p></div>
+        <div><p class="info-label">Location</p><p class="info-value">{{ project.location || '—' }}</p></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h3>Milestone Progress</h3></div>
+      <div class="milestone-progress">
+        <div class="mp-row" *ngFor="let m of projectMilestones">
+          <span class="mp-label">{{ m.title }}</span>
+          <div class="progress-mini" style="flex:1; margin: 0 12px;"><span [style.width.%]="m.progress"></span></div>
+          <span class="mp-pct">{{ m.progress }}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Team Members</h3>
+      <a routerLink="/workers">View all →</a>
+    </div>
+    <div class="team-grid">
+      <div class="team-card" *ngFor="let t of data.teamMembers">
+        <img [src]="t.avatarUrl" alt="" />
+        <div>
+          <p class="cell-title">{{ t.name }}</p>
+          <p class="cell-sub">{{ t.role }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showEditModal()" (click)="closeEdit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit Project</h3>
+      <button class="modal-close" type="button" (click)="closeEdit()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitEdit()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="detail-name">Project Name</label>
+          <input id="detail-name" type="text" formControlName="name" />
+        </div>
+        <div class="modal-field">
+          <label for="detail-manager">Manager</label>
+          <input id="detail-manager" type="text" formControlName="manager" />
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="detail-category">Category</label>
+            <select id="detail-category" formControlName="category">
+              <option value="Residential">Residential</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Infrastructure">Infrastructure</option>
+              <option value="Government">Government</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label for="detail-status">Status</label>
+            <select id="detail-status" formControlName="status">
+              <option value="Not Started">Not Started</option>
+              <option value="In Progress">In Progress</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="detail-start">Start Date</label>
+            <input id="detail-start" type="date" formControlName="startDate" />
+          </div>
+          <div class="modal-field">
+            <label for="detail-budget">Budget</label>
+            <input id="detail-budget" type="number" min="0" formControlName="budget" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeEdit()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>

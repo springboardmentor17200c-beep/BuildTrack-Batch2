@@ -25,6 +25,29 @@ async def create_user(db: AsyncIOMotorDatabase, user: UserCreate):
     return await db.users.find_one({"_id": result.inserted_id})
 
 
+async def create_social_user(
+    db: AsyncIOMotorDatabase,
+    *,
+    email: str,
+    full_name: str,
+    role: str,
+    provider: str,
+    status: str = "active",
+):
+    user_dict = {
+        "email": email,
+        "full_name": full_name,
+        "role": role,
+        "status": status,
+        "auth_provider": provider,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+
+    result = await db.users.insert_one(user_dict)
+    return await db.users.find_one({"_id": result.inserted_id})
+
+
 async def update_user(db: AsyncIOMotorDatabase, user_id: str, update_data: dict):
     update_data["updated_at"] = datetime.utcnow()
     await db.users.update_one(

@@ -1,0 +1,44 @@
+<header class="topbar">
+  <div class="topbar__title">
+    <button class="topbar__menu" (click)="menuClick.emit()"><i class="fa-solid fa-bars"></i></button>
+    <h2>{{ title }}</h2>
+  </div>
+
+  <div class="topbar__right">
+    <div class="topbar__search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input
+        type="text"
+        placeholder="Search anything..."
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+        (focus)="onFocus()"
+        (blur)="onBlur()"
+      />
+
+      <div class="search-results" *ngIf="showResults() && query().trim()">
+        <ng-container *ngIf="results().length; else noResults">
+          <div class="search-results__item" *ngFor="let r of results()" (click)="goTo(r)">
+            <i class="fa-solid" [ngClass]="r.icon"></i>
+            <div>
+              {{ r.label }}<br />
+              <small>{{ r.sub }}</small>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #noResults>
+          <div class="search-results__empty">No results for "{{ query() }}"</div>
+        </ng-template>
+      </div>
+    </div>
+
+    <button class="topbar__icon-btn">
+      <i class="fa-regular fa-bell"></i>
+      <span class="dot"></span>
+    </button>
+
+    <ng-container *ngIf="auth.currentUser() as user">
+      <img class="topbar__avatar" [src]="user.avatarUrl || 'assets/default-avatar.svg'" alt="" />
+    </ng-container>
+  </div>
+</header>

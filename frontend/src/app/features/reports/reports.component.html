@@ -1,0 +1,75 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Reports</p>
+  <div class="page-header">
+    <h1>Reports &amp; Analytics</h1>
+    <div class="toolbar">
+      <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ reportDateRange }}</button>
+      <button class="btn btn-primary" type="button" (click)="downloadReport()">
+        <i class="fa-solid fa-download"></i> Download Report
+      </button>
+    </div>
+  </div>
+
+  <div class="summary-strip">
+    <div class="summary-item" *ngFor="let s of summary">
+      <p class="summary-value">{{ s.value }}</p>
+      <p class="summary-label">{{ s.label }}</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h3>Budget vs Expense</h3></div>
+      <div class="bar-legend">
+        <span><i class="budget"></i>Budget</span>
+        <span><i class="expense"></i>Expense</span>
+      </div>
+      <div class="bar-chart">
+        <div class="bar-axis">
+          <span>100</span>
+          <span>75</span>
+          <span>50</span>
+          <span>25</span>
+          <span>0</span>
+        </div>
+        <div class="bar-columns">
+          <div class="bar-week" *ngFor="let week of budgetWeeks">
+            <div class="bar-pair">
+              <span class="bar budget" [style.height.%]="week.budgetHeight"></span>
+              <span class="bar expense" [style.height.%]="week.expenseHeight"></span>
+            </div>
+            <p>{{ week.label }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="report-bars">
+        <div class="report-bar">
+          <div class="report-bar__label"><span>Budget</span><b>Rs {{ totalBudget | number }}</b></div>
+          <div class="report-bar__track"><span class="budget" [style.width.%]="budgetBarWidth"></span></div>
+        </div>
+        <div class="report-bar">
+          <div class="report-bar__label"><span>Expense</span><b>Rs {{ totalExpense | number }}</b></div>
+          <div class="report-bar__track"><span class="expense" [style.width.%]="expenseBarWidth"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h3>Project Progress</h3></div>
+      <div class="progress-donut-wrap">
+        <div class="progress-donut" [style.background]="progressRingStyle">
+          <div class="progress-donut__label">
+            <p>{{ averageProgress }}%</p>
+            <span>Average Progress</span>
+          </div>
+        </div>
+      </div>
+      <div class="report-bars">
+        <div class="report-bar">
+          <div class="report-bar__label"><span>Average Progress</span><b>{{ averageProgress }}%</b></div>
+          <div class="report-bar__track"><span class="progress" [style.width.%]="averageProgress"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

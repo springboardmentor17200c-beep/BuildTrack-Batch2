@@ -1,45 +1,43 @@
-import { CommonModule } from "@angular/common";
-import { Component, inject } from "@angular/core";
-import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
-import { RouterLink } from "@angular/router";
-
-import { AuthService } from "../../../core/services/auth.service";
+import { CommonModule } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
-  selector: "bt-forgot-password",
+  selector: 'app-forgot-password',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
-  templateUrl: "./forgot-password.component.html"
+  templateUrl: './forgot-password.component.html',
+  styleUrl: './forgot-password.component.scss',
 })
 export class ForgotPasswordComponent {
-  private readonly fb = inject(FormBuilder);
-  private readonly auth = inject(AuthService);
+  private fb = inject(FormBuilder);
+  private auth = inject(AuthService);
 
-  errorMessage = "";
-  successMessage = "";
-  isSubmitting = false;
+  isSubmitting = signal(false);
+  linkSent = signal(false);
 
-  readonly form = this.fb.nonNullable.group({
-    email: ["", [Validators.required, Validators.email]]
+  form = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
   });
 
-  async submit(): Promise<void> {
+  submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
-    this.errorMessage = "";
-    this.successMessage = "";
-    this.isSubmitting = true;
-
-    try {
-      await this.auth.requestPasswordReset(this.form.getRawValue().email);
-      this.successMessage = "Password reset instructions are ready to be sent when the backend email service is connected.";
-    } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : "Password reset failed.";
-    } finally {
-      this.isSubmitting = false;
-    }
+    this.isSubmitting.set(true);
+    const { email } = this.form.getRawValue();
+    this.auth.requestPasswordReset(email!).subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.linkSent.set(true);
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+      },
+    });
   }
 }
