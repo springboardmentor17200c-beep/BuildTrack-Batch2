@@ -24,6 +24,14 @@ from app.modules.workforce.models import (
 router = APIRouter()
 
 
+def serialize_doc(doc: dict) -> dict:
+    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
+    doc = dict(doc)  # avoid mutating the original dict
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
+
 # Worker endpoints
 @router.post("/workers", response_model=Worker)
 async def create_worker_endpoint(
@@ -40,7 +48,7 @@ async def create_worker_endpoint(
 
     worker_data = worker.model_dump()
     result = await create_worker(db, worker_data)
-    return Worker(**result, id=str(result["_id"]))
+    return Worker(**serialize_doc(result))
 
 
 @router.get("/workers", response_model=list[Worker])
@@ -52,7 +60,7 @@ async def list_workers_endpoint(
 ):
     """List all workers"""
     workers = await list_workers(db, skip, limit)
-    return [Worker(**w, id=str(w["_id"])) for w in workers]
+    return [Worker(**serialize_doc(w)) for w in workers]
 
 
 @router.get("/workers/{worker_id}", response_model=Worker)
@@ -68,7 +76,7 @@ async def get_worker_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Worker not found",
         )
-    return Worker(**worker, id=str(worker["_id"]))
+    return Worker(**serialize_doc(worker))
 
 
 @router.get("/workers/project/{project_id}", response_model=list[Worker])
@@ -79,7 +87,7 @@ async def get_project_workers(
 ):
     """Get all workers in a project"""
     workers = await get_workers_by_project(db, project_id)
-    return [Worker(**w, id=str(w["_id"])) for w in workers]
+    return [Worker(**serialize_doc(w)) for w in workers]
 
 
 @router.get("/workers/skill/{skill_type}", response_model=list[Worker])
@@ -90,7 +98,7 @@ async def get_workers_by_skill_type(
 ):
     """Get all workers with specific skill"""
     workers = await get_workers_by_skill(db, skill_type)
-    return [Worker(**w, id=str(w["_id"])) for w in workers]
+    return [Worker(**serialize_doc(w)) for w in workers]
 
 
 @router.put("/workers/{worker_id}", response_model=Worker)
@@ -116,7 +124,7 @@ async def update_worker_endpoint(
 
     update_data = update.model_dump(exclude_unset=True)
     result = await update_worker(db, worker_id, update_data)
-    return Worker(**result, id=str(result["_id"]))
+    return Worker(**serialize_doc(result))
 
 
 @router.delete("/workers/{worker_id}")
@@ -157,7 +165,7 @@ async def record_attendance_endpoint(
 
     attendance_data = attendance.model_dump()
     result = await record_attendance(db, attendance_data)
-    return Attendance(**result, id=str(result["_id"]))
+    return Attendance(**serialize_doc(result))
 
 
 @router.get("/attendance/{worker_id}", response_model=list[Attendance])
@@ -168,4 +176,4 @@ async def get_worker_attendance_endpoint(
 ):
     """Get attendance records for worker"""
     attendance = await get_worker_attendance(db, worker_id)
-    return [Attendance(**a, id=str(a["_id"])) for a in attendance]
+    return [Attendance(**serialize_doc(a)) for a in attendance]

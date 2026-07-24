@@ -26,6 +26,14 @@ from app.modules.procurement.models import (
 router = APIRouter()
 
 
+def serialize_doc(doc: dict) -> dict:
+    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
+    doc = dict(doc)  # avoid mutating the original dict
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
+
 # Vendor endpoints
 @router.post("/vendors", response_model=Vendor)
 async def create_vendor_endpoint(
@@ -42,7 +50,7 @@ async def create_vendor_endpoint(
 
     vendor_data = vendor.model_dump()
     result = await create_vendor(db, vendor_data)
-    return Vendor(**result, id=str(result["_id"]))
+    return Vendor(**serialize_doc(result))
 
 
 @router.get("/vendors", response_model=list[Vendor])
@@ -54,7 +62,7 @@ async def list_vendors_endpoint(
 ):
     """List all vendors"""
     vendors = await list_vendors(db, skip, limit)
-    return [Vendor(**v, id=str(v["_id"])) for v in vendors]
+    return [Vendor(**serialize_doc(v)) for v in vendors]
 
 
 @router.get("/vendors/{vendor_id}", response_model=Vendor)
@@ -70,7 +78,7 @@ async def get_vendor_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Vendor not found",
         )
-    return Vendor(**vendor, id=str(vendor["_id"]))
+    return Vendor(**serialize_doc(vendor))
 
 
 # Procurement endpoints
@@ -89,7 +97,7 @@ async def create_procurement_endpoint(
 
     procurement_data = procurement.model_dump()
     result = await create_procurement(db, procurement_data)
-    return Procurement(**result, id=str(result["_id"]))
+    return Procurement(**serialize_doc(result))
 
 
 @router.get("/", response_model=list[Procurement])
@@ -101,7 +109,7 @@ async def list_procurements_endpoint(
 ):
     """List all procurement orders"""
     procurements = await list_procurements(db, skip, limit)
-    return [Procurement(**p, id=str(p["_id"])) for p in procurements]
+    return [Procurement(**serialize_doc(p)) for p in procurements]
 
 
 @router.get("/{procurement_id}", response_model=Procurement)
@@ -117,7 +125,7 @@ async def get_procurement_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Procurement order not found",
         )
-    return Procurement(**procurement, id=str(procurement["_id"]))
+    return Procurement(**serialize_doc(procurement))
 
 
 @router.get("/status/{status}", response_model=list[Procurement])
@@ -128,7 +136,7 @@ async def get_procurements_by_status_endpoint(
 ):
     """Get procurement orders by status"""
     procurements = await get_procurement_by_status(db, status)
-    return [Procurement(**p, id=str(p["_id"])) for p in procurements]
+    return [Procurement(**serialize_doc(p)) for p in procurements]
 
 
 @router.get("/project/{project_id}", response_model=list[Procurement])
@@ -139,7 +147,7 @@ async def get_project_procurements(
 ):
     """Get all procurement orders for a project"""
     procurements = await get_procurements_by_project(db, project_id)
-    return [Procurement(**p, id=str(p["_id"])) for p in procurements]
+    return [Procurement(**serialize_doc(p)) for p in procurements]
 
 
 @router.get("/vendor/{vendor_id}", response_model=list[Procurement])
@@ -150,7 +158,7 @@ async def get_vendor_procurements(
 ):
     """Get all procurement orders for a vendor"""
     procurements = await get_procurements_by_vendor(db, vendor_id)
-    return [Procurement(**p, id=str(p["_id"])) for p in procurements]
+    return [Procurement(**serialize_doc(p)) for p in procurements]
 
 
 @router.put("/{procurement_id}", response_model=Procurement)
@@ -176,7 +184,7 @@ async def update_procurement_endpoint(
 
     update_data = update.model_dump(exclude_unset=True)
     result = await update_procurement(db, procurement_id, update_data)
-    return Procurement(**result, id=str(result["_id"]))
+    return Procurement(**serialize_doc(result))
 
 
 @router.delete("/{procurement_id}")

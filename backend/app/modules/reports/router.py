@@ -16,6 +16,14 @@ from app.modules.reports.models import DashboardMetrics, Report, ReportCreate
 router = APIRouter()
 
 
+def serialize_doc(doc: dict) -> dict:
+    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
+    doc = dict(doc)  # avoid mutating the original dict
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
+
 @router.post("/", response_model=Report)
 async def create_report_endpoint(
     report: ReportCreate,
@@ -31,7 +39,7 @@ async def create_report_endpoint(
 
     report_data = report.model_dump()
     result = await create_report(db, report_data)
-    return Report(**result, id=str(result["_id"]))
+    return Report(**serialize_doc(result))
 
 
 @router.get("/", response_model=list[Report])
@@ -43,7 +51,7 @@ async def list_reports_endpoint(
 ):
     """List all reports"""
     reports = await list_reports(db, skip, limit)
-    return [Report(**r, id=str(r["_id"])) for r in reports]
+    return [Report(**serialize_doc(r)) for r in reports]
 
 
 @router.get("/{report_id}", response_model=Report)
@@ -59,7 +67,7 @@ async def get_report_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found",
         )
-    return Report(**report, id=str(report["_id"]))
+    return Report(**serialize_doc(report))
 
 
 @router.get("/type/{report_type}", response_model=list[Report])
@@ -70,7 +78,7 @@ async def get_reports_by_type_endpoint(
 ):
     """Get reports by type"""
     reports = await get_reports_by_type(db, report_type)
-    return [Report(**r, id=str(r["_id"])) for r in reports]
+    return [Report(**serialize_doc(r)) for r in reports]
 
 
 @router.get("/project/{project_id}", response_model=list[Report])
@@ -81,7 +89,7 @@ async def get_project_reports(
 ):
     """Get all reports for a project"""
     reports = await get_reports_by_project(db, project_id)
-    return [Report(**r, id=str(r["_id"])) for r in reports]
+    return [Report(**serialize_doc(r)) for r in reports]
 
 
 @router.delete("/{report_id}")
@@ -113,4 +121,4 @@ async def get_dashboard_metrics_endpoint(
 ):
     """Get dashboard metrics"""
     metrics = await get_dashboard_metrics(db)
-    return DashboardMetrics(**metrics)
+    return DashboardMetrics(**serialize_doc(metrics))

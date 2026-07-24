@@ -17,6 +17,14 @@ from app.modules.notifications.models import Notification, NotificationCreate
 router = APIRouter()
 
 
+def serialize_doc(doc: dict) -> dict:
+    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
+    doc = dict(doc)  # avoid mutating the original dict
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
+
 @router.post("/", response_model=Notification)
 async def create_notification_endpoint(
     notification: NotificationCreate,
@@ -32,7 +40,7 @@ async def create_notification_endpoint(
 
     notification_data = notification.model_dump()
     result = await create_notification(db, notification_data)
-    return Notification(**result, id=str(result["_id"]))
+    return Notification(**serialize_doc(result))
 
 
 @router.get("/{notification_id}", response_model=Notification)
@@ -48,7 +56,7 @@ async def get_notification_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found",
         )
-    return Notification(**notification, id=str(notification["_id"]))
+    return Notification(**serialize_doc(notification))
 
 
 @router.get("/user/all", response_model=list[Notification])
@@ -60,7 +68,7 @@ async def get_user_notifications_endpoint(
     """Get current user's notifications"""
     user_id = str(current_user["_id"])
     notifications = await get_user_notifications(db, user_id, limit)
-    return [Notification(**n, id=str(n["_id"])) for n in notifications]
+    return [Notification(**serialize_doc(n)) for n in notifications]
 
 
 @router.get("/user/unread", response_model=list[Notification])
@@ -71,7 +79,7 @@ async def get_unread_notifications_endpoint(
     """Get unread notifications for current user"""
     user_id = str(current_user["_id"])
     notifications = await get_unread_notifications(db, user_id)
-    return [Notification(**n, id=str(n["_id"])) for n in notifications]
+    return [Notification(**serialize_doc(n)) for n in notifications]
 
 
 @router.post("/{notification_id}/read", response_model=Notification)
@@ -96,7 +104,7 @@ async def mark_notification_as_read_endpoint(
         )
 
     result = await mark_as_read(db, notification_id)
-    return Notification(**result, id=str(result["_id"]))
+    return Notification(**serialize_doc(result))
 
 
 @router.post("/user/read-all")

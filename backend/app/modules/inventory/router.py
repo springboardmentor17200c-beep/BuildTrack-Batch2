@@ -17,10 +17,23 @@ from app.modules.inventory.models import (
     InventoryItemCreate,
     InventoryItemUpdate,
     InventoryTransaction,
+    InventoryTransactionCreate,
 )
 
 router = APIRouter()
 
+
+def serialize_doc(doc: dict) -> dict:
+    """Convert MongoDB ObjectId to string."""
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    return doc
+
+
+# -----------------------------
+# Inventory Item Endpoints
+# -----------------------------
 
 @router.post("/", response_model=InventoryItem)
 async def create_item_endpoint(
@@ -28,16 +41,14 @@ async def create_item_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Create new inventory item"""
     if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admin or manager can create inventory items",
         )
 
-    item_data = item.model_dump()
-    result = await create_inventory_item(db, item_data)
-    return InventoryItem(**result, id=str(result["_id"]))
+    result = await create_inventory_item(db, item.model_dump())
+    return InventoryItem(**serialize_doc(result))
 
 
 @router.get("/", response_model=list[InventoryItem])
@@ -47,9 +58,18 @@ async def list_inventory_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """List all inventory items"""
     items = await list_inventory(db, skip, limit)
-    return [InventoryItem(**i, id=str(i["_id"])) for i in items]
+    return [InventoryItem(**serialize_doc(i)) for i in items]
+
+
+# IMPORTANT: keep this BEFORE /{item_id}
+@router.get("/low-stock", response_model=list[InventoryItem])
+async def get_low_stock_endpoint(
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    items = await get_low_stock_items(db)
+    return [InventoryItem(**serialize_doc(i)) for i in items]
 
 
 @router.get("/{item_id}", response_model=InventoryItem)
@@ -58,24 +78,15 @@ async def get_item_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get inventory item by ID"""
     item = await get_inventory_item(db, item_id)
+
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Inventory item not found",
         )
-    return InventoryItem(**item, id=str(item["_id"]))
 
-
-@router.get("/low-stock", response_model=list[InventoryItem])
-async def get_low_stock_endpoint(
-    current_user=Depends(get_current_user),
-    db=Depends(get_database),
-):
-    """Get items below reorder level"""
-    items = await get_low_stock_items(db)
-    return [InventoryItem(**i, id=str(i["_id"])) for i in items]
+    return InventoryItem(**serialize_doc(item))
 
 
 @router.put("/{item_id}", response_model=InventoryItem)
@@ -85,7 +96,6 @@ async def update_item_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Update inventory item"""
     if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -93,15 +103,20 @@ async def update_item_endpoint(
         )
 
     item = await get_inventory_item(db, item_id)
+
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Inventory item not found",
         )
 
-    update_data = update.model_dump(exclude_unset=True)
-    result = await update_inventory_item(db, item_id, update_data)
-    return InventoryItem(**result, id=str(result["_id"]))
+    result = await update_inventory_item(
+        db,
+        item_id,
+        update.model_dump(exclude_unset=True),
+    )
+
+    return InventoryItem(**serialize_doc(result))
 
 
 @router.delete("/{item_id}")
@@ -110,7 +125,6 @@ async def delete_item_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Delete inventory item"""
     if current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -118,22 +132,27 @@ async def delete_item_endpoint(
         )
 
     deleted = await delete_inventory_item(db, item_id)
+
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Inventory item not found",
         )
+
     return {"message": "Inventory item deleted successfully"}
 
+
+# -----------------------------
+# Inventory Transaction Endpoints
+# -----------------------------
 
 @router.post("/{item_id}/transactions", response_model=InventoryTransaction)
 async def record_transaction_endpoint(
     item_id: str,
-    transaction: InventoryTransaction,
+    transaction: InventoryTransactionCreate,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Record inventory transaction"""
     if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -141,6 +160,7 @@ async def record_transaction_endpoint(
         )
 
     item = await get_inventory_item(db, item_id)
+
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -149,8 +169,10 @@ async def record_transaction_endpoint(
 
     transaction_data = transaction.model_dump()
     transaction_data["item_id"] = item_id
+
     result = await record_transaction(db, transaction_data)
-    return result
+
+    return InventoryTransaction(**serialize_doc(result))
 
 
 @router.get("/{item_id}/transactions", response_model=list[InventoryTransaction])
@@ -159,6 +181,9 @@ async def get_item_transactions_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get transaction history for item"""
     transactions = await get_item_transactions(db, item_id)
-    return transactions
+
+    return [
+        InventoryTransaction(**serialize_doc(t))
+        for t in transactions
+    ]

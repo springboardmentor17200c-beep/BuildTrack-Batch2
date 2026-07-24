@@ -36,7 +36,11 @@ async def create_project_endpoint(
 
     project_data = project.model_dump()
     result = await create_project(db, project_data)
-    return Project(**result, id=str(result["_id"]))
+
+    # Convert ObjectId to string
+    result["_id"] = str(result["_id"])
+
+    return Project(**result)
 
 
 @router.get("/{project_id}", response_model=Project)
@@ -47,12 +51,16 @@ async def get_project_endpoint(
 ):
     """Get project by ID"""
     project = await get_project(db, project_id)
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
-    return Project(**project, id=str(project["_id"]))
+
+    project["_id"] = str(project["_id"])
+
+    return Project(**project)
 
 
 @router.get("/", response_model=list[Project])
@@ -63,8 +71,13 @@ async def list_projects_endpoint(
     db=Depends(get_database),
 ):
     """List all projects"""
+
     projects = await list_projects(db, skip, limit)
-    return [Project(**p, id=str(p["_id"])) for p in projects]
+
+    for project in projects:
+        project["_id"] = str(project["_id"])
+
+    return [Project(**project) for project in projects]
 
 
 @router.get("/manager/{manager_id}", response_model=list[Project])
@@ -74,8 +87,13 @@ async def get_manager_projects(
     db=Depends(get_database),
 ):
     """Get all projects by manager"""
+
     projects = await get_projects_by_manager(db, manager_id)
-    return [Project(**p, id=str(p["_id"])) for p in projects]
+
+    for project in projects:
+        project["_id"] = str(project["_id"])
+
+    return [Project(**project) for project in projects]
 
 
 @router.put("/{project_id}", response_model=Project)
@@ -86,6 +104,7 @@ async def update_project_endpoint(
     db=Depends(get_database),
 ):
     """Update project"""
+
     if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -93,6 +112,7 @@ async def update_project_endpoint(
         )
 
     project = await get_project(db, project_id)
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -100,8 +120,12 @@ async def update_project_endpoint(
         )
 
     update_data = update.model_dump(exclude_unset=True)
+
     result = await update_project(db, project_id, update_data)
-    return Project(**result, id=str(result["_id"]))
+
+    result["_id"] = str(result["_id"])
+
+    return Project(**result)
 
 
 @router.delete("/{project_id}")
@@ -111,6 +135,7 @@ async def delete_project_endpoint(
     db=Depends(get_database),
 ):
     """Delete project"""
+
     if current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -118,11 +143,13 @@ async def delete_project_endpoint(
         )
 
     deleted = await delete_project(db, project_id)
+
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
+
     return {"message": "Project deleted successfully"}
 
 
@@ -134,6 +161,7 @@ async def add_milestone_endpoint(
     db=Depends(get_database),
 ):
     """Add milestone to project"""
+
     if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -141,6 +169,7 @@ async def add_milestone_endpoint(
         )
 
     project = await get_project(db, project_id)
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,5 +177,9 @@ async def add_milestone_endpoint(
         )
 
     milestone_data = milestone.model_dump()
+
     result = await add_milestone(db, project_id, milestone_data)
+
+    result["_id"] = str(result["_id"])
+
     return result

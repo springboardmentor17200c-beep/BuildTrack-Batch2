@@ -36,15 +36,18 @@ class Resource(ResourceBase):
         populate_by_name = True
 
 
-class MaintenanceLog(BaseModel):
-    resource_id: str
+class MaintenanceLogCreate(BaseModel):
     maintenance_date: datetime
     maintenance_type: str = Field(..., description="routine, repair, inspection")
     description: str
     cost: float = 0.0
     performed_by: str
+
+
+class MaintenanceLog(MaintenanceLogCreate):
+    resource_id: str
     id: str = Field(alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime
 
     class Config:
         populate_by_name = True
