@@ -40,15 +40,33 @@ export class SidebarComponent {
       roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor', 'Client'],
     },
     {
+      label: 'Milestones',
+      icon: 'fa-list-check',
+      route: '/projects/milestones',
+      roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor', 'Client'],
+    },
+    {
       label: 'Resources',
       icon: 'fa-truck-monster',
       route: '/resources',
       roles: ['Administrator', 'Project Manager', 'Site Engineer'],
     },
     {
+      label: 'Equipment',
+      icon: 'fa-truck',
+      route: '/resources/equipment',
+      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+    },
+    {
       label: 'Inventory',
       icon: 'fa-boxes-stacked',
       route: '/inventory',
+      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+    },
+    {
+      label: 'Stock Monitor',
+      icon: 'fa-warehouse',
+      route: '/inventory/stock-monitoring',
       roles: ['Administrator', 'Project Manager', 'Site Engineer'],
     },
     {
@@ -64,6 +82,12 @@ export class SidebarComponent {
       roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Worker'],
     },
     {
+      label: 'Shifts',
+      icon: 'fa-calendar-days',
+      route: '/workers/shift-scheduling',
+      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+    },
+    {
       label: 'Procurement',
       icon: 'fa-cart-shopping',
       route: '/procurement',
@@ -73,6 +97,12 @@ export class SidebarComponent {
       label: 'Reports',
       icon: 'fa-chart-column',
       route: '/reports',
+      roles: ['Administrator', 'Project Manager', 'Client'],
+    },
+    {
+      label: 'Analytics',
+      icon: 'fa-chart-pie',
+      route: '/analytics/budget',
       roles: ['Administrator', 'Project Manager', 'Client'],
     },
   ];

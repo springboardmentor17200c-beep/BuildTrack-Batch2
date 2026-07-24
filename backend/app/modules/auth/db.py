@@ -57,6 +57,44 @@ async def update_user(db: AsyncIOMotorDatabase, user_id: str, update_data: dict)
     return await db.users.find_one({"_id": ObjectId(user_id)})
 
 
+async def set_password_reset_token(
+    db: AsyncIOMotorDatabase,
+    email: str,
+    token_hash: str,
+    expires_at: datetime,
+):
+    await db.users.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "password_reset_token_hash": token_hash,
+                "password_reset_expires_at": expires_at,
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+
+
+async def update_password_and_clear_reset(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    password_hash: str,
+):
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "password_hash": password_hash,
+                "updated_at": datetime.utcnow(),
+            },
+            "$unset": {
+                "password_reset_token_hash": "",
+                "password_reset_expires_at": "",
+            },
+        },
+    )
+
+
 async def delete_user(db: AsyncIOMotorDatabase, user_id: str):
     result = await db.users.delete_one({"_id": ObjectId(user_id)})
     return result.deleted_count > 0
