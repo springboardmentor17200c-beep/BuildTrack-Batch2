@@ -6,7 +6,7 @@ from bson.errors import InvalidId
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_admin, require_admin_or_manager
 from app.db.mongodb import get_database
 
 router = APIRouter()
@@ -75,17 +75,17 @@ async def projects(current_user=Depends(get_current_user), db=Depends(get_databa
 
 
 @router.post("/projects")
-async def create_project(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_project(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "projects", record.data)
 
 
 @router.put("/projects/{record_id}")
-async def update_project(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_project(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "projects", record_id, record.data)
 
 
 @router.delete("/projects/{record_id}")
-async def delete_project(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_project(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "projects", record_id)
 
 
@@ -95,17 +95,17 @@ async def inventory(current_user=Depends(get_current_user), db=Depends(get_datab
 
 
 @router.post("/inventory")
-async def create_inventory(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_inventory(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "inventory", record.data)
 
 
 @router.put("/inventory/{record_id}")
-async def update_inventory(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_inventory(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "inventory", record_id, record.data)
 
 
 @router.delete("/inventory/{record_id}")
-async def delete_inventory(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_inventory(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "inventory", record_id)
 
 
@@ -115,17 +115,17 @@ async def workers(current_user=Depends(get_current_user), db=Depends(get_databas
 
 
 @router.post("/workers")
-async def create_worker(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_worker(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "workers", record.data)
 
 
 @router.put("/workers/{record_id}")
-async def update_worker(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_worker(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "workers", record_id, record.data)
 
 
 @router.delete("/workers/{record_id}")
-async def delete_worker(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_worker(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "workers", record_id)
 
 
@@ -135,17 +135,17 @@ async def resources(current_user=Depends(get_current_user), db=Depends(get_datab
 
 
 @router.post("/resources")
-async def create_resource(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_resource(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "resources", record.data)
 
 
 @router.put("/resources/{record_id}")
-async def update_resource(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_resource(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "resources", record_id, record.data)
 
 
 @router.delete("/resources/{record_id}")
-async def delete_resource(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_resource(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "resources", record_id)
 
 
@@ -155,17 +155,17 @@ async def procurement(current_user=Depends(get_current_user), db=Depends(get_dat
 
 
 @router.post("/procurement")
-async def create_procurement(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_procurement(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "procurements", record.data)
 
 
 @router.put("/procurement/{record_id}")
-async def update_procurement(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_procurement(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "procurements", record_id, record.data)
 
 
 @router.delete("/procurement/{record_id}")
-async def delete_procurement(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_procurement(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "procurements", record_id)
 
 
@@ -175,17 +175,17 @@ async def attendance(current_user=Depends(get_current_user), db=Depends(get_data
 
 
 @router.post("/attendance")
-async def create_attendance(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_attendance(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "attendance", record.data)
 
 
 @router.put("/attendance/{record_id}")
-async def update_attendance(record_id: str, record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def update_attendance(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await update_record(db, "attendance", record_id, record.data)
 
 
 @router.delete("/attendance/{record_id}")
-async def delete_attendance(record_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def delete_attendance(record_id: str, current_user=Depends(require_admin), db=Depends(get_database)):
     return await delete_record(db, "attendance", record_id)
 
 
@@ -195,5 +195,5 @@ async def reports(current_user=Depends(get_current_user), db=Depends(get_databas
 
 
 @router.post("/reports")
-async def create_report(record: FrontendRecord, current_user=Depends(get_current_user), db=Depends(get_database)):
+async def create_report(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
     return await create_record(db, "reports", record.data)

@@ -134,8 +134,10 @@ export class AuthService {
     if (this.useMockApi) {
       return of({ message: 'Reset link sent' }).pipe(delay(600));
     }
-    // The current backend does not expose password reset yet.
-    return of({ message: `Reset flow is not enabled yet for ${email}.` }).pipe(delay(300));
+    return this.http.post<{ message: string; reset_token?: string }>(
+      `${this.apiBase}/auth/password-reset/request`,
+      { email },
+    );
   }
 
   logout(): void {

@@ -84,3 +84,19 @@ async def get_current_user(
         )
     
     return user
+
+
+def require_roles(*allowed_roles: str):
+    async def role_checker(current_user=Depends(get_current_user)):
+        if current_user.get("role") not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return role_checker
+
+
+require_admin = require_roles("admin")
+require_admin_or_manager = require_roles("admin", "manager")

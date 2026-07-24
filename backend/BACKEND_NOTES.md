@@ -332,6 +332,8 @@ Main routes:
 POST /api/v1/auth/register
 POST /api/v1/auth/login
 POST /api/v1/auth/social-login
+POST /api/v1/auth/password-reset/request
+POST /api/v1/auth/password-reset/confirm
 GET  /api/v1/auth/me
 ```
 
@@ -341,6 +343,7 @@ What it does:
 - Hashes passwords before storing them.
 - Logs users in with email and password.
 - Creates demo social login users for Google or Microsoft.
+- Creates and confirms password reset tokens.
 - Returns the current authenticated user profile.
 
 ## 11. Feature Modules
