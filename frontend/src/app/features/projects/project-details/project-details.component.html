@@ -1,0 +1,256 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; <a routerLink="/projects" class="link">Projects</a></p>
+
+  <div class="page-header">
+    <div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <h1>{{ project.name }}</h1>
+        <span class="badge" [ngClass]="milestoneStatusClass(project.status)">{{ project.status }}</span>
+      </div>
+      <p class="crumb" style="margin-top:6px;">{{ project.category }} Project</p>
+    </div>
+    <button class="btn btn-outline" type="button" (click)="openEdit()"><i class="fa-solid fa-pen"></i> Edit Project</button>
+  </div>
+
+  <div class="tabs">
+    <button *ngFor="let t of tabs" class="tab" [class.active]="activeTab === t" (click)="activeTab = t">
+      {{ t }}
+    </button>
+  </div>
+
+  <ng-container *ngIf="activeTab === 'Overview'">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><h3>Project Information</h3></div>
+        <div class="info-grid">
+          <div><p class="info-label">Manager</p><p class="info-value">{{ project.manager }}</p></div>
+          <div><p class="info-label">Client</p><p class="info-value">{{ project.client || '-' }}</p></div>
+          <div><p class="info-label">Start Date</p><p class="info-value">{{ project.startDate || '-' }}</p></div>
+          <div><p class="info-label">End Date</p><p class="info-value">{{ project.endDate || '-' }}</p></div>
+          <div><p class="info-label">Budget</p><p class="info-value">Rs {{ project.budget ? (project.budget | number) : '0' }}</p></div>
+          <div><p class="info-label">Location</p><p class="info-value">{{ project.location || '-' }}</p></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h3>Milestone Progress</h3></div>
+        <div class="milestone-progress">
+          <div class="big-progress">
+            <strong>{{ averageMilestoneProgress }}%</strong>
+            <span>Average milestone progress</span>
+          </div>
+          <div class="mp-row" *ngFor="let m of projectMilestones | slice:0:4">
+            <span class="mp-label">{{ m.title }}</span>
+            <div class="progress-mini" style="flex:1; margin: 0 12px;"><span [style.width.%]="m.progress"></span></div>
+            <span class="mp-pct">{{ m.progress }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Team Members & Workers</h3>
+        <a routerLink="/workers">Manage workers -></a>
+      </div>
+      <div class="team-grid">
+        <div class="team-card" *ngFor="let worker of projectWorkers">
+          <img [src]="worker.avatarUrl || 'assets/default-avatar.svg'" alt="" />
+          <div>
+            <p class="cell-title">{{ worker.name }}</p>
+            <p class="cell-sub">{{ worker.role }} - {{ worker.skillType }}</p>
+          </div>
+        </div>
+        <p class="empty" *ngIf="projectWorkers.length === 0">No worker assigned to this project yet.</p>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'Milestones'">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Milestone Plan</h3>
+        <button class="btn btn-primary" type="button" (click)="openMilestone()"><i class="fa-solid fa-plus"></i> Add Milestone</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Milestone</th><th>Due Date</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let m of projectMilestones">
+              <td class="cell-title">{{ m.title }}</td>
+              <td>{{ m.dueDate || '-' }}</td>
+              <td><span class="badge" [ngClass]="milestoneStatusClass(m.status)">{{ m.status }}</span></td>
+              <td><div class="progress-row"><div class="progress-mini"><span [style.width.%]="m.progress"></span></div>{{ m.progress }}%</div></td>
+              <td>
+                <div class="action-row">
+                  <button class="icon-action" type="button" (click)="openMilestone(m)"><i class="fa-solid fa-pen"></i></button>
+                  <button class="icon-action danger" type="button" (click)="deleteMilestone(m)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'Tasks'">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Tasks</h3>
+        <button class="btn btn-primary" type="button" (click)="openTask()"><i class="fa-solid fa-plus"></i> Add Task</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Task</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let task of tasks">
+              <td class="cell-title">{{ task.title }}</td>
+              <td>{{ task.owner || '-' }}</td>
+              <td><span class="badge" [ngClass]="taskStatusClass(task.status)">{{ task.status }}</span></td>
+              <td>
+                <div class="action-row">
+                  <button class="icon-action" type="button" (click)="openTask(task)"><i class="fa-solid fa-pen"></i></button>
+                  <button class="icon-action danger" type="button" (click)="deleteTask(task)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'Resources'">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Resources Used</h3>
+        <button class="btn btn-primary" type="button" (click)="openResource()"><i class="fa-solid fa-plus"></i> Allocate Resource</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Resource</th><th>Type</th><th>Qty</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let resource of projectResources">
+              <td class="cell-title">{{ resource.name }}</td>
+              <td>{{ resource.type }}</td>
+              <td>{{ resource.quantity }} {{ resource.unit }}</td>
+              <td><span class="badge badge-blue">{{ resource.status }}</span></td>
+              <td><button class="icon-action danger" type="button" (click)="removeResource(resource)"><i class="fa-solid fa-link-slash"></i></button></td>
+            </tr>
+            <tr *ngIf="projectResources.length === 0"><td colspan="5" class="empty-cell">No resources allocated to this project.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'Documents'">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Documents</h3>
+        <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)"><i class="fa-solid fa-upload"></i> Upload File</button>
+      </div>
+      <div class="document-grid">
+        <div class="document-card" *ngFor="let doc of documents">
+          <i class="fa-regular fa-file-lines"></i>
+          <div><p class="cell-title">{{ doc.name }}</p><p class="cell-sub">{{ doc.type }} - {{ doc.uploadedAt }}</p></div>
+          <button class="icon-btn danger" type="button" (click)="deleteDocument(doc)" aria-label="Delete document">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+        <p class="empty" *ngIf="documents.length === 0">No documents uploaded yet. Add PDF, DOCX, image, or PNG files.</p>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'Reports'">
+    <div class="panel">
+      <div class="panel-header"><h3>Project Report Summary</h3></div>
+      <div class="report-grid">
+        <div class="report-card" *ngFor="let stat of reportStats">
+          <p>{{ stat.label }}</p>
+          <strong>{{ stat.value }}</strong>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
+
+<div class="modal-backdrop" *ngIf="showEditModal()" (click)="closeEdit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h3>Edit Project</h3><button class="modal-close" type="button" (click)="closeEdit()"><i class="fa-solid fa-xmark"></i></button></div>
+    <form [formGroup]="form" (ngSubmit)="submitEdit()">
+      <div class="modal-body">
+        <div class="modal-field"><label for="detail-name">Project Name</label><input id="detail-name" type="text" formControlName="name" /></div>
+        <div class="modal-field"><label for="detail-manager">Manager</label><input id="detail-manager" type="text" formControlName="manager" /></div>
+        <div class="modal-field-row">
+          <div class="modal-field"><label for="detail-client">Client</label><input id="detail-client" type="text" formControlName="client" /></div>
+          <div class="modal-field"><label for="detail-location">Location</label><input id="detail-location" type="text" formControlName="location" /></div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field"><label for="detail-category">Category</label><select id="detail-category" formControlName="category"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="Infrastructure">Infrastructure</option><option value="Government">Government</option></select></div>
+          <div class="modal-field"><label for="detail-status">Status</label><select id="detail-status" formControlName="status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option></select></div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field"><label for="detail-start">Start Date</label><input id="detail-start" type="date" formControlName="startDate" /></div>
+          <div class="modal-field"><label for="detail-end">End Date</label><input id="detail-end" type="date" formControlName="endDate" /></div>
+        </div>
+        <div class="modal-field"><label for="detail-budget">Budget</label><input id="detail-budget" type="number" min="0" formControlName="budget" /></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="closeEdit()">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showMilestoneModal()" (click)="showMilestoneModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h3>{{ editingMilestone() ? 'Edit Milestone' : 'Add Milestone' }}</h3><button class="modal-close" type="button" (click)="showMilestoneModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
+    <form [formGroup]="milestoneForm" (ngSubmit)="submitMilestone()">
+      <div class="modal-body">
+        <div class="modal-field"><label>Milestone</label><input type="text" formControlName="title" placeholder="e.g. Foundation & Substructure" /><p class="modal-error" *ngIf="milestoneForm.get('title')?.touched && milestoneForm.get('title')?.invalid">Required.</p></div>
+        <div class="modal-field-row"><div class="modal-field"><label>Due Date</label><input type="date" formControlName="dueDate" /></div><div class="modal-field"><label>Progress %</label><input type="number" min="0" max="100" formControlName="progress" /></div></div>
+        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option></select></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showMilestoneModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showTaskModal()" (click)="showTaskModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h3>{{ editingTask() ? 'Edit Task' : 'Add Task' }}</h3><button class="modal-close" type="button" (click)="showTaskModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
+    <form [formGroup]="taskForm" (ngSubmit)="submitTask()">
+      <div class="modal-body">
+        <div class="modal-field"><label>Task</label><input type="text" formControlName="title" placeholder="e.g. Complete excavation checklist" /><p class="modal-error" *ngIf="taskForm.get('title')?.touched && taskForm.get('title')?.invalid">Required.</p></div>
+        <div class="modal-field"><label>Owner</label><input type="text" formControlName="owner" /></div>
+        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="Pending">Pending</option><option value="Completed">Completed</option></select></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showTaskModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showResourceModal()" (click)="showResourceModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h3>Allocate Resource</h3><button class="modal-close" type="button" (click)="showResourceModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
+    <form [formGroup]="resourceForm" (ngSubmit)="submitResource()">
+      <div class="modal-body">
+        <p class="modal-error" *ngIf="resourceMessage()">{{ resourceMessage() }}</p>
+        <div class="modal-field"><label>Resource</label><select formControlName="resourceId"><option *ngFor="let resource of availableResources" [value]="resource.id">{{ resource.name }} · {{ resource.type }} · {{ resource.status }}</option></select></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showResourceModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary" [disabled]="availableResources.length === 0">Allocate</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showDocumentModal()" (click)="showDocumentModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header"><h3>Upload Document</h3><button class="modal-close" type="button" (click)="showDocumentModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="modal-field"><label>File</label><input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,image/*" (change)="onDocumentSelected($event)" /></div>
+      <p class="cell-sub" *ngIf="selectedDocumentName()">Selected: {{ selectedDocumentName() }}</p>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showDocumentModal.set(false)">Cancel</button><button type="button" class="btn btn-primary" [disabled]="!selectedDocumentName()" (click)="submitDocument()">Add Document</button></div>
+  </div>
+</div>

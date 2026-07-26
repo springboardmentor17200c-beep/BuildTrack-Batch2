@@ -1,0 +1,116 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Resources</p>
+  <div class="page-header">
+    <h1>Resources</h1>
+    <div class="toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Search resources..." [value]="searchTerm()" (input)="onSearch($event)" />
+      </div>
+      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Resource</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Resource Name</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of filteredResources">
+            <td class="cell-title">{{ r.name }}</td>
+            <td>{{ r.type }}</td>
+            <td>{{ r.quantity }}</td>
+            <td>{{ r.unit }}</td>
+            <td><span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit resource" (click)="openEdit(r)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Delete resource" (click)="deleteResource(r)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredResources.length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              No resources match "{{ searchTerm() }}".
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar">
+      <span>Showing {{ filteredResources.length }} of {{ data.resources.length }} resources</span>
+      <div class="pagination">
+        <button><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showAddModal()" (click)="closeAdd()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingResource() ? 'Edit Resource' : 'Add Resource' }}</h3>
+      <button class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="rname">Resource Name</label>
+          <input id="rname" type="text" formControlName="name" placeholder="e.g. Tower Crane" />
+          <p class="modal-error" *ngIf="form.get('name')?.touched && form.get('name')?.invalid">Required.</p>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="rtype">Type</label>
+            <select id="rtype" formControlName="type">
+              <option value="Equipment">Equipment</option>
+              <option value="Material">Material</option>
+              <option value="Vehicle">Vehicle</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label for="rstatus">Status</label>
+            <select id="rstatus" formControlName="status">
+              <option value="Available">Available</option>
+              <option value="In Use">In Use</option>
+              <option value="Under Maintenance">Under Maintenance</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="rqty">Quantity</label>
+            <input id="rqty" type="number" min="1" formControlName="quantity" />
+          </div>
+          <div class="modal-field">
+            <label for="runit">Unit</label>
+            <input id="runit" type="text" formControlName="unit" placeholder="e.g. Nos" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ editingResource() ? 'Save Changes' : 'Add Resource' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

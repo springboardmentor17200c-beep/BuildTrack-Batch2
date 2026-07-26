@@ -1,0 +1,91 @@
+<div class="auth-page">
+  <div class="auth-skyline"></div>
+
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-brand__mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 21h18" stroke="white" stroke-width="2" stroke-linecap="round" />
+          <path d="M5 21V9l6-5 6 5v12" stroke="white" stroke-width="2" stroke-linejoin="round" />
+          <path d="M10 21v-6h4v6" stroke="white" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <div class="auth-brand__name">Build<span>Track</span></div>
+    </div>
+
+    <h1 class="auth-title" style="margin-top: 18px;">Create your account</h1>
+    <p class="auth-subtitle"></p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label class="field-label" for="fullName">Full Name</label>
+      <div class="input-wrap">
+        <input id="fullName" type="text" formControlName="fullName" placeholder="Enter your full name" autocomplete="name" />
+      </div>
+      <p class="field-error" *ngIf="form.get('fullName')?.touched && form.get('fullName')?.invalid">
+        Please enter your full name.
+      </p>
+
+      <label class="field-label" for="email">Email</label>
+      <div class="input-wrap">
+        <input id="email" type="email" formControlName="email" placeholder="Enter your email" autocomplete="email" />
+      </div>
+      <p class="field-error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+        Enter a valid email address.
+      </p>
+
+      <label class="field-label" for="role">Your Role</label>
+      <div class="demo-role" style="margin-top: 0;">
+        <select id="role" class="demo-role__select" formControlName="role">
+          <option [ngValue]="null" disabled>Mention your role</option>
+          <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+        </select>
+      </div>
+      <p class="field-error" *ngIf="form.get('role')?.touched && form.get('role')?.invalid">
+        Please select your role.
+      </p>
+
+      <label class="field-label" for="password">Password</label>
+      <div class="input-wrap">
+        <input
+          id="password"
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password"
+          placeholder="Create a password"
+          autocomplete="new-password"
+        />
+        <button type="button" class="input-toggle" (click)="togglePassword()">
+          <i class="fa-regular" [class.fa-eye]="!showPassword()" [class.fa-eye-slash]="showPassword()"></i>
+        </button>
+      </div>
+      <p class="field-error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+        Password must be at least 6 characters.
+      </p>
+
+      <label class="field-label" for="confirmPassword">Confirm Password</label>
+      <div class="input-wrap">
+        <input
+          id="confirmPassword"
+          [type]="showConfirmPassword() ? 'text' : 'password'"
+          formControlName="confirmPassword"
+          placeholder="Confirm your password"
+          autocomplete="new-password"
+        />
+        <button type="button" class="input-toggle" (click)="toggleConfirmPassword()">
+          <i class="fa-regular" [class.fa-eye]="!showConfirmPassword()" [class.fa-eye-slash]="showConfirmPassword()"></i>
+        </button>
+      </div>
+      <p class="field-error" *ngIf="form.get('confirmPassword')?.touched && form.errors?.['mismatch']">
+        Passwords do not match.
+      </p>
+
+      <p class="field-error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+      <button type="submit" class="auth-submit" [disabled]="isSubmitting()" style="margin-top: 6px;">
+        <span *ngIf="!isSubmitting()">Sign Up</span>
+        <span *ngIf="isSubmitting()">Creating account…</span>
+      </button>
+    </form>
+
+    <p class="auth-footer">Already have an account? <a class="link" routerLink="/auth/login">Sign in</a></p>
+  </div>
+</div>

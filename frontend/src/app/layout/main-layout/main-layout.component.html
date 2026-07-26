@@ -1,0 +1,10 @@
+<div class="shell">
+  <div class="shell__backdrop" *ngIf="sidebarOpen()" (click)="closeSidebar()"></div>
+  <app-sidebar [open]="sidebarOpen()" (linkClick)="closeSidebar()"></app-sidebar>
+  <div class="shell__main">
+    <app-topbar [title]="pageTitle()" (menuClick)="toggleSidebar()"></app-topbar>
+    <div class="shell__content">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>
