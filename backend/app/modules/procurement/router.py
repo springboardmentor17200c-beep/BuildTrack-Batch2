@@ -249,22 +249,6 @@ async def list_procurements_endpoint(
     return [Procurement(**serialize_doc(p)) for p in procurements]
 
 
-@router.get("/{procurement_id}", response_model=Procurement)
-async def get_procurement_endpoint(
-    procurement_id: str,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database),
-):
-    """Get procurement order by ID"""
-    procurement = await get_procurement(db, procurement_id)
-    if not procurement:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Procurement order not found",
-        )
-    return Procurement(**serialize_doc(procurement))
-
-
 @router.get("/status/{status}", response_model=list[Procurement])
 async def get_procurements_by_status_endpoint(
     status: str,
@@ -472,6 +456,22 @@ async def delete_invoice_endpoint(
             detail="Invoice not found",
         )
     return {"message": "Invoice deleted successfully"}
+
+
+@router.get("/{procurement_id}", response_model=Procurement)
+async def get_procurement_endpoint(
+    procurement_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get procurement order by ID"""
+    procurement = await get_procurement(db, procurement_id)
+    if not procurement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Procurement order not found",
+        )
+    return Procurement(**serialize_doc(procurement))
 
 
 @router.put("/{procurement_id}", response_model=Procurement)

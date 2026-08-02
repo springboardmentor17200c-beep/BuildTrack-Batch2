@@ -33,6 +33,7 @@ class FakeDb:
         self.projects = FakeCollection([])
         self.procurements = FakeCollection([])
         self.invoices = FakeCollection([])
+        self.purchase_orders = FakeCollection([])
 
 
 client = TestClient(app)
@@ -96,10 +97,12 @@ def test_reports_project_invalid_id_returns_422():
     assert response.status_code == 422
 
 
-def test_documents_upload_and_delete(monkeypatch, tmp_path):
+def test_documents_upload_and_delete(monkeypatch):
     from app.modules.documents import router as documents_router
 
-    monkeypatch.setattr(documents_router, "UPLOAD_DIR", tmp_path)
+    upload_dir = Path("test_uploads_tmp")
+    upload_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(documents_router, "UPLOAD_DIR", upload_dir)
 
     async def fake_create_document(_db, document_data):
         return {
@@ -109,7 +112,7 @@ def test_documents_upload_and_delete(monkeypatch, tmp_path):
         }
 
     async def fake_get_document(_db, _doc_id):
-        file_path = tmp_path / "uploaded.txt"
+        file_path = upload_dir / "uploaded.txt"
         if not file_path.exists():
             file_path.write_text("payload", encoding="utf-8")
         return {
@@ -193,3 +196,49 @@ def test_procurements_and_vendors_top_level_aliases(monkeypatch):
 
     assert procurements_response.status_code == 200
     assert procurements_response.json()[0]["status"] == "pending"
+
+
+def test_procurement_purchase_order_and_invoice_lists(monkeypatch):
+    from app.modules.procurement import router as procurement_router
+
+    async def fake_list_purchase_orders(_db, _skip, _limit):
+        return [
+            {
+                "_id": "507f1f77bcf86cd799439016",
+                "procurement_id": "507f1f77bcf86cd799439015",
+                "vendor_id": "507f1f77bcf86cd799439014",
+                "po_number": "PO-001",
+                "issue_date": datetime.utcnow(),
+                "status": "issued",
+                "total_amount": 120.0,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        ]
+
+    async def fake_list_invoices(_db, _skip, _limit):
+        return [
+            {
+                "_id": "507f1f77bcf86cd799439017",
+                "purchase_order_id": "507f1f77bcf86cd799439016",
+                "invoice_number": "INV-001",
+                "vendor_id": "507f1f77bcf86cd799439014",
+                "invoice_date": datetime.utcnow(),
+                "amount": 120.0,
+                "status": "pending",
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        ]
+
+    monkeypatch.setattr(procurement_router, "list_purchase_orders", fake_list_purchase_orders)
+    monkeypatch.setattr(procurement_router, "list_invoices", fake_list_invoices)
+
+    purchase_orders_response = client.get("/api/v1/procurement/purchase-orders")
+    invoices_response = client.get("/api/v1/procurement/invoices")
+
+    assert purchase_orders_response.status_code == 200
+    assert purchase_orders_response.json()[0]["po_number"] == "PO-001"
+
+    assert invoices_response.status_code == 200
+    assert invoices_response.json()[0]["invoice_number"] == "INV-001"
