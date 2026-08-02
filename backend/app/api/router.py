@@ -1,17 +1,17 @@
 from fastapi import APIRouter
 
 from app.modules.auth.router import router as auth_router
+from app.modules.documents.router import router as documents_router
 from app.modules.frontend_data.router import router as frontend_data_router
 from app.modules.health.router import router as health_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.procurement.compat_router import router as procurement_compat_router
 from app.modules.procurement.router import router as procurement_router
 from app.modules.projects.router import router as projects_router
 from app.modules.reports.router import router as reports_router
 from app.modules.resources.router import router as resources_router
 from app.modules.workforce.router import router as workforce_router
-from app.modules.purchase_orders.router import router as purchase_orders_router
-from app.modules.invoice_tracking.router import router as invoice_tracking_router
 
 api_router = APIRouter()
 
@@ -38,9 +38,7 @@ api_router.include_router(resources_router, prefix="/resources", tags=["Resource
 
 # Procurement
 api_router.include_router(procurement_router, prefix="/procurement", tags=["Procurement"])
-
-# Purchase Orders
-api_router.include_router(purchase_orders_router,prefix="/purchase-orders",tags=["Purchase Orders"])
+api_router.include_router(procurement_compat_router, tags=["Procurement"])
 
 # Notifications
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
@@ -48,5 +46,5 @@ api_router.include_router(notifications_router, prefix="/notifications", tags=["
 # Reports
 api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
 
-# Invoice Tracking
-api_router.include_router(invoice_tracking_router, prefix="/invoice-tracking", tags=["Invoice Tracking"])
+# Documents
+api_router.include_router(documents_router, prefix="/documents", tags=["Documents"])

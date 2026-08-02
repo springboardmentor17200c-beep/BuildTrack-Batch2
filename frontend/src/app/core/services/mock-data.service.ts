@@ -48,7 +48,8 @@ export class MockDataService {
   readonly attendance: AttendanceRecord[] = [];
   readonly purchaseOrders: PurchaseOrder[] = [];
 
-  private readonly apiBase = `${environment.apiBaseUrl}/frontend-data`;
+  private readonly apiBase = environment.apiBaseUrl;
+  private readonly frontendDataBase = `${environment.apiBaseUrl}/frontend-data`;
 
   constructor(private readonly http: HttpClient) {
     this.refresh();
@@ -309,15 +310,15 @@ export class MockDataService {
 
   private get(path: string, onSuccess: (records: AnyRecord[]) => void): void {
     this.http
-      .get<AnyRecord[]>(`${this.apiBase}/${path}`)
+      .get<AnyRecord[]>(this.collectionUrl(path))
       .pipe(catchError(() => of([])))
       .subscribe((records) => onSuccess(records));
   }
 
   private post(path: string, data: AnyRecord, onSuccess: (record: AnyRecord) => void): void {
-    const payload = this.withoutLocalId(data);
+    const payload = this.toBackendPayload(path, data);
     this.http
-      .post<AnyRecord>(`${this.apiBase}/${path}`, { data: payload })
+      .post<AnyRecord>(this.collectionUrl(path), payload)
       .pipe(catchError(() => of(null)))
       .subscribe((record) => {
         if (record) {
@@ -327,18 +328,31 @@ export class MockDataService {
   }
 
   private put(path: string, data: AnyRecord): void {
-    const payload = this.withoutLocalId(data);
+    const payload = this.toBackendPayload(path, data, true);
     this.http
-      .put<AnyRecord>(`${this.apiBase}/${path}/${data.id}`, { data: payload })
+      .put<AnyRecord>(`${this.collectionUrl(path)}/${data.id}`, payload)
       .pipe(catchError(() => of(null)))
       .subscribe();
   }
 
   private deleteRecord(path: string, id: string): void {
     this.http
-      .delete(`${this.apiBase}/${path}/${id}`)
+      .delete(`${this.collectionUrl(path)}/${id}`)
       .pipe(catchError(() => of(null)))
       .subscribe();
+  }
+
+  private collectionUrl(path: string): string {
+    const modulePaths: Record<string, string> = {
+      projects: `${this.apiBase}/projects`,
+      resources: `${this.apiBase}/resources`,
+      inventory: `${this.apiBase}/inventory`,
+      workers: `${this.apiBase}/workforce/workers`,
+      attendance: `${this.apiBase}/workforce/attendance`,
+      procurement: `${this.apiBase}/procurement`,
+    };
+
+    return modulePaths[path] ?? `${this.frontendDataBase}/${path}`;
   }
 
   private replace<T>(target: T[], values: T[]): void {
@@ -366,6 +380,110 @@ export class MockDataService {
   private withoutLocalId(data: AnyRecord): AnyRecord {
     const { id, _id, ...payload } = data;
     return payload;
+  }
+
+  private toBackendPayload(path: string, data: AnyRecord, partial = false): AnyRecord {
+    const payload = this.withoutLocalId(data);
+
+    if (path === 'projects') {
+      const project = data as Project;
+      const mapped: AnyRecord = {
+        name: project.name,
+        description: project.category,
+        project_manager_id: project.managerId || project.manager || 'unassigned',
+        start_date: this.toIsoDate(project.startDate),
+        end_date: this.toIsoDate(project.endDate || project.startDate),
+        budget: project.budget ?? 0,
+        status: this.toBackendProjectStatus(project.status),
+        location: project.location ?? '',
+      };
+      return partial ? this.pick(mapped, ['name', 'description', 'status', 'budget', 'end_date']) : mapped;
+    }
+
+    if (path === 'resources') {
+      const resource = data as ResourceItem;
+      const mapped: AnyRecord = {
+        resource_name: resource.name,
+        resource_type: this.toBackendResourceType(resource.type),
+        description: resource.unit,
+        acquisition_cost: 0,
+        acquisition_date: new Date().toISOString(),
+        status: this.toBackendResourceStatus(resource.status),
+        assigned_project: resource.allocatedProjectId,
+      };
+      return partial ? this.pick(mapped, ['resource_name', 'status', 'assigned_project']) : mapped;
+    }
+
+    if (path === 'inventory') {
+      const item = data as InventoryItem;
+      return {
+        material_name: item.itemName,
+        quantity: item.stock,
+        unit: item.unit,
+        unit_cost: 0,
+        supplier_id: item.category,
+        status: this.toBackendStockStatus(item.status),
+        reorder_level: 10,
+      };
+    }
+
+    if (path === 'workers') {
+      const worker = data as Worker;
+      const names = this.splitFullName(worker.name);
+      return {
+        first_name: names.firstName,
+        last_name: names.lastName,
+        email: this.emailFromContact(worker),
+        phone: worker.contact,
+        skill_type: worker.skillType,
+        hourly_rate: 0,
+        project_id: worker.assignedProjectId,
+        status: worker.status === 'Inactive' ? 'unavailable' : 'available',
+      };
+    }
+
+    if (path === 'attendance') {
+      const record = data as AttendanceRecord;
+      return {
+        worker_id: record.workerId,
+        date: this.toIsoDate(record.date),
+        check_in_time: record.checkIn ? this.toDateTime(record.date, record.checkIn) : undefined,
+        check_out_time: record.checkOut ? this.toDateTime(record.date, record.checkOut) : undefined,
+        status: record.status === 'Present' ? 'present' : record.status === 'On Leave' ? 'leave' : 'absent',
+      };
+    }
+
+    if (path === 'procurement') {
+      const order = data as PurchaseOrder;
+      const mapped: AnyRecord = {
+        vendor_id: order.supplier || 'supplier',
+        items: [
+          {
+            item_name: order.itemsSummary || 'Procurement request',
+            quantity: 1,
+            unit_price: order.amount,
+            total_cost: order.amount,
+          },
+        ],
+        requested_by: 'frontend',
+        request_date: this.toIsoDate(order.requestDate),
+        status: this.toBackendOrderStatus(order.status),
+        total_amount: order.amount,
+        notes: order.poNo,
+      };
+      return partial ? this.pick(mapped, ['status', 'notes']) : mapped;
+    }
+
+    return { data: payload };
+  }
+
+  private pick(data: AnyRecord, keys: string[]): AnyRecord {
+    return keys.reduce((result, key) => {
+      if (data[key] !== undefined) {
+        result[key] = data[key];
+      }
+      return result;
+    }, {} as AnyRecord);
   }
 
   private toProject(item: AnyRecord): Project {
@@ -499,11 +617,30 @@ export class MockDataService {
     return 'Not Started';
   }
 
+  private toBackendProjectStatus(status: ProjectStatus): string {
+    const map: Record<ProjectStatus, string> = {
+      'Not Started': 'planning',
+      'In Progress': 'active',
+      'On Hold': 'on_hold',
+      Completed: 'completed',
+    };
+    return map[status];
+  }
+
   private toStockStatus(status?: string): StockStatus {
     const normalized = String(status ?? '').toLowerCase();
     if (normalized === 'low_stock' || normalized === 'low stock') return 'Low Stock';
     if (normalized === 'out_of_stock' || normalized === 'out of stock') return 'Out of Stock';
     return 'In Stock';
+  }
+
+  private toBackendStockStatus(status: StockStatus): string {
+    const map: Record<StockStatus, string> = {
+      'In Stock': 'in_stock',
+      'Low Stock': 'low_stock',
+      'Out of Stock': 'out_of_stock',
+    };
+    return map[status];
   }
 
   private toResourceStatus(status?: string): ResourceStatus {
@@ -513,11 +650,29 @@ export class MockDataService {
     return 'Available';
   }
 
+  private toBackendResourceStatus(status: ResourceStatus): string {
+    const map: Record<ResourceStatus, string> = {
+      Available: 'available',
+      'In Use': 'in_use',
+      'Under Maintenance': 'maintenance',
+    };
+    return map[status];
+  }
+
   private toResourceType(type?: string): ResourceItem['type'] {
     const normalized = String(type ?? '').toLowerCase();
     if (normalized === 'vehicle') return 'Vehicle';
     if (normalized === 'material') return 'Material';
     return 'Equipment';
+  }
+
+  private toBackendResourceType(type: ResourceItem['type']): string {
+    const map: Record<ResourceItem['type'], string> = {
+      Equipment: 'equipment',
+      Material: 'material',
+      Vehicle: 'vehicle',
+    };
+    return map[type];
   }
 
   private toOrderStatus(status?: string): PurchaseOrder['status'] {
@@ -526,6 +681,16 @@ export class MockDataService {
     if (normalized === 'delivered') return 'Delivered';
     if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
     return 'Pending';
+  }
+
+  private toBackendOrderStatus(status: PurchaseOrder['status']): string {
+    const map: Record<PurchaseOrder['status'], string> = {
+      Pending: 'pending',
+      Approved: 'approved',
+      Delivered: 'delivered',
+      Cancelled: 'cancelled',
+    };
+    return map[status];
   }
 
   private progressFromStatus(status?: string): number {
@@ -541,9 +706,35 @@ export class MockDataService {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
   }
 
+  private toIsoDate(value?: string): string {
+    if (!value) return new Date().toISOString();
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date(`${value}T00:00:00`).toISOString() : date.toISOString();
+  }
+
   private formatTime(value?: string): string | undefined {
     if (!value) return undefined;
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  private toDateTime(dateValue: string, timeValue: string): string {
+    const parsed = new Date(`${dateValue} ${timeValue}`);
+    return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  }
+
+  private splitFullName(name: string): { firstName: string; lastName: string } {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) {
+      return { firstName: parts[0] || 'Worker', lastName: '-' };
+    }
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  }
+
+  private emailFromContact(worker: Worker): string {
+    if (worker.contact.includes('@')) {
+      return worker.contact;
+    }
+    return `${worker.id || worker.name.replace(/\W+/g, '.').toLowerCase()}@buildtrack.local`;
   }
 }

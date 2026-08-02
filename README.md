@@ -1,9 +1,23 @@
 # BuildTrack Connected App
 
-This folder combines the BuildTrack Batch 2 FastAPI backend with the separate
-`buildtrack-app` Angular frontend.
+This repository contains the BuildTrack Batch 2 full-stack workspace:
 
-## Backend
+- FastAPI backend (`backend`)
+- Angular frontend (`frontend`)
+
+## Current Progress Summary
+
+- Milestone 2 core modules are integrated (Projects, Resources, Inventory, Workforce, Procurement).
+- Milestone 3 backend scope is complete for Procurement, Notifications, Reports, Dashboard analytics, and Document management.
+- Backend API routes are JWT-protected with role-based access controls.
+- Backend test suite currently passes.
+
+## Consolidated Progress Records
+
+- Backend record up to Milestone 3: `BACKEND_PROGRESS.md`
+- Frontend record up to Milestone 3: `FRONTEND_PROGRESS.md`
+
+## Backend Run
 
 ```powershell
 cd backend
@@ -14,12 +28,9 @@ copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
-The API runs at `http://127.0.0.1:8000`.
+Backend URL: `http://127.0.0.1:8000`
 
-MongoDB must be running locally, or `MONGODB_URL` must be updated in
-`backend\.env`.
-
-## Frontend
+## Frontend Run
 
 ```powershell
 cd frontend
@@ -27,11 +38,25 @@ npm install
 npm run start:api
 ```
 
-The Angular app runs at `http://localhost:4200`.
+Frontend URL: `http://localhost:4200`
 
-## Connected Auth Flow
+## Key Backend Endpoint Groups
 
-- Login calls `POST http://127.0.0.1:8000/api/v1/auth/login`.
-- Register calls `POST http://127.0.0.1:8000/api/v1/auth/register`, then logs in.
-- The frontend stores the returned JWT and sends it as a bearer token.
-- Dashboard/project/resource data is loaded from typed FastAPI endpoints (`/projects`, `/resources`, `/inventory`, `/workforce`, `/procurement`).
+- Auth: `/api/v1/auth/*`
+- Projects: `/api/v1/projects/*`
+- Resources: `/api/v1/resources/*`
+- Inventory: `/api/v1/inventory/*`
+- Workforce: `/api/v1/workforce/*`
+- Procurement: `/api/v1/procurement/*`, plus top-level compatibility routes `/api/v1/procurements` and `/api/v1/vendors`
+- Notifications: `/api/v1/notifications/*`
+- Reports and Analytics: `/api/v1/reports/*`
+- Documents: `/api/v1/documents/*`
+
+## Verification
+
+Run backend tests:
+
+```powershell
+cd backend
+python -m pytest tests -q
+```

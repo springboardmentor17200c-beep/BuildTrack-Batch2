@@ -8,20 +8,33 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    app_name: str = "BuildTrack API"
-    app_env: str = "development"
+    app_name: str = Field(default="BuildTrack API", validation_alias="APP_NAME")
+    app_env: str = Field(default="development", validation_alias="APP_ENV")
     debug: bool = Field(default=True, validation_alias="APP_DEBUG")
-    api_v1_prefix: str = "/api/v1"
+    api_v1_prefix: str = Field(default="/api/v1", validation_alias="API_V1_PREFIX")
 
-    mongodb_url: str = "mongodb://localhost:27017"
-    mongodb_db_name: str = "buildtrack"
+    mongodb_url: str = Field(
+        default="mongodb://localhost:27017",
+        validation_alias="MONGODB_URL",
+    )
+    mongodb_db_name: str = Field(
+        default="buildtrack",
+        validation_alias="MONGODB_DB_NAME",
+    )
 
-    jwt_secret_key: str = "change-this-secret-before-production"
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    jwt_secret_key: str = Field(
+        default="change-this-secret-before-production",
+        validation_alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(
+        default=60,
+        validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
 
     backend_cors_origins: str = Field(
-        default="http://localhost:4200,http://127.0.0.1:4200"
+        default="http://localhost:4200,http://127.0.0.1:4200",
+        validation_alias="BACKEND_CORS_ORIGINS",
     )
 
     model_config = SettingsConfigDict(
