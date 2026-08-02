@@ -6,14 +6,18 @@ from app.modules.procurement.db import (
     create_procurement,
     create_vendor,
     delete_procurement,
+    delete_vendor,
     get_procurement,
     get_procurement_by_status,
     get_procurements_by_project,
     get_procurements_by_vendor,
     get_vendor,
+    get_vendors_by_rating,
     list_procurements,
     list_vendors,
+    search_vendors,
     update_procurement,
+    update_vendor,
 )
 from app.modules.procurement.models import (
     Procurement,
@@ -21,8 +25,8 @@ from app.modules.procurement.models import (
     ProcurementUpdate,
     Vendor,
     VendorCreate,
+    VendorUpdate,
 )
-
 router = APIRouter()
 
 
@@ -111,7 +115,6 @@ async def list_procurements_endpoint(
     procurements = await list_procurements(db, skip, limit)
     return [Procurement(**serialize_doc(p)) for p in procurements]
 
-
 @router.get("/{procurement_id}", response_model=Procurement)
 async def get_procurement_endpoint(
     procurement_id: str,
@@ -160,6 +163,101 @@ async def get_vendor_procurements(
     procurements = await get_procurements_by_vendor(db, vendor_id)
     return [Procurement(**serialize_doc(p)) for p in procurements]
 
+
+@router.put("/vendors/{vendor_id}", response_model=Vendor)
+async def update_vendor_endpoint(
+    vendor_id: str,
+    vendor: VendorUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Update vendor"""
+
+    if current_user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin or manager can update vendors",
+        )
+
+    existing = await get_vendor(db, vendor_id)
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vendor not found",
+        )
+
+    update_data = vendor.model_dump(exclude_unset=True)
+
+    updated = await update_vendor(
+        db,
+        vendor_id,
+        update_data,
+    )
+
+    return Vendor(**serialize_doc(updated))
+
+@router.delete("/vendors/{vendor_id}")
+async def delete_vendor_endpoint(
+    vendor_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Delete vendor"""
+
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can delete vendors",
+        )
+
+    deleted = await delete_vendor(db, vendor_id)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vendor not found",
+        )
+
+    return {
+        "message": "Vendor deleted successfully"
+    }
+
+@router.get("/vendors/search/{keyword}", response_model=list[Vendor])
+async def search_vendor_endpoint(
+    keyword: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Search vendors"""
+
+    vendors = await search_vendors(
+        db,
+        keyword,
+    )
+
+    return [
+        Vendor(**serialize_doc(v))
+        for v in vendors
+    ]
+
+@router.get("/vendors/rating/{rating}", response_model=list[Vendor])
+async def vendors_by_rating_endpoint(
+    rating: float,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get vendors by minimum rating"""
+
+    vendors = await get_vendors_by_rating(
+        db,
+        rating,
+    )
+
+    return [
+        Vendor(**serialize_doc(v))
+        for v in vendors
+    ]
 
 @router.put("/{procurement_id}", response_model=Procurement)
 async def update_procurement_endpoint(

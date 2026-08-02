@@ -46,6 +46,61 @@ async def list_vendors(
 ):
     return await db.vendors.find().skip(skip).limit(limit).to_list(limit)
 
+async def delete_vendor(
+    db: AsyncIOMotorDatabase,
+    vendor_id: str,
+):
+    try:
+        oid = ObjectId(vendor_id)
+    except InvalidId:
+        return False
+
+    result = await db.vendors.delete_one({"_id": oid})
+    return result.deleted_count > 0
+
+
+async def search_vendors(
+    db: AsyncIOMotorDatabase,
+    keyword: str,
+):
+    return await db.vendors.find(
+        {
+            "$or": [
+                {
+                    "vendor_name": {
+                        "$regex": keyword,
+                        "$options": "i",
+                    }
+                },
+                {
+                    "contact_person": {
+                        "$regex": keyword,
+                        "$options": "i",
+                    }
+                },
+                {
+                    "email": {
+                        "$regex": keyword,
+                        "$options": "i",
+                    }
+                },
+            ]
+        }
+    ).to_list(None)
+
+
+async def get_vendors_by_rating(
+    db: AsyncIOMotorDatabase,
+    rating: float,
+):
+    return await db.vendors.find(
+        {
+            "rating": {
+                "$gte": rating
+            }
+        }
+    ).to_list(None)
+
 
 # ===========================
 # Procurement CRUD Operations
