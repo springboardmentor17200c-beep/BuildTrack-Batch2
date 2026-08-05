@@ -43,20 +43,16 @@ async def create_notification_endpoint(
     return Notification(**serialize_doc(result))
 
 
-@router.get("/{notification_id}", response_model=Notification)
-async def get_notification_endpoint(
-    notification_id: str,
+@router.get("/", response_model=list[Notification])
+async def list_notifications_endpoint(
+    limit: int = 20,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get notification by ID"""
-    notification = await get_notification(db, notification_id)
-    if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notification not found",
-        )
-    return Notification(**serialize_doc(notification))
+    """List current user's notifications (compat endpoint: GET /notifications)."""
+    user_id = str(current_user["_id"])
+    notifications = await get_user_notifications(db, user_id, limit)
+    return [Notification(**serialize_doc(n)) for n in notifications]
 
 
 @router.get("/user/all", response_model=list[Notification])
@@ -80,6 +76,32 @@ async def get_unread_notifications_endpoint(
     user_id = str(current_user["_id"])
     notifications = await get_unread_notifications(db, user_id)
     return [Notification(**serialize_doc(n)) for n in notifications]
+
+
+@router.get("/{notification_id}", response_model=Notification)
+async def get_notification_endpoint(
+    notification_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get notification by ID"""
+    notification = await get_notification(db, notification_id)
+    if not notification:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notification not found",
+        )
+    return Notification(**serialize_doc(notification))
+
+
+@router.put("/{notification_id}/read", response_model=Notification)
+async def mark_notification_as_read_put_endpoint(
+    notification_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Mark notification as read (compat endpoint: PUT /notifications/{id}/read)."""
+    return await mark_notification_as_read_endpoint(notification_id, current_user, db)
 
 
 @router.post("/{notification_id}/read", response_model=Notification)

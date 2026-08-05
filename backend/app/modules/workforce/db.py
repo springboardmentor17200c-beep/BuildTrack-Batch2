@@ -101,6 +101,20 @@ async def update_attendance(db: AsyncIOMotorDatabase, attendance_id: str, update
     return await db.attendance.find_one({"_id": oid})
 
 
+async def delete_attendance(db: AsyncIOMotorDatabase, attendance_id: str):
+    try:
+        oid = ObjectId(attendance_id)
+    except InvalidId:
+        return False
+
+    result = await db.attendance.delete_one({"_id": oid})
+    return result.deleted_count > 0
+
+
+async def list_attendance(db: AsyncIOMotorDatabase, skip: int = 0, limit: int = 100):
+    return await db.attendance.find().skip(skip).limit(limit).to_list(limit)
+
+
 async def get_worker_attendance(
     db: AsyncIOMotorDatabase,
     worker_id: str,

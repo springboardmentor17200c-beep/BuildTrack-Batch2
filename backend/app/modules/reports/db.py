@@ -79,3 +79,46 @@ async def get_dashboard_metrics(db: AsyncIOMotorDatabase):
     }
     
     return metrics
+
+
+async def get_project_report_summary(db: AsyncIOMotorDatabase, project_id: str | None = None):
+    project_filter = {"_id": ObjectId(project_id)} if project_id else {}
+    projects = await db.projects.find(project_filter).to_list(None)
+
+    output = []
+    for project in projects:
+        pid = str(project.get("_id"))
+        procurements = await db.procurements.find({"project_id": pid}).to_list(None)
+        total_procurement_cost = sum(item.get("total_amount", 0) for item in procurements)
+        output.append(
+            {
+                "project_id": pid,
+                "project_name": project.get("name") or project.get("project_name") or "Unnamed Project",
+                "status": project.get("status", "unknown"),
+                "procurements_count": len(procurements),
+                "total_procurement_cost": total_procurement_cost,
+            }
+        )
+
+    return output
+
+
+async def get_procurement_report_summary(db: AsyncIOMotorDatabase):
+    procurements = await db.procurements.find().to_list(None)
+    invoices = await db.invoices.find().to_list(None)
+
+    by_status: dict[str, int] = {}
+    for procurement in procurements:
+        key = procurement.get("status", "unknown")
+        by_status[key] = by_status.get(key, 0) + 1
+
+    total_value = sum(item.get("total_amount", 0) for item in procurements)
+    invoice_total = sum(item.get("amount", 0) for item in invoices)
+
+    return {
+        "total_procurements": len(procurements),
+        "procurement_value": total_value,
+        "status_breakdown": by_status,
+        "total_invoices": len(invoices),
+        "invoice_amount_total": invoice_total,
+    }

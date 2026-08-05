@@ -1,8 +1,13 @@
-# BuildTrack — Frontend (Milestone 1)
+# BuildTrack — Frontend
 
 Angular 18 frontend for the BuildTrack Construction Project Management &amp; Site
-Monitoring Platform, built against the Milestone 1 brief (Week 1 &amp; 2:
-Requirements, UI Design, Database Design & Backend Setup — frontend half).
+Monitoring Platform.
+
+Current status:
+
+- Milestone 1 UI foundation completed
+- Milestone 2 core module integration completed
+- Backend APIs for Milestone 3 are available and ready for frontend integration where pending
 
 ## Run it
 

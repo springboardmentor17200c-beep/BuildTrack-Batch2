@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
 
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
@@ -28,6 +29,16 @@ def serialize_doc(doc: dict) -> dict:
     doc = dict(doc)
     if "_id" in doc:
         doc["_id"] = str(doc["_id"])
+    doc.setdefault("material_name", doc.get("itemName") or doc.get("materialName") or "Unnamed Item")
+    doc.setdefault("quantity", doc.get("stock") or doc.get("quantity") or 0)
+    doc.setdefault("unit", doc.get("unit") or "Nos")
+    doc.setdefault("unit_cost", doc.get("unitCost") or doc.get("unitPrice") or 0)
+    doc.setdefault("supplier_id", doc.get("supplier") or doc.get("supplierId"))
+    doc.setdefault("location", doc.get("location"))
+    doc.setdefault("status", doc.get("status") or "in_stock")
+    doc.setdefault("reorder_level", doc.get("reorderLevel") or 10)
+    doc.setdefault("created_at", datetime.utcnow())
+    doc.setdefault("updated_at", datetime.utcnow())
     return doc
 
 

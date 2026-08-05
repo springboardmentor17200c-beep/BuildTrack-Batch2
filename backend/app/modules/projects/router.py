@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
 
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
@@ -21,6 +22,23 @@ from app.modules.projects.models import (
 router = APIRouter()
 
 
+def serialize_project(doc: dict) -> dict:
+    """Normalize legacy frontend-data project documents to the module schema."""
+    project = dict(doc)
+    project["_id"] = str(project["_id"])
+    project.setdefault("description", project.get("category", ""))
+    project.setdefault("project_manager_id", project.get("managerId") or project.get("manager") or "unassigned")
+    project.setdefault("start_date", project.get("startDate") or datetime.utcnow())
+    project.setdefault("end_date", project.get("endDate") or project.get("start_date") or datetime.utcnow())
+    project.setdefault("budget", 0)
+    project.setdefault("status", project.get("status", "planning"))
+    project.setdefault("location", "")
+    project.setdefault("milestones", [])
+    project.setdefault("created_at", datetime.utcnow())
+    project.setdefault("updated_at", datetime.utcnow())
+    return project
+
+
 @router.post("/", response_model=Project)
 async def create_project_endpoint(
     project: ProjectCreate,
@@ -37,10 +55,34 @@ async def create_project_endpoint(
     project_data = project.model_dump()
     result = await create_project(db, project_data)
 
-    # Convert ObjectId to string
-    result["_id"] = str(result["_id"])
+    return Project(**serialize_project(result))
 
-    return Project(**result)
+
+@router.get("/manager/{manager_id}", response_model=list[Project])
+async def get_manager_projects(
+    manager_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Get all projects by manager"""
+
+    projects = await get_projects_by_manager(db, manager_id)
+
+    return [Project(**serialize_project(project)) for project in projects]
+
+
+@router.get("/", response_model=list[Project])
+async def list_projects_endpoint(
+    skip: int = 0,
+    limit: int = 10,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """List all projects"""
+
+    projects = await list_projects(db, skip, limit)
+
+    return [Project(**serialize_project(project)) for project in projects]
 
 
 @router.get("/{project_id}", response_model=Project)
@@ -58,42 +100,7 @@ async def get_project_endpoint(
             detail="Project not found",
         )
 
-    project["_id"] = str(project["_id"])
-
-    return Project(**project)
-
-
-@router.get("/", response_model=list[Project])
-async def list_projects_endpoint(
-    skip: int = 0,
-    limit: int = 10,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database),
-):
-    """List all projects"""
-
-    projects = await list_projects(db, skip, limit)
-
-    for project in projects:
-        project["_id"] = str(project["_id"])
-
-    return [Project(**project) for project in projects]
-
-
-@router.get("/manager/{manager_id}", response_model=list[Project])
-async def get_manager_projects(
-    manager_id: str,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database),
-):
-    """Get all projects by manager"""
-
-    projects = await get_projects_by_manager(db, manager_id)
-
-    for project in projects:
-        project["_id"] = str(project["_id"])
-
-    return [Project(**project) for project in projects]
+    return Project(**serialize_project(project))
 
 
 @router.put("/{project_id}", response_model=Project)
@@ -123,9 +130,7 @@ async def update_project_endpoint(
 
     result = await update_project(db, project_id, update_data)
 
-    result["_id"] = str(result["_id"])
-
-    return Project(**result)
+    return Project(**serialize_project(result))
 
 
 @router.delete("/{project_id}")

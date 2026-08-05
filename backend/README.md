@@ -2,6 +2,17 @@
 
 FastAPI + MongoDB backend for the BuildTrack construction project management platform.
 
+## Status
+
+- Milestone 2 backend modules completed.
+- Milestone 3 backend modules completed:
+  - Procurement system (including vendors, suppliers, purchase orders, invoice tracking)
+  - Notification service
+  - Reporting module
+  - Dashboard analytics
+  - Document management (upload/list/get/download/delete)
+- JWT authentication + role-based authorization enabled across protected routes.
+
 ## Setup
 
 ```powershell
@@ -23,6 +34,28 @@ Useful endpoints:
 - `GET /health`
 - `GET /api/v1/health`
 - `GET /docs`
+
+## API Groups
+
+- `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `GET /api/v1/auth/me`
+- Projects: `/api/v1/projects/*`
+- Resources: `/api/v1/resources/*`
+- Inventory: `/api/v1/inventory/*`
+- Workforce: `/api/v1/workforce/*`
+- Procurement: `/api/v1/procurement/*`
+- Compatibility routes: `/api/v1/procurements/*`, `/api/v1/vendors/*`
+- Notifications: `/api/v1/notifications/*`
+- Reports: `/api/v1/reports/*`
+- Documents: `/api/v1/documents/*`
+
+## Tests
+
+```powershell
+cd backend
+python -m pytest tests -q
+```
+
+Current local status: backend tests passing.
 
 ## Project Structure
 

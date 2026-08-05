@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 
 from app.modules.auth.router import router as auth_router
+from app.modules.documents.router import router as documents_router
 from app.modules.frontend_data.router import router as frontend_data_router
 from app.modules.health.router import router as health_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.procurement.compat_router import router as procurement_compat_router
 from app.modules.procurement.router import router as procurement_router
 from app.modules.projects.router import router as projects_router
 from app.modules.reports.router import router as reports_router
@@ -36,9 +38,13 @@ api_router.include_router(resources_router, prefix="/resources", tags=["Resource
 
 # Procurement
 api_router.include_router(procurement_router, prefix="/procurement", tags=["Procurement"])
+api_router.include_router(procurement_compat_router, tags=["Procurement"])
 
 # Notifications
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 
 # Reports
 api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
+
+# Documents
+api_router.include_router(documents_router, prefix="/documents", tags=["Documents"])

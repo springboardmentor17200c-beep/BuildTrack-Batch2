@@ -282,6 +282,39 @@ export const routes: Routes = [
         },
       },
       {
+        path: "procurement/purchase-orders",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Administrator", "Project Manager"] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/vendors",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Administrator", "Project Manager"] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/invoices",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Administrator", "Project Manager"] as UserRole[],
+        },
+      },
+      {
         path: "reports",
         loadComponent: () =>
           import("./features/reports/reports.component").then(
