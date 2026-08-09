@@ -38,7 +38,7 @@ export class DashboardComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('buildtrack_token');
 
     const headers = new HttpHeaders({
       Authorization: `Bearer ${token}`
@@ -46,7 +46,7 @@ export class DashboardComponent implements OnInit {
 
     this.http
       .get<DashboardMetrics>(
-        'http://localhost:8000/api/v1/reports/dashboard/metrics',
+        'http://127.0.0.1:8000/api/v1/reports/dashboard/metrics',
         { headers }
       )
       .subscribe({
