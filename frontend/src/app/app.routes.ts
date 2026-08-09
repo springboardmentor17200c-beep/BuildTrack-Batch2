@@ -21,6 +21,7 @@ export const routes: Routes = [
         (m) => m.LandingComponent,
       ),
   },
+  
 
   // Authentication
   {
@@ -62,6 +63,17 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
+        path: "notifications",
+        loadComponent: () =>
+        import("./features/notifications/notification.component").then(
+        (m) => m.NotificationComponent,
+        ),
+      canActivate: [roleGuard],
+      data: { roles: ALL_ROLES },
+      },
+
+      {
+
         path: "dashboard",
         loadComponent: () =>
           import("./features/dashboard/dashboard.component").then(

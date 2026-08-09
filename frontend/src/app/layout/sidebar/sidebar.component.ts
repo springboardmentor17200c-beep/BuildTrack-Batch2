@@ -145,9 +145,15 @@ export class SidebarComponent {
         },
       ],
     },
+    {
+      label: 'Notifications',
+      icon: 'fa-bell',
+      route: '/notifications',
+      roles: ALL_ROLES,
+    },
   ];
 
-  /** Only the nav items the current user's role is allowed to see. */
+  
   navItems = computed(() => {
     const role = this.auth.currentUser()?.role;
     return this.allNavItems
@@ -158,7 +164,6 @@ export class SidebarComponent {
       }));
   });
 
-  /** Settings is Administrator-only. */
   canSeeSettings = computed(() => this.auth.hasRole(['Administrator']));
 
   openGroups = signal<Set<string>>(new Set());

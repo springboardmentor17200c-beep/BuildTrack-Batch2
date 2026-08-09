@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { MockDataService } from '../../core/services/mock-data.service';
+import { NotificationApiService } from '../../features/notifications/notification-api.service';
 
 interface SearchResult {
   label: string;
@@ -19,12 +20,14 @@ interface SearchResult {
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss',
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit {
   @Input() title = 'Dashboard';
   @Output() menuClick = new EventEmitter<void>();
 
   query = signal('');
   showResults = signal(false);
+  unreadCount = signal(0);
+  hasUnread = computed(() => this.unreadCount() > 0);
 
   results = computed<SearchResult[]>(() => {
     const term = this.query().trim().toLowerCase();
@@ -65,7 +68,12 @@ export class TopbarComponent {
     public auth: AuthService,
     public data: MockDataService,
     private router: Router,
+    private notificationApi: NotificationApiService,
   ) {}
+
+  ngOnInit(): void {
+    this.loadUnreadNotifications();
+  }
 
   onFocus(): void {
     this.showResults.set(true);
@@ -80,5 +88,21 @@ export class TopbarComponent {
     this.router.navigate(result.route);
     this.query.set('');
     this.showResults.set(false);
+  }
+
+  openNotifications(): void {
+    this.loadUnreadNotifications();
+    this.router.navigate(['/notifications']);
+  }
+
+  private loadUnreadNotifications(): void {
+    this.notificationApi.getUnreadNotifications().subscribe({
+      next: (notifications: any[]) => {
+        this.unreadCount.set(Array.isArray(notifications) ? notifications.length : 0);
+      },
+      error: () => {
+        this.unreadCount.set(0);
+      },
+    });
   }
 }

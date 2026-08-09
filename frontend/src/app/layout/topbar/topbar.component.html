@@ -32,9 +32,10 @@
       </div>
     </div>
 
-    <button class="topbar__icon-btn">
+    <button class="topbar__icon-btn" (click)="openNotifications()" aria-label="Open notifications">
       <i class="fa-regular fa-bell"></i>
-      <span class="dot"></span>
+      <span class="dot" *ngIf="hasUnread()"></span>
+      <span class="topbar__badge" *ngIf="hasUnread()">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
     </button>
 
     <ng-container *ngIf="auth.currentUser() as user">

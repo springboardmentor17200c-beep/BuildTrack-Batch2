@@ -1,0 +1,183 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Notifications</h1>
+
+    <div class="toolbar">
+
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input
+          type="text"
+          placeholder="Search notifications..."
+          [value]="searchText"
+          (input)="onSearch($event)">
+      </div>
+
+      <button class="btn-filter">
+        <i class="fa-solid fa-filter"></i>
+        Filter
+      </button>
+
+      <button class="btn btn-outline" (click)="markAllRead()">
+        <i class="fa-solid fa-check-double"></i>
+        Mark All Read
+      </button>
+
+      <button
+        *ngIf="canCreateNotification()"
+        class="btn btn-primary"
+        (click)="openModal()">
+        <i class="fa-solid fa-plus"></i>
+        New Notification
+      </button>
+
+    </div>
+  </div>
+
+  <div class="panel">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Message</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Time</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <tr *ngFor="let n of filteredNotifications" (click)="viewNotification(n)">
+          <td>
+            <span class="notification-title">
+              {{n.title}}
+              <i *ngIf="seenNotificationIds.has(getNotificationId(n) || '')" class="fa-solid fa-eye seen-indicator"></i>
+            </span>
+          </td>
+          <td>{{n.message}}</td>
+          <td>{{n.notification_type}}</td>
+          <td>
+            <span class="badge">
+              {{ n.is_read ? 'Read' : 'Unread' }}
+            </span>
+          </td>
+          <td>{{n.created_at | date:'short'}}</td>
+
+          <td>
+
+            <button class="icon-action"
+                    (click)="markRead(n)"
+                    *ngIf="!n.is_read">
+              <i class="fa-solid fa-check"></i>
+            </button>
+
+            <button class="icon-action danger"
+                    (click)="deleteNotification(n)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+
+          </td>
+
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+
+<div class="modal-backdrop"
+     *ngIf="showModal"
+     (click)="closeModal()">
+
+  <div class="modal-card"
+       (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <h3>Send Notification</h3>
+
+      <button class="modal-close"
+              (click)="closeModal()">
+        ✕
+      </button>
+    </div>
+
+    <form [formGroup]="notificationForm"
+          (ngSubmit)="submit()">
+
+      <div class="modal-body">
+
+        <div class="modal-field">
+          <label>Receiver ID</label>
+          <input
+            type="text"
+            formControlName="receiver_id"
+            placeholder="Enter the target user ID"
+          />
+          <small *ngIf="notificationForm.get('receiver_id')?.touched && notificationForm.get('receiver_id')?.invalid">
+            Receiver ID is required.
+          </small>
+        </div>
+
+        <div class="modal-field">
+          <label>Title</label>
+          <input
+            type="text"
+            formControlName="title"
+            placeholder="Brief title for the notification"
+          />
+          <small *ngIf="notificationForm.get('title')?.touched && notificationForm.get('title')?.invalid">
+            Title is required.
+          </small>
+        </div>
+
+        <div class="modal-field">
+          <label>Message</label>
+          <textarea
+            rows="4"
+            formControlName="message"
+            placeholder="Write the notification message here"
+          ></textarea>
+          <small *ngIf="notificationForm.get('message')?.touched && notificationForm.get('message')?.invalid">
+            Message is required.
+          </small>
+        </div>
+
+        <div class="modal-field">
+          <label>Type</label>
+
+          <select formControlName="notification_type">
+            <option>INFO</option>
+            <option>SUCCESS</option>
+            <option>WARNING</option>
+            <option>ERROR</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button type="button"
+                class="btn btn-outline"
+                (click)="closeModal()">
+          Cancel
+        </button>
+
+        <button type="submit"
+                class="btn btn-primary"
+                [disabled]="isSubmitting">
+          <span *ngIf="isSubmitting">Sending...</span>
+          <span *ngIf="!isSubmitting">Send Notification</span>
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
