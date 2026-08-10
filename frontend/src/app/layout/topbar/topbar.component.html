@@ -32,11 +32,50 @@
       </div>
     </div>
 
-    <button class="topbar__icon-btn" (click)="openNotifications()" aria-label="Open notifications">
-      <i class="fa-regular fa-bell"></i>
-      <span class="dot" *ngIf="hasUnread()"></span>
-      <span class="topbar__badge" *ngIf="hasUnread()">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
-    </button>
+    <div class="topbar__notification-wrapper">
+      <button class="topbar__icon-btn" (click)="toggleNotifications()" title="Notifications">
+        <i class="fa-regular fa-bell"></i>
+        <span class="badge-count" *ngIf="notificationService.unreadCount() > 0">
+          {{ notificationService.unreadCount() }}
+        </span>
+      </button>
+
+      <!-- Dropdown Panel -->
+      <div class="notification-dropdown" *ngIf="showNotificationsPanel()">
+        <div class="notification-dropdown__header">
+          <h3>Notifications</h3>
+          <button class="btn-text" (click)="markAllAsRead($event)" [disabled]="notificationService.unreadCount() === 0">
+            Mark all read
+          </button>
+        </div>
+
+        <div class="notification-dropdown__body">
+          <div *ngIf="notificationService.notifications().length === 0" class="empty-state">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>No recent notifications</p>
+          </div>
+
+          <div
+            *ngFor="let item of notificationService.notifications().slice(0, 5)"
+            class="dropdown-item"
+            [class.unread]="!item.is_read"
+            (click)="onNotificationClick(item)"
+          >
+            <div class="dropdown-item__dot" *ngIf="!item.is_read"></div>
+            <div class="dropdown-item__content">
+              <div class="dropdown-item__title">{{ item.title }}</div>
+              <div class="dropdown-item__msg">{{ item.message }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notification-dropdown__footer">
+          <button class="view-all-btn" (click)="viewAllNotifications()">
+            View All Notifications
+          </button>
+        </div>
+      </div>
+    </div>
 
     <ng-container *ngIf="auth.currentUser() as user">
       <img class="topbar__avatar" [src]="user.avatarUrl || 'assets/default-avatar.svg'" alt="" />

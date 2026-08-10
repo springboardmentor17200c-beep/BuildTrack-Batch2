@@ -11,6 +11,8 @@ export type UserRole =
   | 'Administrator'
   | 'Project Manager'
   | 'Site Engineer'
+  | 'Store Manager'
+  | 'Finance'
   | 'Contractor'
   | 'Worker'
   | 'Client';
@@ -130,6 +132,140 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
 }
 
+export type Priority = 'low' | 'medium' | 'high';
+export type MaterialRequestStatus = 'pending' | 'approved' | 'rejected';
+export type VendorStatus = 'active' | 'inactive';
+export type POStatus = 'created' | 'sent' | 'accepted' | 'delivered';
+export type QualityStatus = 'pending' | 'passed' | 'failed';
+export type DeliveryStatus = 'pending' | 'partial' | 'accepted' | 'rejected';
+export type InvoiceStatus = 'pending' | 'verified' | 'approved' | 'rejected';
+export type PaymentStatus = 'pending' | 'approved' | 'paid';
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+}
+
+export interface MaterialRequest {
+  _id?: string;
+  id?: string;
+  request_id?: string;
+  project: string;
+  material_name: string;
+  quantity: number;
+  required_date: string;
+  priority: Priority;
+  status: MaterialRequestStatus;
+  remarks?: string;
+  requested_by?: string;
+  approval_comments?: string;
+  approved_by?: string;
+  approved_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Vendor {
+  _id?: string;
+  id?: string;
+  vendor_name: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  address: string;
+  materials_supplied: string[];
+  rating: number;
+  status: VendorStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PurchaseOrderRecord {
+  _id?: string;
+  id?: string;
+  po_number?: string;
+  request_id: string;
+  vendor_id: string;
+  project: string;
+  materials: string;
+  quantity: number;
+  unit_price: number;
+  total_cost?: number;
+  expected_delivery_date: string;
+  status: POStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MaterialDelivery {
+  _id?: string;
+  id?: string;
+  purchase_order_id: string;
+  material: string;
+  quantity_received: number;
+  quality_status: QualityStatus;
+  delivery_date: string;
+  remarks?: string;
+  status: DeliveryStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProcurementInventoryItem {
+  _id?: string;
+  id?: string;
+  material: string;
+  stock_quantity: number;
+  transactions?: any[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Invoice {
+  _id?: string;
+  id?: string;
+  invoice_number: string;
+  vendor_id: string;
+  purchase_order_id: string;
+  amount: number;
+  gst: number;
+  invoice_date: string;
+  payment_status: PaymentStatus;
+  attachment_url?: string;
+  status: InvoiceStatus;
+  verification_comments?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Payment {
+  _id?: string;
+  id?: string;
+  invoice_id: string;
+  vendor_id: string;
+  purchase_order_id: string;
+  amount: number;
+  status: PaymentStatus;
+  paid_at?: string;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProcurementDashboardStats {
+  pending_requests: number;
+  active_purchase_orders: number;
+  pending_deliveries: number;
+  pending_payments: number;
+  recent_activity: Array<{
+    id?: string;
+    type: string;
+    title: string;
+    description: string;
+    timestamp?: string;
+  }>;
+}
+
 export type OrderStatus = 'Approved' | 'Pending' | 'Delivered' | 'Cancelled';
 
 /** Maps to the `procurements` collection. */
@@ -143,7 +279,32 @@ export interface PurchaseOrder {
   requestDate: string;
 }
 
-/** Maps to the `notifications` collection (not yet surfaced in the UI). */
+export type NotificationCategory =
+  | 'project_update'
+  | 'task_assignment'
+  | 'procurement_alert'
+  | 'attendance_alert'
+  | 'deadline'
+  | 'system';
+
+/** Maps to the `notifications` collection. */
+export interface NotificationItem {
+  _id?: string;
+  id?: string;
+  user_id?: string;
+  receiver_id?: string;
+  title: string;
+  message: string;
+  type?: 'info' | 'warning' | 'alert' | 'success';
+  category: NotificationCategory | string;
+  entity_type?: string;
+  entity_id?: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at?: string;
+  read_at?: string;
+}
+
 export interface AppNotification {
   id: string;
   receiverId: string;

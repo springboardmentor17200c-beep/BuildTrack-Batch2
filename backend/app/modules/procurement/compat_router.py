@@ -30,6 +30,13 @@ def serialize_doc(doc: dict) -> dict:
     if "_id" in doc:
         doc["_id"] = str(doc["_id"])
 
+    doc.setdefault("contact_person", "Contact Person")
+    doc.setdefault("phone", "0000000000")
+    doc.setdefault("address", "N/A")
+    doc.setdefault("vendor_name", "Supplier")
+    doc.setdefault("email", "vendor@example.com")
+    doc.setdefault("status", "active")
+
     doc.setdefault("vendor_id", doc.get("vendorId") or doc.get("supplierName") or doc.get("supplier") or "supplier")
     doc.setdefault("project_id", doc.get("projectId"))
     if "items" not in doc:

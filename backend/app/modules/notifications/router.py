@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
 from app.modules.notifications.db import (
+    check_and_create_deadline_notifications,
     create_notification,
     delete_notification,
     delete_old_notifications,
     get_notification,
+    get_unread_notification_count,
     get_unread_notifications,
     get_user_notifications,
     mark_all_as_read,
@@ -18,10 +23,26 @@ router = APIRouter()
 
 
 def serialize_doc(doc: dict) -> dict:
-    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
-    doc = dict(doc)  # avoid mutating the original dict
+    """Convert MongoDB doc to dict matching Pydantic Notification model requirements."""
+    doc = dict(doc)
     if "_id" in doc:
         doc["_id"] = str(doc["_id"])
+        doc["id"] = doc["_id"]
+
+    user_id = doc.get("user_id") or doc.get("receiver_id") or ""
+    doc["user_id"] = str(user_id)
+    doc["receiver_id"] = str(user_id)
+
+    doc.setdefault("title", "Notification")
+    doc.setdefault("message", "")
+    doc.setdefault("type", doc.get("notification_type", "info"))
+    doc.setdefault("category", "system")
+    doc.setdefault("is_read", False)
+
+    created = doc.get("created_at") or datetime.utcnow()
+    doc["created_at"] = created
+    doc.setdefault("updated_at", doc.get("updated_at") or created)
+
     return doc
 
 
@@ -31,27 +52,47 @@ async def create_notification_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Create new notification"""
-    if current_user.get("role") != "admin":
+    """Create new notification (Admin or system)"""
+    if current_user.get("role") not in ["admin", "manager"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admin can create notifications",
+            detail="Only admin or manager can create notifications directly",
         )
 
-    notification_data = notification.model_dump()
+    notification_data = notification.model_dump(exclude_none=True)
+    if not notification_data.get("user_id") and not notification_data.get("receiver_id"):
+        notification_data["user_id"] = str(current_user["_id"])
+
     result = await create_notification(db, notification_data)
     return Notification(**serialize_doc(result))
 
 
-@router.get("/", response_model=list[Notification])
-async def list_notifications_endpoint(
-    limit: int = 20,
+@router.get("/unread-count")
+async def get_unread_count_endpoint(
+    category: Optional[str] = Query(None, description="Optional category filter"),
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """List current user's notifications (compat endpoint: GET /notifications)."""
+    """Get unread notification count for current user"""
     user_id = str(current_user["_id"])
-    notifications = await get_user_notifications(db, user_id, limit)
+    count = await get_unread_notification_count(db, user_id, category=category)
+    return {"count": count}
+
+
+@router.get("/", response_model=list[Notification])
+async def list_notifications_endpoint(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    category: Optional[str] = Query(None),
+    is_read: Optional[bool] = Query(None),
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """List current user's notifications with skip, limit, category, and is_read filtering."""
+    user_id = str(current_user["_id"])
+    notifications = await get_user_notifications(
+        db, user_id, skip=skip, limit=limit, category=category, is_read=is_read
+    )
     return [Notification(**serialize_doc(n)) for n in notifications]
 
 
@@ -61,9 +102,9 @@ async def get_user_notifications_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get current user's notifications"""
+    """Get current user's notifications (compatibility endpoint)"""
     user_id = str(current_user["_id"])
-    notifications = await get_user_notifications(db, user_id, limit)
+    notifications = await get_user_notifications(db, user_id, limit=limit)
     return [Notification(**serialize_doc(n)) for n in notifications]
 
 
@@ -72,7 +113,7 @@ async def get_unread_notifications_endpoint(
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get unread notifications for current user"""
+    """Get unread notifications for current user (compatibility endpoint)"""
     user_id = str(current_user["_id"])
     notifications = await get_unread_notifications(db, user_id)
     return [Notification(**serialize_doc(n)) for n in notifications]
@@ -91,19 +132,19 @@ async def get_notification_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found",
         )
+
+    owner_id = str(notification.get("user_id") or notification.get("receiver_id") or "")
+    if owner_id != str(current_user["_id"]) and current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot access other user's notification",
+        )
+
     return Notification(**serialize_doc(notification))
 
 
+@router.patch("/{notification_id}/read", response_model=Notification)
 @router.put("/{notification_id}/read", response_model=Notification)
-async def mark_notification_as_read_put_endpoint(
-    notification_id: str,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database),
-):
-    """Mark notification as read (compat endpoint: PUT /notifications/{id}/read)."""
-    return await mark_notification_as_read_endpoint(notification_id, current_user, db)
-
-
 @router.post("/{notification_id}/read", response_model=Notification)
 async def mark_notification_as_read_endpoint(
     notification_id: str,
@@ -118,8 +159,8 @@ async def mark_notification_as_read_endpoint(
             detail="Notification not found",
         )
 
-    # Check if notification belongs to current user
-    if notification["receiver_id"] != str(current_user["_id"]):
+    owner_id = str(notification.get("user_id") or notification.get("receiver_id") or "")
+    if owner_id != str(current_user["_id"]) and current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot mark other user's notifications",
@@ -129,6 +170,7 @@ async def mark_notification_as_read_endpoint(
     return Notification(**serialize_doc(result))
 
 
+@router.patch("/read-all")
 @router.post("/user/read-all")
 async def mark_all_notifications_as_read_endpoint(
     current_user=Depends(get_current_user),
@@ -137,7 +179,7 @@ async def mark_all_notifications_as_read_endpoint(
     """Mark all user's notifications as read"""
     user_id = str(current_user["_id"])
     modified_count = await mark_all_as_read(db, user_id)
-    return {"message": f"Marked {modified_count} notifications as read"}
+    return {"message": f"Marked {modified_count} notifications as read", "count": modified_count}
 
 
 @router.delete("/{notification_id}")
@@ -154,11 +196,8 @@ async def delete_notification_endpoint(
             detail="Notification not found",
         )
 
-    # Check if notification belongs to current user or user is admin
-    if (
-        notification["receiver_id"] != str(current_user["_id"])
-        and current_user.get("role") != "admin"
-    ):
+    owner_id = str(notification.get("user_id") or notification.get("receiver_id") or "")
+    if owner_id != str(current_user["_id"]) and current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot delete other user's notifications",
@@ -171,6 +210,17 @@ async def delete_notification_endpoint(
             detail="Notification not found",
         )
     return {"message": "Notification deleted successfully"}
+
+
+
+@router.post("/check-deadlines")
+async def trigger_deadline_checks(
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """Trigger system scan for upcoming deadlines and generate deadline notifications"""
+    count = await check_and_create_deadline_notifications(db)
+    return {"message": f"Generated {count} deadline notifications", "count": count}
 
 
 @router.post("/cleanup/old")
@@ -187,4 +237,4 @@ async def cleanup_old_notifications_endpoint(
         )
 
     deleted_count = await delete_old_notifications(db, days)
-    return {"message": f"Deleted {deleted_count} old notifications"}
+    return {"message": f"Deleted {deleted_count} old notifications"}

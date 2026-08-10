@@ -3,6 +3,7 @@ from datetime import datetime
 
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
+from app.modules.notifications.db import create_notification
 from app.modules.projects.db import (
     add_milestone,
     create_project,
@@ -54,6 +55,19 @@ async def create_project_endpoint(
 
     project_data = project.model_dump()
     result = await create_project(db, project_data)
+    p_id = str(result["_id"])
+
+    # Trigger project update notification
+    target_user = result.get("project_manager_id") or str(current_user["_id"])
+    await create_notification(db, {
+        "user_id": target_user,
+        "title": "Project Created",
+        "message": f"Project '{result.get('name', 'New Project')}' has been successfully created.",
+        "type": "success",
+        "category": "project_update",
+        "entity_type": "project",
+        "entity_id": p_id,
+    })
 
     return Project(**serialize_project(result))
 
@@ -129,6 +143,18 @@ async def update_project_endpoint(
     update_data = update.model_dump(exclude_unset=True)
 
     result = await update_project(db, project_id, update_data)
+    p_name = result.get("name") or project.get("name") or "Project"
+    target_user = result.get("project_manager_id") or str(current_user["_id"])
+
+    await create_notification(db, {
+        "user_id": target_user,
+        "title": "Project Updated",
+        "message": f"Project '{p_name}' has been updated.",
+        "type": "info",
+        "category": "project_update",
+        "entity_type": "project",
+        "entity_id": project_id,
+    })
 
     return Project(**serialize_project(result))
 
@@ -186,5 +212,16 @@ async def add_milestone_endpoint(
     result = await add_milestone(db, project_id, milestone_data)
 
     result["_id"] = str(result["_id"])
+    target_user = project.get("project_manager_id") or str(current_user["_id"])
+    await create_notification(db, {
+        "user_id": target_user,
+        "title": "New Milestone Added",
+        "message": f"Milestone '{milestone_data.get('title', 'Milestone')}' was added to project '{project.get('name', '')}'.",
+        "type": "info",
+        "category": "project_update",
+        "entity_type": "project",
+        "entity_id": project_id,
+    })
 
     return result
+

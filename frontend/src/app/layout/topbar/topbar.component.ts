@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, signal, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { NotificationItem } from '../../core/models/models';
 import { AuthService } from '../../core/services/auth.service';
 import { MockDataService } from '../../core/services/mock-data.service';
-import { NotificationApiService } from '../../features/notifications/notification-api.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 interface SearchResult {
   label: string;
@@ -26,8 +27,7 @@ export class TopbarComponent implements OnInit {
 
   query = signal('');
   showResults = signal(false);
-  unreadCount = signal(0);
-  hasUnread = computed(() => this.unreadCount() > 0);
+  showNotificationsPanel = signal(false);
 
   results = computed<SearchResult[]>(() => {
     const term = this.query().trim().toLowerCase();
@@ -67,12 +67,69 @@ export class TopbarComponent implements OnInit {
   constructor(
     public auth: AuthService,
     public data: MockDataService,
+    public notificationService: NotificationService,
     private router: Router,
-    private notificationApi: NotificationApiService,
   ) {}
 
   ngOnInit(): void {
-    this.loadUnreadNotifications();
+    if (this.auth.currentUser()) {
+      this.refreshNotifications();
+      setInterval(() => this.refreshNotifications(), 30000);
+    }
+  }
+
+  refreshNotifications(): void {
+    this.notificationService.getUnreadCount().subscribe();
+    this.notificationService.getNotifications({ limit: 10 }).subscribe();
+  }
+
+  toggleNotifications(): void {
+    this.showNotificationsPanel.update((v) => !v);
+    if (this.showNotificationsPanel()) {
+      this.refreshNotifications();
+    }
+  }
+
+  markAsRead(item: NotificationItem, event: MouseEvent): void {
+    event.stopPropagation();
+    const id = item._id || item.id;
+    if (id && !item.is_read) {
+      this.notificationService.markAsRead(id).subscribe(() => {
+        this.refreshNotifications();
+      });
+    }
+  }
+
+  markAllAsRead(event: MouseEvent): void {
+    event.stopPropagation();
+    this.notificationService.markAllAsRead().subscribe(() => {
+      this.refreshNotifications();
+    });
+  }
+
+  viewAllNotifications(): void {
+    this.showNotificationsPanel.set(false);
+    this.router.navigate(['/notifications']);
+  }
+
+  onNotificationClick(item: NotificationItem): void {
+    const id = item._id || item.id;
+    if (id && !item.is_read) {
+      this.notificationService.markAsRead(id).subscribe();
+    }
+    this.showNotificationsPanel.set(false);
+
+    if (item.entity_type === 'project' && item.entity_id) {
+      this.router.navigate(['/projects', item.entity_id]);
+    } else if (item.entity_type === 'procurement') {
+      this.router.navigate(['/procurement']);
+    } else if (item.entity_type === 'attendance') {
+      this.router.navigate(['/attendance']);
+    } else if (item.entity_type === 'task' || item.category === 'task_assignment') {
+      this.router.navigate(['/workers']);
+    } else {
+      this.router.navigate(['/notifications']);
+    }
   }
 
   onFocus(): void {
@@ -80,7 +137,6 @@ export class TopbarComponent implements OnInit {
   }
 
   onBlur(): void {
-    // Delay so a click on a result registers before the list disappears.
     setTimeout(() => this.showResults.set(false), 150);
   }
 
@@ -91,18 +147,8 @@ export class TopbarComponent implements OnInit {
   }
 
   openNotifications(): void {
-    this.loadUnreadNotifications();
+    this.refreshNotifications();
     this.router.navigate(['/notifications']);
   }
-
-  private loadUnreadNotifications(): void {
-    this.notificationApi.getUnreadNotifications().subscribe({
-      next: (notifications: any[]) => {
-        this.unreadCount.set(Array.isArray(notifications) ? notifications.length : 0);
-      },
-      error: () => {
-        this.unreadCount.set(0);
-      },
-    });
-  }
 }
+
