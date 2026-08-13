@@ -15,7 +15,8 @@ export type UserRole =
   | 'Finance'
   | 'Contractor'
   | 'Worker'
-  | 'Client';
+  | 'Client'
+  | 'Vendor';
 
 export type UserStatus = 'Active' | 'Pending' | 'Suspended';
 
@@ -26,6 +27,7 @@ export interface User {
   role: UserRole;
   status?: UserStatus;
   avatarUrl?: string;
+  vendorId?: string;
 }
 
 export type ProjectStatus = 'In Progress' | 'On Hold' | 'Not Started' | 'Completed';
@@ -133,7 +135,24 @@ export interface AttendanceRecord {
 }
 
 export type Priority = 'low' | 'medium' | 'high';
-export type MaterialRequestStatus = 'pending' | 'approved' | 'rejected';
+export type MaterialRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'vendor_assigned'
+  | 'sent_to_vendor'
+  | 'vendor_accepted'
+  | 'vendor_rejected'
+  | 'po_generated'
+  | 'po_sent'
+  | 'po_accepted'
+  | 'partially_delivered'
+  | 'delivered'
+  | 'invoice_pending'
+  | 'invoice_verified'
+  | 'payment_pending'
+  | 'paid'
+  | 'completed';
 export type VendorStatus = 'active' | 'inactive';
 export type POStatus = 'created' | 'sent' | 'accepted' | 'delivered';
 export type QualityStatus = 'pending' | 'passed' | 'failed';
@@ -151,11 +170,24 @@ export interface MaterialRequest {
   id?: string;
   request_id?: string;
   project: string;
+  project_id?: string;
   material_name: string;
+  material_id?: string;
+  unit?: string;
   quantity: number;
   required_date: string;
   priority: Priority;
   status: MaterialRequestStatus;
+  vendor_id?: string;
+  assigned_vendor_id?: string;
+  vendor_name?: string;
+  vendor_assigned_by?: string;
+  vendor_assigned_at?: string;
+  vendor_response?: 'accept' | 'reject' | null;
+  vendor_response_date?: string;
+  vendor_comment?: string;
+  purchase_order_id?: string;
+  po_number?: string;
   remarks?: string;
   requested_by?: string;
   approval_comments?: string;
@@ -164,6 +196,17 @@ export interface MaterialRequest {
   created_at?: string;
   updated_at?: string;
 }
+export interface MaterialItem {
+  _id?: string;
+  id?: string;
+  material: string;
+  material_name?: string;
+  available_stock: number;
+  unit?: string;
+  status?: string;
+}
+
+
 
 export interface Vendor {
   _id?: string;
@@ -250,6 +293,26 @@ export interface Payment {
   remarks?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface VendorDashboardStats {
+  pending_requests: number;
+  accepted_requests: number;
+  rejected_requests: number;
+  active_purchase_orders: number;
+  pending_deliveries: number;
+  pending_invoices: number;
+  pending_payments: number;
+
+  requests: MaterialRequest[];
+
+  recent_activity: Array<{
+    id?: string;
+    type: string;
+    title: string;
+    description: string;
+    timestamp?: string;
+  }>;
 }
 
 export interface ProcurementDashboardStats {

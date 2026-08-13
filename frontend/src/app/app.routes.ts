@@ -10,6 +10,7 @@ const ALL_ROLES: UserRole[] = [
   "Contractor",
   "Worker",
   "Client",
+  "Vendor",
 ];
 
 export const routes: Routes = [
@@ -308,6 +309,17 @@ export const routes: Routes = [
             "Project Manager",
             "Site Engineer",
           ] as UserRole[],
+        },
+      },
+            {
+        path: "procurement/vendor-dashboard",
+        loadComponent: () =>
+          import("./features/procurement/vendor-dashboard/vendor-dashboard.component").then(
+            (m) => m.VendorDashboardComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Vendor"] as UserRole[],
         },
       },
       {

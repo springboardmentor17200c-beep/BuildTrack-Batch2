@@ -12,8 +12,12 @@ async def get_user_by_email(db: AsyncIOMotorDatabase, email: str):
 
 
 async def get_user_by_id(db: AsyncIOMotorDatabase, user_id: str):
-    return await db.users.find_one({"_id": ObjectId(user_id)})
+    try:
+        object_id = ObjectId(user_id)
+    except Exception:
+        return None
 
+    return await db.users.find_one({"_id": object_id})
 
 async def create_user(db: AsyncIOMotorDatabase, user: UserCreate):
     user_dict = user.model_dump()

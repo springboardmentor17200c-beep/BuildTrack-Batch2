@@ -16,6 +16,9 @@
         <option value="">All Statuses</option>
         <option value="pending" *ngIf="['requests', 'invoices', 'payments'].includes(activeTab())">Pending</option>
         <option value="approved" *ngIf="['requests', 'invoices', 'payments'].includes(activeTab())">Approved</option>
+        <option value="vendor_assigned" *ngIf="activeTab() === 'requests'">Vendor Assigned</option>
+        <option value="po_generated" *ngIf="activeTab() === 'requests'">PO Generated</option>
+        <option value="po_sent" *ngIf="activeTab() === 'requests'">PO Sent</option>
         <option value="rejected" *ngIf="['requests', 'invoices'].includes(activeTab())">Rejected</option>
         <option value="active" *ngIf="activeTab() === 'vendors'">Active</option>
         <option value="inactive" *ngIf="activeTab() === 'vendors'">Inactive</option>
@@ -138,6 +141,7 @@
             <th>Quantity</th>
             <th>Req. Date</th>
             <th>Priority</th>
+            <th>Vendor</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -150,17 +154,27 @@
             <td>{{ item.quantity }}</td>
             <td>{{ formatDate(item.required_date) }}</td>
             <td><span class="badge" [ngClass]="statusBadgeClass(item.priority)">{{ item.priority }}</span></td>
+            <td>{{ item.vendor_name || vendorName(item.vendor_id) }}</td>
             <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
             <td>
               <div class="action-row">
                 <button class="icon-action" title="View Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
                 <button *ngIf="isProjectManager() && item.status === 'pending'" class="icon-action success" title="Approve/Reject" (click)="openApprovalModal(item)"><i class="fa-solid fa-user-check"></i></button>
+                <button *ngIf="isProjectManager() && item.status === 'approved'" class="btn btn-sm btn-primary" type="button" (click)="openAssignVendorModal(item)">
+                  <i class="fa-solid fa-truck"></i> Assign Vendor
+                </button>
+                <button *ngIf="isProjectManager() && item.status === 'vendor_assigned'" class="btn btn-sm btn-primary" type="button" (click)="openPOFromRequest(item)">
+                  <i class="fa-solid fa-file-signature"></i> Generate PO
+                </button>
+                <button *ngIf="item.purchase_order_id" class="btn btn-sm btn-outline" type="button" (click)="setTab('purchase-orders')">
+                  <i class="fa-solid fa-file-contract"></i> View PO
+                </button>
                 <button *ngIf="isSiteEngineer()" class="icon-action" title="Edit" (click)="openEditModal('requests', item)"><i class="fa-solid fa-pen"></i></button>
                 <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('requests', item._id!, item.material_name)"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>
-          <tr *ngIf="requests().length === 0"><td colspan="8" class="empty-cell">No material requests found.</td></tr>
+          <tr *ngIf="requests().length === 0"><td colspan="9" class="empty-cell">No material requests found.</td></tr>
         </tbody>
       </table>
     </div>
@@ -197,7 +211,9 @@
             <td><span class="badge" [ngClass]="statusBadgeClass(item.priority)">{{ item.priority }}</span></td>
             <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
             <td>
-              <button class="btn btn-sm btn-primary" (click)="openApprovalModal(item)"><i class="fa-solid fa-check"></i> Review</button>
+              <button *ngIf="item.status === 'pending'" class="btn btn-sm btn-primary" (click)="openApprovalModal(item)"><i class="fa-solid fa-check"></i> Review</button>
+              <button *ngIf="item.status === 'approved'" class="btn btn-sm btn-primary" (click)="openAssignVendorModal(item)"><i class="fa-solid fa-truck"></i> Assign Vendor</button>
+              <button *ngIf="item.status === 'vendor_assigned'" class="btn btn-sm btn-primary" (click)="openPOFromRequest(item)"><i class="fa-solid fa-file-signature"></i> Generate PO</button>
             </td>
           </tr>
           <tr *ngIf="requests().length === 0"><td colspan="8" class="empty-cell">No material requests pending review.</td></tr>
@@ -228,7 +244,7 @@
             <td>{{ item.contact_person }}</td>
             <td>{{ item.phone }}</td>
             <td>{{ item.email }}</td>
-            <td>{{ item.materials_supplied?.join(', ') || '-' }}</td>
+            <td>{{ item.materials_supplied.join(', ') || '-' }}</td>
             <td><i class="fa-solid fa-star text-warning"></i> {{ item.rating }}/5</td>
             <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
             <td>
@@ -285,6 +301,7 @@
             <td>
               <div class="action-row">
                 <button class="icon-action" title="Download PDF" (click)="downloadPDF(item)"><i class="fa-solid fa-file-pdf"></i></button>
+                <button *ngIf="isProjectManager() && item.status === 'created'" class="icon-action success" title="Send PO" (click)="sendPO(item)"><i class="fa-solid fa-paper-plane"></i></button>
                 <button class="icon-action" title="Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
                 <button *ngIf="isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('purchase-orders', item)"><i class="fa-solid fa-pen"></i></button>
                 <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('purchase-orders', item._id!, item.po_number || 'PO')"><i class="fa-solid fa-trash"></i></button>
@@ -393,13 +410,16 @@
             <td>
               <div class="action-row">
                 <button *ngIf="isFinance()" class="btn btn-sm btn-outline" (click)="openInvoiceActionModal(item, 'verify')">Action</button>
+                <button class="icon-action" title="Download Invoice PDF" (click)="downloadInvoicePDF(item)"><i class="fa-solid fa-file-pdf"></i></button>
                 <a *ngIf="item.attachment_url" [href]="item.attachment_url" target="_blank" class="icon-action" title="View Attachment"><i class="fa-solid fa-paperclip"></i></a>
                 <button class="icon-action" title="Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+                <button *ngIf="isFinance() || isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('invoices', item)"><i class="fa-solid fa-pen"></i></button>
+                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('invoices', (item._id || item.id)!, item.invoice_number)"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>
-          <tr *ngIf="invoices().length === 0"><td colspan="10" class="empty-cell">No invoices tracked.</td></tr>
         </tbody>
+
       </table>
     </div>
   </section>
@@ -520,6 +540,41 @@
   </div>
 </div>
 
+<!-- ASSIGN VENDOR MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'assign_vendor'" (click)="closeModal()">
+  <div class="modal-card wide-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Assign Vendor</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="vendorAssignmentForm" (ngSubmit)="submitVendorAssignment()">
+      <div class="modal-body">
+        <div class="request-summary">
+          <strong>{{ selectedItem()?.request_id || selectedItem()?._id }}</strong>
+          <span>{{ selectedItem()?.project }}</span>
+          <span>{{ selectedItem()?.material_name }} - {{ selectedItem()?.quantity }}</span>
+        </div>
+        <div class="vendor-options">
+          <label class="vendor-choice" *ngFor="let vendor of vendors()">
+            <input type="radio" formControlName="vendor_id" [value]="vendor._id || vendor.id" />
+            <span>
+              <strong>{{ vendor.vendor_name }}</strong>
+              <small>{{ vendor.contact_person }} | {{ vendor.phone }} | {{ vendor.email }}</small>
+              <small>{{ vendor.address }}</small>
+              <em>{{ vendor.status }}</em>
+            </span>
+          </label>
+        </div>
+        <p class="empty-text" *ngIf="vendors().length === 0">No active vendors available.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="vendors().length === 0">Assign Vendor</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- 3. VENDOR MODAL -->
 <div class="modal-backdrop" *ngIf="modal() === 'vendors'" (click)="closeModal()">
   <div class="modal-card" (click)="$event.stopPropagation()">
@@ -537,10 +592,32 @@
         <div class="modal-field form-span"><label>Materials Supplied (comma separated)</label><input formControlName="materials_supplied" placeholder="e.g. Cement, Steel, Bricks" /></div>
         <div class="modal-field"><label>Rating (0-5)</label><input type="number" step="0.1" min="0" max="5" formControlName="rating" /></div>
         <div class="modal-field"><label>Status</label><select formControlName="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+
+        <!-- Create Login Account Toggle — only for admins creating NEW vendors -->
+        <div class="modal-field form-span" *ngIf="isAdmin() && !selectedItem()" style="margin-top: 8px;">
+          <label class="toggle-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" [checked]="createLoginAccount()" (change)="toggleCreateLoginAccount($event)" style="width: 18px; height: 18px; accent-color: #6366f1; cursor: pointer;" />
+            <span style="font-weight: 600; color: #e2e8f0;">Create Vendor Login Account</span>
+          </label>
+          <small style="color: #94a3b8; margin-top: 4px; display: block;">
+            When enabled, a login account will be created so the vendor can access their dashboard.
+          </small>
+        </div>
+
+        <!-- Password field — shown only when toggle is ON -->
+        <div class="modal-field form-span" *ngIf="createLoginAccount() && isAdmin() && !selectedItem()">
+          <label>Login Password <span style="color: #f87171;">*</span></label>
+          <input type="password" formControlName="password" placeholder="Min 6 characters" minlength="6" autocomplete="new-password" />
+          <small style="color: #94a3b8; margin-top: 4px; display: block;">
+            The vendor will use their email and this password to log in.
+          </small>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Vendor</button>
+        <button type="submit" class="btn btn-primary">
+          {{ createLoginAccount() && !selectedItem() ? 'Save Vendor & Create Account' : 'Save Vendor' }}
+        </button>
       </div>
     </form>
   </div>
@@ -560,7 +637,7 @@
           <select formControlName="request_id" (change)="onMaterialRequestSelectForPO($event)">
             <option value="">-- Choose Approved Request --</option>
             <option *ngFor="let req of approvedRequests()" [value]="req._id || req.request_id">
-              {{ req.request_id || req.material_name }} ({{ req.project }} - {{ req.material_name }})
+              {{ req.request_id || req.material_name }} ({{ req.project }} - {{ req.material_name }} - {{ req.vendor_name || vendorName(req.vendor_id) }})
             </option>
           </select>
         </div>
@@ -659,7 +736,7 @@
         </div>
         <div class="modal-field">
           <label>Purchase Order</label>
-          <select formControlName="purchase_order_id">
+          <select formControlName="purchase_order_id" (change)="onPOSelectForInvoice($event)">
             <option value="">-- Select PO --</option>
             <option *ngFor="let po of purchaseOrders()" [value]="po._id">{{ po.po_number }}</option>
           </select>

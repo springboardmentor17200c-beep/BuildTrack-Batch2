@@ -5,7 +5,25 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 Priority = Literal["low", "medium", "high"]
-RequestStatus = Literal["pending", "approved", "rejected"]
+RequestStatus = Literal[
+    "pending",
+    "approved",
+    "rejected",
+    "vendor_assigned",
+    "sent_to_vendor",
+    "vendor_accepted",
+    "vendor_rejected",
+    "po_generated",
+    "po_sent",
+    "po_accepted",
+    "partially_delivered",
+    "delivered",
+    "invoice_pending",
+    "invoice_verified",
+    "payment_pending",
+    "paid",
+    "completed",
+]
 VendorStatus = Literal["active", "inactive"]
 POStatus = Literal["created", "sent", "accepted", "delivered"]
 QualityStatus = Literal["pending", "passed", "failed"]
@@ -36,6 +54,21 @@ class VendorCreate(VendorBase):
     pass
 
 
+class VendorCreateWithAccount(VendorBase):
+    """Vendor creation with optional login account.
+
+    When ``create_login_account`` is True the endpoint also creates a
+    User document with role ``vendor`` and links it via ``vendor_id``.
+    """
+
+    create_login_account: bool = False
+    password: Optional[str] = Field(
+        default=None,
+        min_length=6,
+        description="Login password — required when create_login_account is True",
+    )
+
+
 class VendorUpdate(BaseModel):
     vendor_name: Optional[str] = Field(default=None, min_length=2, max_length=120)
     contact_person: Optional[str] = Field(default=None, min_length=2, max_length=120)
@@ -54,7 +87,10 @@ class Vendor(VendorBase, MongoModel):
 
 class MaterialRequestBase(BaseModel):
     project: str = Field(..., min_length=2, max_length=160)
+    project_id: Optional[str] = None
     material_name: str = Field(..., min_length=2, max_length=160)
+    material_id: Optional[str] = None
+    unit: Optional[str] = None
     quantity: float = Field(..., gt=0)
     required_date: datetime
     priority: Priority = "medium"
@@ -67,7 +103,10 @@ class MaterialRequestCreate(MaterialRequestBase):
 
 class MaterialRequestUpdate(BaseModel):
     project: Optional[str] = Field(default=None, min_length=2, max_length=160)
+    project_id: Optional[str] = None
     material_name: Optional[str] = Field(default=None, min_length=2, max_length=160)
+    material_id: Optional[str] = None
+    unit: Optional[str] = None
     quantity: Optional[float] = Field(default=None, gt=0)
     required_date: Optional[datetime] = None
     priority: Optional[Priority] = None
@@ -79,9 +118,31 @@ class ApprovalAction(BaseModel):
     comments: Optional[str] = None
 
 
+class VendorAssignment(BaseModel):
+    vendor_id: str = Field(..., min_length=1)
+
+
+class VendorResponseAction(BaseModel):
+    """Vendor accept/reject payload. Rejection requires a comment/reason."""
+
+    action: Literal["accept", "reject"]
+    comment: Optional[str] = Field(default=None, max_length=1000)
+
+
+
 class MaterialRequest(MaterialRequestBase, MongoModel):
     request_id: str
     status: RequestStatus = "pending"
+    vendor_id: Optional[str] = None
+    vendor_name: Optional[str] = None
+    vendor_assigned_by: Optional[str] = None
+    vendor_assigned_at: Optional[datetime] = None
+    assigned_vendor_id: Optional[str] = None
+    vendor_response: Optional[str] = None
+    vendor_response_date: Optional[datetime] = None
+    vendor_comment: Optional[str] = None
+    purchase_order_id: Optional[str] = None
+    po_number: Optional[str] = None
     requested_by: Optional[str] = None
     approval_comments: Optional[str] = None
     approved_by: Optional[str] = None
@@ -94,9 +155,13 @@ class PurchaseOrderBase(BaseModel):
     request_id: str = Field(..., min_length=1)
     vendor_id: str = Field(..., min_length=1)
     project: str = Field(..., min_length=2, max_length=160)
+    project_id: Optional[str] = None
     materials: str = Field(..., min_length=2, max_length=200)
+    material_id: Optional[str] = None
     quantity: float = Field(..., gt=0)
     unit_price: float = Field(..., ge=0)
+    gst: float = Field(default=0, ge=0)
+    subtotal: float = Field(default=0, ge=0)
     expected_delivery_date: datetime
     status: POStatus = "created"
 
@@ -108,15 +173,21 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 class PurchaseOrderUpdate(BaseModel):
     vendor_id: Optional[str] = None
     project: Optional[str] = Field(default=None, min_length=2, max_length=160)
+    project_id: Optional[str] = None
     materials: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    material_id: Optional[str] = None
     quantity: Optional[float] = Field(default=None, gt=0)
     unit_price: Optional[float] = Field(default=None, ge=0)
+    gst: Optional[float] = Field(default=None, ge=0)
+    subtotal: Optional[float] = Field(default=None, ge=0)
     expected_delivery_date: Optional[datetime] = None
     status: Optional[POStatus] = None
 
 
 class PurchaseOrder(PurchaseOrderBase, MongoModel):
     po_number: str
+    subtotal: float
+    gst: float
     total_cost: float
     created_at: datetime
     updated_at: datetime
@@ -223,6 +294,33 @@ class DashboardStats(BaseModel):
     pending_deliveries: int
     pending_payments: int
     recent_activity: list[dict]
+
+
+class MaterialItem(BaseModel):
+    """Material master record sourced from the `inventory` collection."""
+
+    id: str = Field(alias="_id")
+    material: str
+    material_name: Optional[str] = None
+    available_stock: float = 0
+    unit: Optional[str] = None
+    status: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class VendorDashboardStats(BaseModel):
+    vendor: Vendor | None = None
+    total_assigned: int = 0
+    pending_responses: int = 0
+    accepted_requests: int = 0
+    rejected_requests: int = 0
+    total_purchase_orders: int = 0
+    pending_deliveries: int = 0
+    pending_payments: int = 0
+    requests: list[MaterialRequest] = Field(default_factory=list)
+    purchase_orders: list[PurchaseOrder] = Field(default_factory=list)
 
 
 class ProcurementItem(BaseModel):

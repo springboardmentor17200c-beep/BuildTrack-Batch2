@@ -31,6 +31,7 @@ interface BackendUser {
   full_name: string;
   role: string;
   status?: string;
+  vendor_id?: string;
 }
 
 interface BackendLoginResponse {
@@ -130,6 +131,26 @@ export class AuthService {
       );
   }
 
+  /** Admin: create a login for an existing Vendor record (role=VENDOR). */
+  createVendorUser(payload: {
+    email: string;
+    password: string;
+    fullName: string;
+    vendorId: string;
+  }): Observable<{ message: string; user: BackendUser }> {
+    return this.http.post<{ message: string; user: BackendUser }>(
+      `${this.apiBase}/auth/vendor-user`,
+      {
+        full_name: payload.fullName,
+        email: payload.email,
+        password: payload.password,
+        role: 'vendor',
+        status: 'active',
+        vendor_id: payload.vendorId,
+      },
+    );
+  }
+
   requestPasswordReset(email: string): Observable<{ message: string }> {
     if (this.useMockApi) {
       return of({ message: 'Reset link sent' }).pipe(delay(600));
@@ -174,6 +195,7 @@ export class AuthService {
       email: user.email,
       role: this.toFrontendRole(user.role),
       status: this.toFrontendStatus(user.status),
+      vendorId: user.vendor_id,
     };
   }
 
@@ -192,6 +214,7 @@ export class AuthService {
       contractor: 'Contractor',
       worker: 'Worker',
       client: 'Client',
+      vendor: 'Vendor',
     };
 
     return roleMap[normalized] ?? 'Worker';
@@ -207,6 +230,7 @@ export class AuthService {
       Contractor: 'contractor',
       Worker: 'worker',
       Client: 'client',
+      Vendor: 'vendor',
     };
 
     return roleMap[role];

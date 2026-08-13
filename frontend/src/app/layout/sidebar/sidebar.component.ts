@@ -99,11 +99,11 @@ export class SidebarComponent {
         },
       ],
     },
-    {
+        {
       label: 'Procurement',
       icon: 'fa-cart-shopping',
       route: '/procurement',
-      roles: ['Administrator', 'Project Manager'],
+      roles: ['Administrator', 'Project Manager', 'Vendor'],
       children: [
         {
           label: 'Vendors',
@@ -115,7 +115,7 @@ export class SidebarComponent {
           label: 'Purchase Orders',
           icon: 'fa-file-invoice',
           route: '/procurement/purchase-orders',
-          roles: ['Administrator', 'Project Manager'],
+          roles: ['Administrator', 'Project Manager', 'Vendor'],
         },
         {
           label: 'Invoices',
@@ -128,6 +128,12 @@ export class SidebarComponent {
           icon: 'fa-file-circle-plus',
           route: '/procurement/request',
           roles: ['Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Vendor Dashboard',
+          icon: 'fa-truck',
+          route: '/procurement/vendor-dashboard',
+          roles: ['Vendor'],
         },
       ],
     },

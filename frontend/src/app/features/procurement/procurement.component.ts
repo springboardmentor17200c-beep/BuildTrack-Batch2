@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   Invoice,
   MaterialDelivery,
@@ -54,8 +54,16 @@ export class ProcurementComponent implements OnInit {
   sortDir = signal<'asc' | 'desc'>('desc');
 
   // Modals & Selections
-  modal = signal<ProcurementTab | 'approval' | 'invoice_action' | null>(null);
+  modal = signal<ProcurementTab | 'approval' | 'assign_vendor' | 'invoice_action' | null>(null);
   selectedItem = signal<any | null>(null);
+
+  // ASSUMPTION (needs backend confirmation): the material-request status
+  // literal used for "submitted, awaiting approval" is 'pending' — inferred
+  // from statusBadgeClass() already treating 'pending' as an amber
+  // (awaiting-action) status elsewhere in this file. If the backend uses a
+  // different literal (e.g. 'submitted', 'pending_approval'), update this
+  // single constant.
+  private readonly PENDING_APPROVAL_STATUS = 'pending';
 
   // Data signals
   dashboardStats = signal<ProcurementDashboardStats | null>(null);
@@ -72,9 +80,20 @@ export class ProcurementComponent implements OnInit {
   uploadedAttachmentUrl = signal<string>('');
   uploadingFile = signal<boolean>(false);
 
+  // Vendor login account creation toggle
+  createLoginAccount = signal(false);
+
   // User Role checks
+  // SECURITY: missing/unknown user info must NOT be granted elevated
+  // privileges. Previously this defaulted to 'Administrator', which meant
+  // an unauthenticated or not-yet-loaded user state silently rendered
+  // admin-only UI. An unknown role now resolves to '' and matches none of
+  // the role checks below.
+  // NOTE: these checks are for UI visibility only. The backend must enforce
+  // authorization independently — never trust these signals as a security
+  // boundary.
   currentUser = computed(() => this.authService.currentUser());
-  userRole = computed(() => this.currentUser()?.role || 'Administrator');
+  userRole = computed(() => this.currentUser()?.role ?? '');
 
   isAdmin = computed(() => ['Administrator', 'Admin', 'admin'].includes(this.userRole()));
   isProjectManager = computed(() => ['Project Manager', 'manager'].includes(this.userRole()) || this.isAdmin());
@@ -97,6 +116,10 @@ export class ProcurementComponent implements OnInit {
     comments: [''],
   });
 
+  vendorAssignmentForm = this.fb.group({
+    vendor_id: ['', Validators.required],
+  });
+
   vendorForm = this.fb.group({
     vendor_name: ['', [Validators.required, Validators.minLength(2)]],
     contact_person: ['', [Validators.required, Validators.minLength(2)]],
@@ -106,6 +129,7 @@ export class ProcurementComponent implements OnInit {
     materials_supplied: ['', Validators.required], // Comma-separated string in form
     rating: [4.0, [Validators.min(0), Validators.max(5)]],
     status: ['active' as 'active' | 'inactive', Validators.required],
+    password: [''],
   });
 
   purchaseForm = this.fb.group({
@@ -160,7 +184,6 @@ export class ProcurementComponent implements OnInit {
     private readonly authService: AuthService,
     private readonly notificationService: NotificationService,
     private readonly confirmService: ConfirmService,
-    private readonly route: ActivatedRoute,
     private readonly router: Router
   ) {}
 
@@ -264,18 +287,51 @@ export class ProcurementComponent implements OnInit {
         });
         break;
 
-      case 'requests':
-      case 'approvals':
+      case 'requests': {
         this.procurementService.getMaterialRequests(query).subscribe({
           next: (res) => {
             this.requests.set(res.items);
             this.totalItems.set(res.total);
-            this.approvedRequests.set(res.items.filter((r) => r.status === 'approved'));
+            this.approvedRequests.set(res.items.filter((r) => this.canGeneratePOFromRequest(r)));
             this.loading.set(false);
           },
           error: (err) => this.handleError('Failed to load material requests', err),
         });
+        this.procurementService.getActiveVendors({ limit: 100 }).subscribe({
+          next: (v) => this.vendors.set(v.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
         break;
+      }
+
+      case 'approvals': {
+        // The Approvals tab must only ever show requests awaiting a
+        // decision — never already-approved/rejected ones. status_filter is
+        // forced server-side (overriding whatever the generic status
+        // dropdown happens to hold) and the result is filtered again
+        // client-side as a safety net in case the backend doesn't honor the
+        // filter. ASSUMPTION (needs backend confirmation): the pending
+        // status literal is 'pending' — see PENDING_APPROVAL_STATUS below.
+        const approvalsQuery = { ...query, status_filter: this.PENDING_APPROVAL_STATUS };
+        this.procurementService.getMaterialRequests(approvalsQuery).subscribe({
+          next: (res) => {
+            const pendingOnly = res.items.filter((r) => r.status === this.PENDING_APPROVAL_STATUS);
+            this.requests.set(pendingOnly);
+            this.totalItems.set(res.total);
+            this.loading.set(false);
+          },
+          error: (err) => this.handleError('Failed to load pending approvals', err),
+        });
+        this.procurementService.getActiveVendors({ limit: 100 }).subscribe({
+          next: (v) => this.vendors.set(v.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
+        break;
+      }
 
       case 'vendors':
         this.procurementService.getVendors(query).subscribe({
@@ -298,10 +354,18 @@ export class ProcurementComponent implements OnInit {
           error: (err) => this.handleError('Failed to load purchase orders', err),
         });
         // Also fetch vendors & approved material requests for dropdown options
-        this.procurementService.getVendors({ limit: 100 }).subscribe((v) => this.vendors.set(v.items));
-        this.procurementService
-          .getMaterialRequests({ limit: 100, status_filter: 'approved' })
-          .subscribe((r) => this.approvedRequests.set(r.items));
+        this.procurementService.getActiveVendors({ limit: 100 }).subscribe({
+          next: (v) => this.vendors.set(v.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
+        this.procurementService.getMaterialRequests({ limit: 100 }).subscribe({
+          next: (r) => this.approvedRequests.set(r.items.filter((request) => this.canGeneratePOFromRequest(request))),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
         break;
 
       case 'deliveries':
@@ -313,7 +377,12 @@ export class ProcurementComponent implements OnInit {
           },
           error: (err) => this.handleError('Failed to load material deliveries', err),
         });
-        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe((p) => this.purchaseOrders.set(p.items));
+        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe({
+          next: (p) => this.purchaseOrders.set(p.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
         break;
 
       case 'inventory':
@@ -336,8 +405,18 @@ export class ProcurementComponent implements OnInit {
           },
           error: (err) => this.handleError('Failed to load invoices', err),
         });
-        this.procurementService.getVendors({ limit: 100 }).subscribe((v) => this.vendors.set(v.items));
-        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe((p) => this.purchaseOrders.set(p.items));
+        this.procurementService.getVendors({ limit: 100 }).subscribe({
+          next: (v) => this.vendors.set(v.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
+        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe({
+          next: (p) => this.purchaseOrders.set(p.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
         break;
 
       case 'payments':
@@ -349,7 +428,27 @@ export class ProcurementComponent implements OnInit {
           },
           error: (err) => this.handleError('Failed to load payments', err),
         });
-        this.procurementService.getInvoices({ limit: 100 }).subscribe((i) => this.invoices.set(i.items));
+        // Payments reference an invoice, a vendor, and a purchase order —
+        // all three must be available for vendorName()/poNumber() to
+        // resolve real names instead of raw IDs on this tab.
+        this.procurementService.getInvoices({ limit: 100 }).subscribe({
+          next: (i) => this.invoices.set(i.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
+        this.procurementService.getVendors({ limit: 100 }).subscribe({
+          next: (v) => this.vendors.set(v.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
+        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe({
+          next: (p) => this.purchaseOrders.set(p.items),
+          error: () => {
+            /* non-critical secondary dropdown load; ignore to avoid breaking primary loading state */
+          },
+        });
         break;
 
       default:
@@ -361,12 +460,54 @@ export class ProcurementComponent implements OnInit {
   openAddModal(tab: ProcurementTab): void {
     this.selectedItem.set(null);
     this.resetForm(tab);
+    if (tab === 'invoices') {
+      if (this.vendors().length === 0) {
+        this.procurementService.getVendors({ limit: 100 }).subscribe((v) => this.vendors.set(v.items));
+      }
+      if (this.purchaseOrders().length === 0) {
+        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe((p) => this.purchaseOrders.set(p.items));
+      }
+    }
     this.modal.set(tab);
+  }
+
+  onPOSelectForInvoice(event: Event): void {
+    const poId = (event.target as HTMLSelectElement).value;
+    const po = this.purchaseOrders().find((p) => this.getId(p) === poId);
+    if (po) {
+      // NOT VERIFIED AGAINST BACKEND: this assumes `subtotal = total_cost`
+      // is GST-EXCLUSIVE and applies a flat 18% on top. If
+      // PurchaseOrderRecord.total_cost is already GST-inclusive, this
+      // double-counts GST on the resulting invoice. Confirm against the
+      // PurchaseOrderRecord model / FastAPI schema and the project's actual
+      // GST rate before relying on this in production — left unchanged
+      // here rather than guessing a different, equally unverified formula.
+      const subtotal = po.total_cost || po.quantity * po.unit_price || 0;
+      const amount = subtotal;
+      const gst = Math.round(subtotal * 0.18 * 100) / 100;
+      const currentInv = this.invoiceForm.get('invoice_number')?.value;
+      const invoiceNum = currentInv && currentInv.trim().length >= 2 ? currentInv : `INV-${po.po_number || Date.now().toString().slice(-5)}`;
+      this.invoiceForm.patchValue({
+        purchase_order_id: this.getId(po),
+        vendor_id: po.vendor_id || '',
+        amount: amount,
+        gst: gst,
+        invoice_number: invoiceNum,
+      });
+    }
   }
 
   openEditModal(tab: ProcurementTab, item: any): void {
     this.selectedItem.set(item);
     this.patchForm(tab, item);
+    if (tab === 'invoices') {
+      if (this.vendors().length === 0) {
+        this.procurementService.getVendors({ limit: 100 }).subscribe((v) => this.vendors.set(v.items));
+      }
+      if (this.purchaseOrders().length === 0) {
+        this.procurementService.getPurchaseOrders({ limit: 100 }).subscribe((p) => this.purchaseOrders.set(p.items));
+      }
+    }
     this.modal.set(tab);
   }
 
@@ -374,6 +515,35 @@ export class ProcurementComponent implements OnInit {
     this.selectedItem.set(request);
     this.approvalForm.reset({ status: 'approved', comments: '' });
     this.modal.set('approval');
+  }
+
+  openAssignVendorModal(request: MaterialRequest): void {
+    this.selectedItem.set(request);
+    this.vendorAssignmentForm.reset({ vendor_id: request.vendor_id || '' });
+    this.procurementService.getActiveVendors({ limit: 100 }).subscribe({
+      next: (res) => this.vendors.set(res.items),
+      error: (err) => this.handleError('Failed to load active vendors', err),
+    });
+    this.modal.set('assign_vendor');
+  }
+
+  openPOFromRequest(request: MaterialRequest): void {
+    this.selectedItem.set(null);
+    this.procurementService.getActiveVendors({ limit: 100 }).subscribe({
+      next: (res) => this.vendors.set(res.items),
+      error: (err) => this.handleError('Failed to load active vendors', err),
+    });
+    this.purchaseForm.reset({
+      request_id: this.getId(request) || (request as any).request_id || '',
+      vendor_id: request.vendor_id || '',
+      project: request.project,
+      materials: request.material_name,
+      quantity: request.quantity,
+      unit_price: 0,
+      expected_delivery_date: this.toInputDate(request.required_date),
+      status: 'created',
+    });
+    this.modal.set('purchase-orders');
   }
 
   openInvoiceActionModal(invoice: Invoice, action: 'verify' | 'approve' | 'reject'): void {
@@ -407,14 +577,15 @@ export class ProcurementComponent implements OnInit {
       project: val.project!,
       material_name: val.material_name!,
       quantity: Number(val.quantity),
-      required_date: new Date(val.required_date!).toISOString(),
+      required_date: this.toISOStringSafe(val.required_date!),
       priority: val.priority!,
       remarks: val.remarks || undefined,
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updateMaterialRequest(current._id, payload).subscribe({
+    const targetId = this.getId(current);
+    if (targetId) {
+      this.procurementService.updateMaterialRequest(targetId, payload).subscribe({
         next: () => this.handleSuccess('Material request updated successfully'),
         error: (err) => this.handleError('Failed to update material request', err),
       });
@@ -429,11 +600,12 @@ export class ProcurementComponent implements OnInit {
   submitApproval(): void {
     if (this.approvalForm.invalid) return;
     const current = this.selectedItem();
-    if (!current || !current._id) return;
+    const targetId = this.getId(current);
+    if (!targetId) return;
 
     const val = this.approvalForm.getRawValue();
     this.procurementService
-      .approveMaterialRequest(current._id, {
+      .approveMaterialRequest(targetId, {
         status: val.status!,
         comments: val.comments || undefined,
       })
@@ -443,18 +615,71 @@ export class ProcurementComponent implements OnInit {
       });
   }
 
+  submitVendorAssignment(): void {
+    if (this.vendorAssignmentForm.invalid) {
+      this.vendorAssignmentForm.markAllAsTouched();
+      return;
+    }
+    const current = this.selectedItem();
+    const targetId = this.getId(current);
+    const vendorId = this.vendorAssignmentForm.getRawValue().vendor_id;
+    if (!targetId || !vendorId) return;
+
+    this.procurementService.assignVendorToMaterialRequest(targetId, vendorId).subscribe({
+      next: () => this.handleSuccess('Vendor assigned successfully'),
+      error: (err) => this.handleError('Failed to assign vendor', err),
+    });
+  }
+
+  toggleCreateLoginAccount(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.createLoginAccount.set(checked);
+  }
+
   saveVendor(): void {
     if (this.vendorForm.invalid) {
       this.vendorForm.markAllAsTouched();
+      // BUG FIX: previously this returned silently with zero feedback, so
+      // clicking "Save Vendor & Create Account" on an incomplete form
+      // looked like it "wasn't submitting" — nothing happened and no error
+      // ever appeared. Surface exactly which field(s) are invalid instead.
+      const fieldLabels: Record<string, string> = {
+        vendor_name: 'Vendor Name',
+        contact_person: 'Contact Person',
+        phone: 'Phone (min 7 characters)',
+        email: 'Email',
+        address: 'Address',
+        materials_supplied: 'Materials Supplied',
+        rating: 'Rating (0-5)',
+        status: 'Status',
+      };
+      const invalidFields = Object.keys(this.vendorForm.controls)
+        .filter((key) => this.vendorForm.get(key)?.invalid)
+        .map((key) => fieldLabels[key] || key);
+      this.notificationService.error(
+        invalidFields.length
+          ? `Please check the following field(s): ${invalidFields.join(', ')}`
+          : 'Please fill in all required vendor fields.'
+      );
       return;
     }
+
+    // Validate password when creating a login account
+    if (this.createLoginAccount() && !this.selectedItem()) {
+      const pwd = this.vendorForm.getRawValue().password;
+      if (!pwd || pwd.trim().length < 6) {
+        this.notificationService.error('Password is required (min 6 characters) to create a login account.');
+        return;
+      }
+    }
+
     const val = this.vendorForm.getRawValue();
     const materialsArray = val
       .materials_supplied!.split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const payload: Partial<Vendor> = {
+    const vendorPayload: Partial<Vendor> = {
       vendor_name: val.vendor_name!,
       contact_person: val.contact_person!,
       phone: val.phone!,
@@ -466,13 +691,32 @@ export class ProcurementComponent implements OnInit {
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updateVendor(current._id, payload).subscribe({
+    const targetId = this.getId(current);
+
+    if (targetId) {
+      // Editing existing vendor — no login account creation
+      this.procurementService.updateVendor(targetId, vendorPayload).subscribe({
         next: () => this.handleSuccess('Vendor updated successfully'),
         error: (err) => this.handleError('Failed to update vendor', err),
       });
+    } else if (this.createLoginAccount() && this.isAdmin()) {
+      // New vendor + login account (admin only, combined endpoint)
+      this.procurementService
+        .createVendorWithAccount({
+          vendor: vendorPayload,
+          create_login_account: true,
+          password: val.password || undefined,
+        })
+        .subscribe({
+          next: (res) => {
+            this.createLoginAccount.set(false);
+            this.handleSuccess(res.message || 'Vendor and login account created successfully.');
+          },
+          error: (err) => this.handleError('Failed to create vendor with account', err),
+        });
     } else {
-      this.procurementService.createVendor(payload).subscribe({
+      // New vendor only (no login account)
+      this.procurementService.createVendor(vendorPayload).subscribe({
         next: () => this.handleSuccess('Vendor added successfully'),
         error: (err) => this.handleError('Failed to add vendor', err),
       });
@@ -481,12 +725,18 @@ export class ProcurementComponent implements OnInit {
 
   onMaterialRequestSelectForPO(event: Event): void {
     const reqId = (event.target as HTMLSelectElement).value;
-    const selectedReq = this.approvedRequests().find((r) => r._id === reqId || r.request_id === reqId);
+    const selectedReq = this.approvedRequests().find(
+      (r) => this.getId(r) === reqId || (r as any).request_id === reqId
+    );
     if (selectedReq) {
       this.purchaseForm.patchValue({
+        request_id: this.getId(selectedReq) || (selectedReq as any).request_id || reqId,
         project: selectedReq.project,
         materials: selectedReq.material_name,
         quantity: selectedReq.quantity,
+        vendor_id: selectedReq.vendor_id || this.purchaseForm.getRawValue().vendor_id || '',
+        expected_delivery_date: this.toInputDate(selectedReq.required_date),
+        status: 'created',
       });
     }
   }
@@ -496,7 +746,9 @@ export class ProcurementComponent implements OnInit {
       this.purchaseForm.markAllAsTouched();
       return;
     }
+
     const val = this.purchaseForm.getRawValue();
+
     const payload: Partial<PurchaseOrderRecord> = {
       request_id: val.request_id!,
       vendor_id: val.vendor_id!,
@@ -504,27 +756,39 @@ export class ProcurementComponent implements OnInit {
       materials: val.materials!,
       quantity: Number(val.quantity),
       unit_price: Number(val.unit_price),
-      expected_delivery_date: new Date(val.expected_delivery_date!).toISOString(),
+      expected_delivery_date: this.toISOStringSafe(val.expected_delivery_date!),
       status: val.status!,
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updatePurchaseOrder(current._id, payload).subscribe({
-        next: () => this.handleSuccess('Purchase order updated successfully'),
+    const targetId = this.getId(current);
+
+    if (targetId) {
+      // Update existing Purchase Order
+      this.procurementService.updatePurchaseOrder(targetId, payload).subscribe({
+        next: () => {
+          this.activeTab.set('purchase-orders');
+          this.handleSuccess('Purchase order updated successfully');
+        },
         error: (err) => this.handleError('Failed to update purchase order', err),
       });
     } else {
+      // Create new Purchase Order
       this.procurementService.createPurchaseOrder(payload).subscribe({
-        next: () => this.handleSuccess('Purchase order created successfully'),
+        next: () => {
+          this.activeTab.set('purchase-orders');
+          this.pageIndex.set(1);
+          this.handleSuccess('Purchase order created successfully');
+        },
         error: (err) => this.handleError('Failed to create purchase order', err),
       });
     }
   }
 
   downloadPDF(po: PurchaseOrderRecord): void {
-    if (!po._id) return;
-    this.procurementService.downloadPOPDF(po._id).subscribe({
+    const poId = this.getId(po);
+    if (!poId) return;
+    this.procurementService.downloadPOPDF(poId).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -535,6 +799,32 @@ export class ProcurementComponent implements OnInit {
         this.notificationService.success('PDF downloaded successfully');
       },
       error: (err) => this.handleError('Failed to download PO PDF', err),
+    });
+  }
+
+  downloadInvoicePDF(invoice: Invoice): void {
+    const invoiceId = this.getId(invoice);
+    if (!invoiceId) return;
+    this.procurementService.downloadInvoicePDF(invoiceId).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${invoice.invoice_number || 'Invoice'}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.notificationService.success('Invoice PDF downloaded successfully');
+      },
+      error: (err) => this.handleError('Failed to download invoice PDF', err),
+    });
+  }
+
+  sendPO(po: PurchaseOrderRecord): void {
+    const poId = this.getId(po);
+    if (!poId) return;
+    this.procurementService.sendPurchaseOrder(poId).subscribe({
+      next: () => this.handleSuccess('Purchase order sent to vendor'),
+      error: (err) => this.handleError('Failed to send purchase order', err),
     });
   }
 
@@ -549,14 +839,15 @@ export class ProcurementComponent implements OnInit {
       material: val.material!,
       quantity_received: Number(val.quantity_received),
       quality_status: val.quality_status!,
-      delivery_date: new Date(val.delivery_date!).toISOString(),
+      delivery_date: this.toISOStringSafe(val.delivery_date!),
       status: val.status!,
       remarks: val.remarks || undefined,
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updateDelivery(current._id, payload).subscribe({
+    const targetId = this.getId(current);
+    if (targetId) {
+      this.procurementService.updateDelivery(targetId, payload).subscribe({
         next: () => this.handleSuccess('Delivery record updated'),
         error: (err) => this.handleError('Failed to update delivery', err),
       });
@@ -591,6 +882,7 @@ export class ProcurementComponent implements OnInit {
   saveInvoice(): void {
     if (this.invoiceForm.invalid) {
       this.invoiceForm.markAllAsTouched();
+      this.notificationService.error('Please fill in all required invoice fields correctly.');
       return;
     }
     const val = this.invoiceForm.getRawValue();
@@ -600,15 +892,16 @@ export class ProcurementComponent implements OnInit {
       purchase_order_id: val.purchase_order_id!,
       amount: Number(val.amount),
       gst: Number(val.gst ?? 0),
-      invoice_date: new Date(val.invoice_date!).toISOString(),
+      invoice_date: this.toISOStringSafe(val.invoice_date!),
       payment_status: val.payment_status!,
       attachment_url: this.uploadedAttachmentUrl() || val.attachment_url || undefined,
       status: val.status!,
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updateInvoice(current._id, payload).subscribe({
+    const targetId = this.getId(current);
+    if (targetId) {
+      this.procurementService.updateInvoice(targetId, payload).subscribe({
         next: () => this.handleSuccess('Invoice updated successfully'),
         error: (err) => this.handleError('Failed to update invoice', err),
       });
@@ -623,11 +916,12 @@ export class ProcurementComponent implements OnInit {
   submitInvoiceAction(): void {
     if (this.invoiceActionForm.invalid) return;
     const current = this.selectedItem();
-    if (!current || !current._id) return;
+    const targetId = this.getId(current);
+    if (!targetId) return;
 
     const val = this.invoiceActionForm.getRawValue();
     this.procurementService
-      .invoiceAction(current._id, val.action!, { comments: val.comments || undefined })
+      .invoiceAction(targetId, val.action!, { comments: val.comments || undefined })
       .subscribe({
         next: () => this.handleSuccess(`Invoice status set to ${val.action}`),
         error: (err) => this.handleError('Failed to process invoice action', err),
@@ -650,8 +944,9 @@ export class ProcurementComponent implements OnInit {
     };
 
     const current = this.selectedItem();
-    if (current && current._id) {
-      this.procurementService.updatePayment(current._id, payload).subscribe({
+    const targetId = this.getId(current);
+    if (targetId) {
+      this.procurementService.updatePayment(targetId, payload).subscribe({
         next: () => this.handleSuccess('Payment record updated'),
         error: (err) => this.handleError('Failed to update payment', err),
       });
@@ -674,10 +969,11 @@ export class ProcurementComponent implements OnInit {
       .then((confirmed) => {
         if (!confirmed) return;
 
-        let deleteObs: any;
+        let deleteObs: ReturnType<typeof this.procurementService.deleteMaterialRequest> | undefined;
         if (tab === 'requests') deleteObs = this.procurementService.deleteMaterialRequest(id);
         else if (tab === 'vendors') deleteObs = this.procurementService.deleteVendor(id);
         else if (tab === 'purchase-orders') deleteObs = this.procurementService.deletePurchaseOrder(id);
+        else if (tab === 'invoices') deleteObs = this.procurementService.deleteInvoice(id);
 
         if (deleteObs) {
           deleteObs.subscribe({
@@ -691,21 +987,34 @@ export class ProcurementComponent implements OnInit {
   // --- Display & Helper Functions ---
   vendorName(vendorId?: string): string {
     if (!vendorId) return '-';
-    const v = this.vendors().find((item) => item._id === vendorId || item.id === vendorId);
+    const v = this.vendors().find((item) => this.getId(item) === vendorId);
     return v ? v.vendor_name : vendorId;
   }
 
   poNumber(poId?: string): string {
     if (!poId) return '-';
-    const p = this.purchaseOrders().find((item) => item._id === poId || item.id === poId);
+    const p = this.purchaseOrders().find((item) => this.getId(item) === poId);
     return p ? p.po_number || poId : poId;
+  }
+
+  // ASSUMPTION (needs backend confirmation): the workflow status literal for
+  // "vendor assigned, awaiting PO" is 'vendor_assigned', matching what the
+  // rest of this file already used. Adjust this single string if the actual
+  // backend enum differs.
+  private readonly VENDOR_ASSIGNED_STATUS = 'vendor_assigned';
+
+  private canGeneratePOFromRequest(request: MaterialRequest): boolean {
+    // A PO must never be generated before vendor assignment, and a request
+    // that already has a linked purchase_order_id must not be offered again
+    // (prevents duplicate PO generation from the same request).
+    return request.status === this.VENDOR_ASSIGNED_STATUS && !request.purchase_order_id;
   }
 
   statusBadgeClass(status?: string): string {
     if (!status) return 'badge-secondary';
     const lower = status.toLowerCase();
     if (['approved', 'passed', 'accepted', 'completed', 'paid', 'verified'].includes(lower)) return 'badge-green';
-    if (['created', 'sent', 'partial', 'medium'].includes(lower)) return 'badge-blue';
+    if (['created', 'sent', 'partial', 'medium', 'vendor_assigned', 'po_generated', 'po_sent'].includes(lower)) return 'badge-blue';
     if (['pending', 'low'].includes(lower)) return 'badge-amber';
     if (['rejected', 'failed', 'cancelled', 'high'].includes(lower)) return 'badge-red';
     return 'badge-secondary';
@@ -715,6 +1024,27 @@ export class ProcurementComponent implements OnInit {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
     return Number.isNaN(date.getTime()) ? dateStr : date.toLocaleDateString();
+  }
+
+  /**
+   * Returns the identifier of a record regardless of whether the backend
+   * returned it as `_id` (MongoDB) or `id`.
+   */
+  private getId(obj: any): string {
+    if (!obj) return '';
+    return obj._id || obj.id || '';
+  }
+
+  /**
+   * Safely converts a date-like input (string or Date) to an ISO string.
+   * Never throws `RangeError: Invalid time value` — falls back to the
+   * current time if the input cannot be parsed, so a bad/empty date never
+   * crashes a save operation.
+   */
+  private toISOStringSafe(value?: string | Date): string {
+    if (!value) return new Date().toISOString();
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
 
   private handleSuccess(message: string): void {
@@ -728,6 +1058,16 @@ export class ProcurementComponent implements OnInit {
 
   private handleError(context: string, err: any): void {
     this.loading.set(false);
+
+    // Detect network-level failures (backend unreachable) which Angular reports
+    // as status 0 with "Unknown Error". Give a clear, actionable message.
+    if (err?.status === 0) {
+      const message = `${context}: Cannot reach the backend server at http://127.0.0.1:8000. Make sure the backend is running (cd backend && .venv\\Scripts\\Activate && uvicorn app.main:app --reload).`;
+      this.error.set(message);
+      this.notificationService.error(message);
+      return;
+    }
+
     const detail = err?.error?.detail || err?.message || 'An unexpected error occurred';
     const message = `${context}: ${detail}`;
     this.error.set(message);
@@ -735,12 +1075,77 @@ export class ProcurementComponent implements OnInit {
   }
 
   private resetForm(tab: ProcurementTab): void {
-    if (tab === 'requests') this.requestForm.reset({ priority: 'medium', quantity: 1 });
-    if (tab === 'vendors') this.vendorForm.reset({ rating: 4.0, status: 'active' });
-    if (tab === 'purchase-orders') this.purchaseForm.reset({ status: 'created', quantity: 1, unit_price: 0 });
-    if (tab === 'deliveries') this.deliveryForm.reset({ quality_status: 'passed', status: 'accepted', quantity_received: 1, delivery_date: new Date().toISOString().slice(0, 10) });
-    if (tab === 'invoices') this.invoiceForm.reset({ status: 'pending', payment_status: 'pending', amount: 0, gst: 0, invoice_date: new Date().toISOString().slice(0, 10) });
-    if (tab === 'payments') this.paymentForm.reset({ status: 'pending', amount: 0 });
+    if (tab === 'requests') {
+      this.requestForm.reset({
+        project: '',
+        material_name: '',
+        quantity: 1,
+        required_date: '',
+        priority: 'medium',
+        remarks: '',
+      });
+    }
+    if (tab === 'vendors') {
+      this.createLoginAccount.set(false);
+      this.vendorForm.reset({
+        vendor_name: '',
+        contact_person: '',
+        phone: '',
+        email: '',
+        address: '',
+        materials_supplied: '',
+        rating: 4.0,
+        status: 'active',
+        password: '',
+      });
+    }
+    if (tab === 'purchase-orders') {
+      this.purchaseForm.reset({
+        request_id: '',
+        vendor_id: '',
+        project: '',
+        materials: '',
+        quantity: 1,
+        unit_price: 0,
+        expected_delivery_date: '',
+        status: 'created',
+      });
+    }
+    if (tab === 'deliveries') {
+      this.deliveryForm.reset({
+        purchase_order_id: '',
+        material: '',
+        quantity_received: 1,
+        quality_status: 'passed',
+        delivery_date: new Date().toISOString().slice(0, 10),
+        status: 'accepted',
+        remarks: '',
+      });
+    }
+    if (tab === 'invoices') {
+      this.uploadedAttachmentUrl.set('');
+      this.invoiceForm.reset({
+        invoice_number: '',
+        vendor_id: '',
+        purchase_order_id: '',
+        amount: 0,
+        gst: 0,
+        invoice_date: new Date().toISOString().slice(0, 10),
+        payment_status: 'pending',
+        attachment_url: '',
+        status: 'pending',
+      });
+    }
+    if (tab === 'payments') {
+      this.paymentForm.reset({
+        invoice_id: '',
+        vendor_id: '',
+        purchase_order_id: '',
+        amount: 0,
+        status: 'pending',
+        remarks: '',
+      });
+    }
   }
 
   private patchForm(tab: ProcurementTab, item: any): void {
@@ -754,6 +1159,7 @@ export class ProcurementComponent implements OnInit {
         remarks: item.remarks || '',
       });
     } else if (tab === 'vendors') {
+      this.createLoginAccount.set(false);
       this.vendorForm.reset({
         vendor_name: item.vendor_name,
         contact_person: item.contact_person,
@@ -763,15 +1169,16 @@ export class ProcurementComponent implements OnInit {
         materials_supplied: Array.isArray(item.materials_supplied) ? item.materials_supplied.join(', ') : item.materials_supplied || '',
         rating: item.rating ?? 4.0,
         status: item.status || 'active',
+        password: '',
       });
     } else if (tab === 'purchase-orders') {
       this.purchaseForm.reset({
-        request_id: item.request_id,
-        vendor_id: item.vendor_id,
-        project: item.project,
-        materials: item.materials,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
+        request_id: item.request_id || this.getId(item) || '',
+        vendor_id: item.vendor_id || '',
+        project: item.project || '',
+        materials: item.materials || '',
+        quantity: item.quantity ?? 1,
+        unit_price: item.unit_price ?? 0,
         expected_delivery_date: this.toInputDate(item.expected_delivery_date),
         status: item.status || 'created',
       });
@@ -813,6 +1220,6 @@ export class ProcurementComponent implements OnInit {
   private toInputDate(value?: string): string {
     if (!value) return '';
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? value : d.toISOString().slice(0, 10);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
   }
 }

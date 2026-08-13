@@ -1,0 +1,87 @@
+<div class="page vendor-dashboard">
+  <p class="crumb">
+    <a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Vendor Portal
+  </p>
+
+  <div class="page-header">
+    <div>
+      <h1>Vendor Portal</h1>
+      <p class="page-subtitle">Welcome {{ vendorName() }}. Review your assigned procurement requests, purchase orders, and payments.</p>
+    </div>
+    <button class="btn btn-outline" type="button" (click)="load()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+  </div>
+
+  <section class="panel" *ngIf="stats()">
+    <div class="panel-header"><h3>Vendor Summary</h3></div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-info"><h3>{{ stats()?.total_assigned || 0 }}</h3><p>Total Assigned Requests</p></div></div>
+      <div class="stat-card amber"><div class="stat-info"><h3>{{ stats()?.pending_responses || 0 }}</h3><p>Pending Responses</p></div></div>
+      <div class="stat-card green"><div class="stat-info"><h3>{{ stats()?.accepted_requests || 0 }}</h3><p>Accepted Requests</p></div></div>
+      <div class="stat-card red"><div class="stat-info"><h3>{{ stats()?.rejected_requests || 0 }}</h3><p>Rejected Requests</p></div></div>
+      <div class="stat-card blue"><div class="stat-info"><h3>{{ stats()?.total_purchase_orders || 0 }}</h3><p>Purchase Orders</p></div></div>
+      <div class="stat-card"><div class="stat-info"><h3>{{ stats()?.pending_deliveries || 0 }}</h3><p>Pending Deliveries</p></div></div>
+      <div class="stat-card"><div class="stat-info"><h3>{{ stats()?.pending_payments || 0 }}</h3><p>Pending Payments</p></div></div>
+    </div>
+  </section>
+
+  <section class="panel mt-4">
+    <div class="panel-header"><h3>New / Pending Procurement Requests</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Request ID</th><th>Project</th><th>Material</th><th>Quantity</th>
+            <th>Required Date</th><th>Priority</th><th>Requested By</th><th>Request Date</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of pendingRequests()">
+            <td class="cell-title">{{ item.request_id || item._id }}</td>
+            <td>{{ item.project }}</td>
+            <td><strong>{{ item.material_name }}</strong></td>
+            <td>{{ item.quantity }}{{ item.unit ? ' ' + item.unit : '' }}</td>
+            <td>{{ item.required_date | date:'shortDate' }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.priority)">{{ item.priority }}</span></td>
+            <td>{{ item.requested_by }}</td>
+            <td>{{ item.created_at | date:'shortDate' }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button *ngIf="item.status === 'sent_to_vendor'" class="btn btn-sm btn-primary" (click)="accept(item)">Accept</button>
+                <button *ngIf="item.status === 'sent_to_vendor'" class="btn btn-sm btn-outline" (click)="reject(item)">Reject</button>
+                <button class="btn btn-sm btn-outline" (click)="view(item)">View Details</button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="pendingRequests().length === 0">
+            <td colspan="10" class="empty-cell">No procurement requests are currently assigned to you.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel mt-4" *ngIf="stats()?.purchase_orders?.length">
+    <div class="panel-header"><h3>Purchase Orders</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>PO Number</th><th>Material</th><th>Quantity</th><th>Total</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let po of stats()?.purchase_orders">
+            <td class="cell-title">{{ po.po_number }}</td>
+            <td>{{ po.materials }}</td>
+            <td>{{ po.quantity }}</td>
+            <td>{{ po.total_cost | number:'1.2-2' }}</td>
+            <td><span class="badge" [ngClass]="poStatusBadge(po.status)">{{ po.status }}</span></td>
+            <td>
+              <button *ngIf="po.status === 'sent'" class="btn btn-sm btn-primary" (click)="confirmPO(po)">Confirm PO</button>
+              <button class="btn btn-sm btn-outline" (click)="viewPO(po)">View PO</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
