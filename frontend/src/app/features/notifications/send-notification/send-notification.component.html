@@ -1,0 +1,104 @@
+<div class="page">
+
+  <div class="page-header">
+    <h2>Send Notification</h2>
+    <p>Administrator / Project Manager</p>
+  </div>
+
+  <form [formGroup]="notificationForm" (ngSubmit)="submit()" class="notification-form">
+
+    <!-- Receiver -->
+    <div class="form-group">
+      
+
+      <select formControlName="receiver_id">
+        
+
+      </select>
+    </div>
+
+    <!-- Title -->
+    <div class="form-group">
+      <label>Title</label>
+
+      <input
+        type="text"
+        formControlName="title"
+        placeholder="Enter notification title"
+      >
+    </div>
+
+    <!-- Message -->
+    <div class="form-group">
+      <label>Message</label>
+
+      <textarea
+        rows="5"
+        formControlName="message"
+        placeholder="Enter notification message">
+      </textarea>
+    </div>
+
+    <!-- Notification Type -->
+    <div class="form-group">
+      <label>Notification Type</label>
+
+      <select formControlName="notification_type">
+
+        <option value="INFO">Info</option>
+
+        <option value="WARNING">Warning</option>
+
+        <option value="ALERT">Alert</option>
+
+      </select>
+
+    </div>
+
+    <!-- Related Entity ID -->
+    <div class="form-group">
+      <label>Related Entity ID</label>
+
+      <input
+        type="text"
+        formControlName="related_entity_id"
+        placeholder="Optional"
+      >
+    </div>
+
+    <!-- Related Entity Type -->
+    <div class="form-group">
+      <label>Related Entity Type</label>
+
+      <input
+        type="text"
+        formControlName="related_entity_type"
+        placeholder="Project / Procurement / Attendance"
+      >
+    </div>
+
+    <!-- Buttons -->
+    <div class="button-group">
+
+      <button
+        type="submit"
+        class="btn-primary"
+        [disabled]="sending">
+
+        {{ sending ? 'Sending...' : 'Send Notification' }}
+
+      </button>
+
+      <button
+        type="reset"
+        class="btn-secondary">
+
+        Reset
+
+      </button>
+
+    </div>
+
+  </form>
+
+</div>

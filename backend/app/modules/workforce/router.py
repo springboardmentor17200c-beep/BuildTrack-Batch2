@@ -83,6 +83,8 @@ def normalize_attendance_time(value, date_value):
         return None
 
 
+from app.modules.notifications.db import create_notification
+
 # Worker endpoints
 @router.post("/workers", response_model=Worker)
 async def create_worker_endpoint(
@@ -99,6 +101,18 @@ async def create_worker_endpoint(
 
     worker_data = worker.model_dump()
     result = await create_worker(db, worker_data)
+
+    # Notify current manager / creator about task assignment / worker assignment
+    await create_notification(db, {
+        "user_id": str(current_user["_id"]),
+        "title": "New Task / Worker Assigned",
+        "message": f"Worker '{result.get('name') or 'Worker'}' assigned as '{result.get('skill_type', 'General')}'.",
+        "type": "info",
+        "category": "task_assignment",
+        "entity_type": "task",
+        "entity_id": str(result["_id"]),
+    })
+
     return Worker(**serialize_worker_doc(result))
 
 
@@ -216,7 +230,22 @@ async def record_attendance_endpoint(
 
     attendance_data = attendance.model_dump()
     result = await record_attendance(db, attendance_data)
+
+    status_val = str(result.get("status") or "absent").lower()
+    msg_type = "alert" if status_val in ["absent", "late"] else "info"
+
+    await create_notification(db, {
+        "user_id": str(current_user["_id"]),
+        "title": "Attendance Alert",
+        "message": f"Worker attendance recorded: Status '{status_val}'.",
+        "type": msg_type,
+        "category": "attendance_alert",
+        "entity_type": "attendance",
+        "entity_id": str(result["_id"]),
+    })
+
     return Attendance(**serialize_attendance_doc(result))
+
 
 
 @router.get("/attendance", response_model=list[Attendance])

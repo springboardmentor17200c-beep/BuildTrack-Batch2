@@ -8,6 +8,7 @@ interface NavItem {
   label: string;
   icon: string;
   route: string;
+  queryParams?: Record<string, any>;
   roles: UserRole[];
 }
 
@@ -15,13 +16,18 @@ interface NavGroup extends NavItem {
   children?: NavItem[];
 }
 
-const ALL_ROLES: UserRole[] = [
+const INTERNAL_ROLES: UserRole[] = [
   'Administrator',
   'Project Manager',
   'Site Engineer',
   'Contractor',
   'Worker',
   'Client',
+];
+
+const ALL_ROLES: UserRole[] = [
+  ...INTERNAL_ROLES,
+  'Vendor',
 ];
 
 @Component({
@@ -36,7 +42,7 @@ export class SidebarComponent {
   @Output() linkClick = new EventEmitter<void>();
 
   private allNavItems: NavGroup[] = [
-    { label: 'Dashboard', icon: 'fa-table-columns', route: '/dashboard', roles: ALL_ROLES },
+    { label: 'Dashboard', icon: 'fa-table-columns', route: '/dashboard', roles: INTERNAL_ROLES },
     {
       label: 'Projects',
       icon: 'fa-building',
@@ -99,7 +105,7 @@ export class SidebarComponent {
         },
       ],
     },
-    {
+        {
       label: 'Procurement',
       icon: 'fa-cart-shopping',
       route: '/procurement',
@@ -132,6 +138,56 @@ export class SidebarComponent {
       ],
     },
     {
+      label: 'Vendor Portal',
+      icon: 'fa-truck-field',
+      route: '/procurement/vendor-dashboard',
+      roles: ['Vendor', 'Administrator', 'Project Manager'],
+      children: [
+        {
+          label: 'Dashboard',
+          icon: 'fa-chart-pie',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'dashboard' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Assigned Requests',
+          icon: 'fa-list-check',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'requests' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Purchase Orders',
+          icon: 'fa-file-invoice',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'orders' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Deliveries',
+          icon: 'fa-truck-ramp-box',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'deliveries' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Invoices',
+          icon: 'fa-receipt',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'invoices' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Profile & Security',
+          icon: 'fa-building-shield',
+          route: '/procurement/vendor-dashboard',
+          queryParams: { tab: 'profile' },
+          roles: ['Vendor', 'Administrator', 'Project Manager'],
+        },
+      ],
+    },
+    {
       label: 'Reports',
       icon: 'fa-chart-column',
       route: '/reports',
@@ -145,9 +201,15 @@ export class SidebarComponent {
         },
       ],
     },
+    {
+      label: 'Notifications',
+      icon: 'fa-bell',
+      route: '/notifications',
+      roles: ALL_ROLES,
+    },
   ];
 
-  /** Only the nav items the current user's role is allowed to see. */
+  
   navItems = computed(() => {
     const role = this.auth.currentUser()?.role;
     return this.allNavItems
@@ -158,7 +220,6 @@ export class SidebarComponent {
       }));
   });
 
-  /** Settings is Administrator-only. */
   canSeeSettings = computed(() => this.auth.hasRole(['Administrator']));
 
   openGroups = signal<Set<string>>(new Set());

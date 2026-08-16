@@ -10,6 +10,7 @@ const ALL_ROLES: UserRole[] = [
   "Contractor",
   "Worker",
   "Client",
+  "Vendor",
 ];
 
 export const routes: Routes = [
@@ -21,6 +22,7 @@ export const routes: Routes = [
         (m) => m.LandingComponent,
       ),
   },
+  
 
   // Authentication
   {
@@ -62,6 +64,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
+
         path: "dashboard",
         loadComponent: () =>
           import("./features/dashboard/dashboard.component").then(
@@ -267,7 +270,30 @@ export const routes: Routes = [
           ),
         canActivate: [roleGuard],
         data: {
-          roles: ["Administrator", "Project Manager"] as UserRole[],
+          roles: [
+            "Administrator",
+            "Project Manager",
+            "Site Engineer",
+            "Store Manager",
+            "Finance",
+          ] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/dashboard",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Project Manager",
+            "Site Engineer",
+            "Store Manager",
+            "Finance",
+          ] as UserRole[],
         },
       },
       {
@@ -278,7 +304,37 @@ export const routes: Routes = [
           ),
         canActivate: [roleGuard],
         data: {
-          roles: ["Administrator", "Project Manager"] as UserRole[],
+          roles: [
+            "Administrator",
+            "Project Manager",
+            "Site Engineer",
+          ] as UserRole[],
+        },
+      },
+            {
+        path: "procurement/vendor-dashboard",
+        loadComponent: () =>
+          import("./features/procurement/vendor-dashboard/vendor-dashboard.component").then(
+            (m) => m.VendorDashboardComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Vendor"] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/material-requests",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Project Manager",
+            "Site Engineer",
+          ] as UserRole[],
         },
       },
       {
@@ -289,7 +345,10 @@ export const routes: Routes = [
           ),
         canActivate: [roleGuard],
         data: {
-          roles: ["Administrator", "Project Manager"] as UserRole[],
+          roles: [
+            "Administrator",
+            "Project Manager",
+          ] as UserRole[],
         },
       },
       {
@@ -300,7 +359,41 @@ export const routes: Routes = [
           ),
         canActivate: [roleGuard],
         data: {
-          roles: ["Administrator", "Project Manager"] as UserRole[],
+          roles: [
+            "Administrator",
+            "Project Manager",
+          ] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/deliveries",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Store Manager",
+            "Project Manager",
+          ] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/inventory",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Store Manager",
+            "Project Manager",
+            "Site Engineer",
+          ] as UserRole[],
         },
       },
       {
@@ -311,7 +404,25 @@ export const routes: Routes = [
           ),
         canActivate: [roleGuard],
         data: {
-          roles: ["Administrator", "Project Manager"] as UserRole[],
+          roles: [
+            "Administrator",
+            "Finance",
+            "Project Manager",
+          ] as UserRole[],
+        },
+      },
+      {
+        path: "procurement/payments",
+        loadComponent: () =>
+          import("./features/procurement/procurement.component").then(
+            (m) => m.ProcurementComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Finance",
+          ] as UserRole[],
         },
       },
       {
@@ -382,6 +493,17 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: {
           roles: ["Administrator"] as UserRole[],
+        },
+      },
+      {
+        path: "notifications",
+        loadComponent: () =>
+          import("./features/notifications/notification.component").then(
+            (m) => m.NotificationComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ALL_ROLES,
         },
       },
 

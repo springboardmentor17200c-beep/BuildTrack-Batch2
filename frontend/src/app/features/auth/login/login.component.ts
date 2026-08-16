@@ -40,10 +40,15 @@ export class LoginComponent {
     this.errorMessage.set('');
 
     const { email, password } = this.form.getRawValue();
-    this.auth.login({ email: email!, password: password! }).subscribe({
-      next: () => {
+        this.auth.login({ email: email!, password: password! }).subscribe({
+      next: (res) => {
         this.isSubmitting.set(false);
-        this.router.navigate(['/dashboard']);
+        const role = res.user.role;
+        if (role === 'Vendor') {
+          this.router.navigate(['/procurement/vendor-dashboard']);
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
       },
       error: () => {
         this.isSubmitting.set(false);

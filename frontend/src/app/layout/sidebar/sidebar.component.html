@@ -47,6 +47,7 @@
         <a
           *ngFor="let child of item.children"
           [routerLink]="child.route"
+          [queryParams]="child.queryParams || null"
           routerLinkActive="active"
           class="sidebar__link sidebar__link--child"
           (click)="linkClick.emit()"

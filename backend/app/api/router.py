@@ -38,7 +38,7 @@ api_router.include_router(resources_router, prefix="/resources", tags=["Resource
 
 # Procurement
 api_router.include_router(procurement_router, prefix="/procurement", tags=["Procurement"])
-api_router.include_router(procurement_compat_router, tags=["Procurement"])
+api_router.include_router(procurement_compat_router, tags=["Procurement Compat"])
 
 # Notifications
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])

@@ -14,15 +14,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup: Check database connection
     try:
         await ping_database()
-        print("✓ Database connection successful!")
+        print("[OK] Database connection successful!")
     except Exception as e:
-        print(f"✗ Database connection failed: {str(e)}")
+        print(f"[ERROR] Database connection failed: {str(e)}")
     
     yield
     
     # Shutdown: Close connection
     mongo_client.close()
-    print("Database connection closed.")
+    print("[INFO] Database connection closed.")
 
 
 def create_app() -> FastAPI:

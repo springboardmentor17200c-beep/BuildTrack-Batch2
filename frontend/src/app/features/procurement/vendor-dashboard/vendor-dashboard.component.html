@@ -1,0 +1,1400 @@
+<div class="page vendor-dashboard">
+  <!-- Top Breadcrumb & Header -->
+  <div class="header-section">
+    <div class="header-title">
+      <div class="welcome-badge">
+        <span class="pulse-dot"></span> Logged in as Verified Vendor
+      </div>
+      <h1>{{ vendorName() }}</h1>
+      <p class="subtitle">
+        Manage purchase orders, track material shipments, submit invoices, and maintain your vendor credentials.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" type="button" (click)="loadAll()" [disabled]="loading()">
+        <i class="fa-solid fa-rotate" [class.fa-spin]="loading()"></i> Refresh Portal
+      </button>
+    </div>
+  </div>
+
+  <!-- Vendor Navigation Tabs -->
+  <nav class="vendor-nav-tabs">
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'dashboard'"
+      (click)="setTab('dashboard')"
+    >
+      <i class="fa-solid fa-chart-pie"></i> Dashboard
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'requests'"
+      (click)="setTab('requests')"
+    >
+      <i class="fa-solid fa-list-check"></i> Assigned Requests
+      <span class="tab-badge warning" *ngIf="pendingRequests().length || stats()?.pending_responses">
+        {{ pendingRequests().length || stats()?.pending_responses }}
+      </span>
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'orders'"
+      (click)="setTab('orders')"
+    >
+      <i class="fa-solid fa-file-invoice"></i> Purchase Orders
+      <span class="tab-badge" *ngIf="stats()?.pending_orders">{{ stats()?.pending_orders }}</span>
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'deliveries'"
+      (click)="setTab('deliveries')"
+    >
+      <i class="fa-solid fa-truck-fast"></i> Deliveries
+      <span class="tab-badge" *ngIf="stats()?.pending_deliveries">{{ stats()?.pending_deliveries }}</span>
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'invoices'"
+      (click)="setTab('invoices')"
+    >
+      <i class="fa-solid fa-receipt"></i> Invoices
+      <span class="tab-badge" *ngIf="stats()?.pending_invoices">{{ stats()?.pending_invoices }}</span>
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'notifications'"
+      (click)="setTab('notifications')"
+    >
+      <i class="fa-solid fa-bell"></i> Notifications
+      <span class="tab-badge alert" *ngIf="unreadNotificationsCount()">{{ unreadNotificationsCount() }}</span>
+    </button>
+    <button
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'profile'"
+      (click)="setTab('profile')"
+    >
+      <i class="fa-solid fa-building-user"></i> Profile & Security
+    </button>
+  </nav>
+
+  <!-- ========================================================= -->
+  <!-- TAB 1: DASHBOARD HOME -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'dashboard'" class="tab-content dashboard-home">
+    <!-- Urgent Alert Banner if pending assigned Material Requests -->
+    <div class="alert-banner warning-banner" *ngIf="pendingRequests().length || stats()?.pending_responses" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.25)); border-color: rgba(245, 158, 11, 0.4); margin-bottom: 16px;">
+      <div class="alert-content">
+        <i class="fa-solid fa-bell alert-icon" style="color: #f59e0b;"></i>
+        <div>
+          <h4 style="color: #fbbf24;">Action Required: {{ pendingRequests().length || stats()?.pending_responses }} Material Request(s) Assigned to You</h4>
+          <p style="color: #cbd5e1;">Project managers have assigned material requests for your confirmation. Review, accept, or decline to proceed with Purchase Orders.</p>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light" style="background: #f59e0b; color: #0f172a; font-weight: 600;" (click)="setTab('requests'); requestFilter.set('pending')">
+        Review Requests <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- Urgent Alert Banner if pending POs -->
+    <div class="alert-banner" *ngIf="stats()?.pending_orders">
+      <div class="alert-content">
+        <i class="fa-solid fa-circle-exclamation alert-icon"></i>
+        <div>
+          <h4>Action Required: {{ stats()?.pending_orders }} Purchase Order(s) Awaiting Confirmation</h4>
+          <p>Please review and accept or reject new purchase orders sent by project managers.</p>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light" (click)="setTab('orders'); poFilter.set('pending')">
+        Review Orders <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <!-- KPI Stat Cards -->
+    <div class="stat-grid">
+      <div class="stat-card" (click)="setTab('requests'); requestFilter.set('all')">
+        <div class="stat-icon-wrapper amber" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+          <i class="fa-solid fa-list-check"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.total_assigned || requestList().length || 0 }}</h3>
+          <p>Assigned Requests</p>
+        </div>
+      </div>
+
+      <div class="stat-card" (click)="setTab('orders'); poFilter.set('all')">
+        <div class="stat-icon-wrapper blue">
+          <i class="fa-solid fa-file-invoice"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.total_purchase_orders || 0 }}</h3>
+          <p>Total Purchase Orders</p>
+        </div>
+      </div>
+
+      <div class="stat-card" (click)="setTab('orders'); poFilter.set('pending')">
+        <div class="stat-icon-wrapper amber">
+          <i class="fa-solid fa-clock"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.pending_orders || 0 }}</h3>
+          <p>Pending Orders</p>
+        </div>
+      </div>
+
+      <div class="stat-card" (click)="setTab('orders'); poFilter.set('accepted')">
+        <div class="stat-icon-wrapper green">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.accepted_orders || 0 }}</h3>
+          <p>Accepted Orders</p>
+        </div>
+      </div>
+
+      <div class="stat-card" (click)="setTab('orders'); poFilter.set('completed')">
+        <div class="stat-icon-wrapper teal">
+          <i class="fa-solid fa-truck-ramp-box"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.delivered_orders || 0 }}</h3>
+          <p>Delivered Orders</p>
+        </div>
+      </div>
+
+      <div class="stat-card" (click)="setTab('invoices')">
+        <div class="stat-icon-wrapper purple">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ stats()?.pending_invoices || 0 }}</h3>
+          <p>Pending Invoices</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Sections Grid -->
+    <div class="dashboard-grid mt-4">
+      <!-- Assigned Material Requests Section on Dashboard -->
+      <section class="panel full-grid-width" style="grid-column: 1 / -1;">
+        <div class="panel-header">
+          <div class="title-with-badge">
+            <i class="fa-solid fa-list-check panel-icon" style="color: #f59e0b;"></i>
+            <h3>Assigned Material Requests</h3>
+            <span class="badge badge-amber" *ngIf="pendingRequests().length">{{ pendingRequests().length }} Pending Response</span>
+          </div>
+          <button class="btn btn-sm btn-outline" (click)="setTab('requests')">View All Requests</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Req ID</th>
+                <th>Project</th>
+                <th>Material</th>
+                <th>Quantity</th>
+                <th>Required Date</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let req of requestList().slice(0, 5)">
+                <td class="cell-title">{{ req.request_id || req._id }}</td>
+                <td>{{ req.project }}</td>
+                <td><strong>{{ req.material_name }}</strong></td>
+                <td>{{ req.quantity }}</td>
+                <td>{{ formatDate(req.required_date) }}</td>
+                <td>
+                  <span class="badge" [ngClass]="priorityBadgeClass(req.priority)">{{ req.priority }}</span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="requestStatusBadge(req.status)">{{ req.status }}</span>
+                </td>
+                <td>
+                  <div class="action-row">
+                    <button
+                      *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+                      class="btn btn-xs btn-primary"
+                      (click)="acceptMaterialRequest(req)"
+                      title="Accept Request"
+                    >
+                      <i class="fa-solid fa-check"></i> Accept
+                    </button>
+                    <button
+                      *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+                      class="btn btn-xs btn-danger-outline"
+                      (click)="openRejectRequestModal(req)"
+                      title="Reject Request"
+                    >
+                      <i class="fa-solid fa-xmark"></i> Reject
+                    </button>
+                    <button class="btn btn-xs btn-outline" (click)="openRequestDetails(req)">
+                      Details
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="requestList().length === 0">
+                <td colspan="8" class="empty-cell">No assigned material requests found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Recent Purchase Orders Section -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="title-with-badge">
+            <i class="fa-solid fa-file-signature panel-icon"></i>
+            <h3>Recent Purchase Orders</h3>
+          </div>
+          <button class="btn btn-sm btn-outline" (click)="setTab('orders')">View All POs</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>PO Number</th>
+                <th>Project</th>
+                <th>Materials</th>
+                <th>Total (₹)</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let po of poList().slice(0, 5)">
+                <td class="cell-title">{{ po.po_number || po.id }}</td>
+                <td>{{ po.project }}</td>
+                <td><strong>{{ po.materials }}</strong> (Qty: {{ po.quantity }})</td>
+                <td>₹{{ (po.total_cost || po.unit_price * po.quantity) | number:'1.2-2' }}</td>
+                <td>
+                  <span class="badge" [ngClass]="poStatusBadge(po.status)">{{ po.status }}</span>
+                </td>
+                <td>
+                  <div class="action-row">
+                    <button
+                      *ngIf="po.status === 'created' || po.status === 'sent'"
+                      class="btn btn-xs btn-primary"
+                      (click)="acceptPO(po)"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      *ngIf="po.status === 'created' || po.status === 'sent'"
+                      class="btn btn-xs btn-danger-outline"
+                      (click)="openRejectModal(po)"
+                    >
+                      Reject
+                    </button>
+                    <button class="btn btn-xs btn-outline" (click)="openPODetails(po)">
+                      Details
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="poList().length === 0">
+                <td colspan="6" class="empty-cell">No purchase orders found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Active Shipments & Deliveries Section -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="title-with-badge">
+            <i class="fa-solid fa-truck-plane panel-icon"></i>
+            <h3>Active Deliveries</h3>
+          </div>
+          <button class="btn btn-sm btn-outline" (click)="setTab('deliveries')">Manage Deliveries</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>PO Ref</th>
+                <th>Material</th>
+                <th>Qty</th>
+                <th>Tracking / Vehicle</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let d of deliveryList().slice(0, 5)">
+                <td class="cell-title">{{ d.po_number || d.purchase_order_id }}</td>
+                <td><strong>{{ d.material }}</strong></td>
+                <td>{{ d.quantity_received }}</td>
+                <td>
+                  <span *ngIf="d.tracking_number">{{ d.tracking_number }}</span>
+                  <span *ngIf="!d.tracking_number && d.vehicle_number">{{ d.vehicle_number }}</span>
+                  <span *ngIf="!d.tracking_number && !d.vehicle_number" class="text-muted">-</span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="deliveryStatusBadge(d.status)">{{ d.status }}</span>
+                </td>
+              </tr>
+              <tr *ngIf="deliveryList().length === 0">
+                <td colspan="5" class="empty-cell">No active deliveries logged yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB: ASSIGNED MATERIAL REQUESTS -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'requests'" class="tab-content">
+    <section class="panel">
+      <div class="panel-header flex-wrap">
+        <div>
+          <h3>Assigned Material Requests</h3>
+          <p class="panel-subtitle">Review material requests assigned to your company by project managers, then accept or decline them.</p>
+        </div>
+
+        <div class="filter-controls">
+          <div class="search-input-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              placeholder="Search Req #, Project, Material..."
+              [ngModel]="requestSearch()"
+              (ngModelChange)="requestSearch.set($event)"
+            />
+          </div>
+
+          <div class="pill-filters">
+            <button
+              class="pill-btn"
+              [class.active]="requestFilter() === 'all'"
+              (click)="requestFilter.set('all')"
+            >
+              All ({{ requestList().length }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="requestFilter() === 'pending'"
+              (click)="requestFilter.set('pending')"
+            >
+              Pending Review ({{ pendingRequests().length }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="requestFilter() === 'accepted'"
+              (click)="requestFilter.set('accepted')"
+            >
+              Accepted
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="requestFilter() === 'rejected'"
+              (click)="requestFilter.set('rejected')"
+            >
+              Rejected
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Req ID</th>
+              <th>Project</th>
+              <th>Material</th>
+              <th>Quantity</th>
+              <th>Required Date</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of filteredRequests()">
+              <td class="cell-title">
+                <strong>{{ req.request_id || req._id }}</strong>
+              </td>
+              <td>{{ req.project }}</td>
+              <td><strong>{{ req.material_name }}</strong></td>
+              <td>{{ req.quantity }} units</td>
+              <td>{{ formatDate(req.required_date) }}</td>
+              <td>
+                <span class="badge" [ngClass]="priorityBadgeClass(req.priority)">{{ req.priority }}</span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="requestStatusBadge(req.status)">{{ req.status }}</span>
+              </td>
+              <td>
+                <div class="action-row">
+                  <button
+                    *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+                    class="btn btn-xs btn-primary"
+                    (click)="acceptMaterialRequest(req)"
+                    title="Accept Material Request"
+                  >
+                    <i class="fa-solid fa-check"></i> Accept
+                  </button>
+
+                  <button
+                    *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+                    class="btn btn-xs btn-danger-outline"
+                    (click)="openRejectRequestModal(req)"
+                    title="Reject Material Request"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
+
+                  <button class="btn btn-xs btn-outline" (click)="openRequestDetails(req)">
+                    <i class="fa-solid fa-eye"></i> Details
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="filteredRequests().length === 0">
+              <td colspan="8" class="empty-cell">No matching material requests found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB: PURCHASE ORDERS -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'orders'" class="tab-content">
+    <section class="panel">
+      <div class="panel-header flex-wrap">
+        <div>
+          <h3>Purchase Orders</h3>
+          <p class="panel-subtitle">Review, confirm, reject, or prepare deliveries for all POs issued to your company.</p>
+        </div>
+
+        <div class="filter-controls">
+          <div class="search-input-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              placeholder="Search PO #, Project, Material..."
+              [ngModel]="poSearch()"
+              (ngModelChange)="poSearch.set($event)"
+            />
+          </div>
+
+          <div class="pill-filters">
+            <button
+              class="pill-btn"
+              [class.active]="poFilter() === 'all'"
+              (click)="poFilter.set('all')"
+            >
+              All ({{ poList().length }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="poFilter() === 'pending'"
+              (click)="poFilter.set('pending')"
+            >
+              Pending ({{ pendingPOCount() }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="poFilter() === 'accepted'"
+              (click)="poFilter.set('accepted')"
+            >
+              Accepted ({{ acceptedPOCount() }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="poFilter() === 'completed'"
+              (click)="poFilter.set('completed')"
+            >
+              Delivered ({{ deliveredPOCount() }})
+            </button>
+            <button
+              class="pill-btn"
+              [class.active]="poFilter() === 'rejected'"
+              (click)="poFilter.set('rejected')"
+            >
+              Rejected ({{ rejectedPOCount() }})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Project</th>
+              <th>Materials & Quantity</th>
+              <th>Unit Price (₹)</th>
+              <th>Total Amount (₹)</th>
+              <th>Expected Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let po of filteredPOs()">
+              <td class="cell-title">
+                <strong>{{ po.po_number || po.id }}</strong>
+              </td>
+              <td>{{ po.project }}</td>
+              <td>
+                <strong>{{ po.materials }}</strong>
+                <span class="text-muted"> &bull; {{ po.quantity }} units</span>
+              </td>
+              <td>₹{{ (po.unit_price || 0) | number:'1.2-2' }}</td>
+              <td>
+                <strong>₹{{ (po.total_cost || po.unit_price * po.quantity) | number:'1.2-2' }}</strong>
+              </td>
+              <td>{{ po.expected_delivery_date | date:'mediumDate' }}</td>
+              <td>
+                <span class="badge" [ngClass]="poStatusBadge(po.status)">{{ po.status }}</span>
+              </td>
+              <td>
+                <div class="action-row">
+                  <button class="btn btn-xs btn-outline" (click)="openPODetails(po)">
+                    <i class="fa-solid fa-eye"></i> View Details
+                  </button>
+
+                  <button
+                    *ngIf="po.status === 'created' || po.status === 'sent'"
+                    class="btn btn-xs btn-primary"
+                    (click)="acceptPO(po)"
+                  >
+                    <i class="fa-solid fa-check"></i> Accept
+                  </button>
+
+                  <button
+                    *ngIf="po.status === 'created' || po.status === 'sent'"
+                    class="btn btn-xs btn-danger-outline"
+                    (click)="openRejectModal(po)"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
+
+                  <button
+                    *ngIf="po.status === 'accepted'"
+                    class="btn btn-xs btn-success"
+                    (click)="prepareDeliveryForPO(po)"
+                  >
+                    <i class="fa-solid fa-truck"></i> Prepare Delivery
+                  </button>
+
+                  <button class="btn btn-xs btn-light" (click)="downloadPOPDF(po)" title="Download PDF">
+                    <i class="fa-solid fa-file-pdf text-danger"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="filteredPOs().length === 0">
+              <td colspan="8" class="empty-cell">No purchase orders matching the filter criteria.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB 3: DELIVERIES -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'deliveries'" class="tab-content">
+    <!-- Workflow Pipeline visual -->
+    <div class="delivery-pipeline-card">
+      <h4>Delivery Lifecycle Tracker</h4>
+      <div class="pipeline-steps">
+        <div class="step-item"><span class="step-circle active">1</span><span>Accepted PO</span></div>
+        <div class="step-line active"></div>
+        <div class="step-item"><span class="step-circle active">2</span><span>Prepare Materials</span></div>
+        <div class="step-line active"></div>
+        <div class="step-item"><span class="step-circle active">3</span><span>Ship / Deliver</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-circle">4</span><span>Store Verification</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-circle">5</span><span>Material Received</span></div>
+      </div>
+    </div>
+
+    <section class="panel mt-4">
+      <div class="panel-header">
+        <div>
+          <h3>Material Shipments & Deliveries</h3>
+          <p class="panel-subtitle">Log dispatched material shipments and update tracking details for the project store manager.</p>
+        </div>
+        <button class="btn btn-primary" (click)="openCreateDelivery()">
+          <i class="fa-solid fa-plus"></i> Dispatch New Delivery
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>PO Number</th>
+              <th>Material</th>
+              <th>Quantity Dispatched</th>
+              <th>Dispatch Date</th>
+              <th>Vehicle / Tracking</th>
+              <th>Delivery Status</th>
+              <th>Quality Inspection</th>
+              <th>Remarks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let d of deliveryList()">
+              <td class="cell-title">
+                <strong>{{ d.po_number || d.purchase_order_id }}</strong>
+              </td>
+              <td><strong>{{ d.material }}</strong></td>
+              <td>{{ d.quantity_received }}</td>
+              <td>{{ (d.dispatch_date || d.delivery_date) | date:'mediumDate' }}</td>
+              <td>
+                <div *ngIf="d.vehicle_number"><i class="fa-solid fa-truck text-muted"></i> {{ d.vehicle_number }}</div>
+                <div *ngIf="d.tracking_number" class="text-muted"><i class="fa-solid fa-barcode"></i> {{ d.tracking_number }}</div>
+                <div *ngIf="!d.vehicle_number && !d.tracking_number" class="text-muted">-</div>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="deliveryStatusBadge(d.status)">{{ d.status }}</span>
+              </td>
+              <td>
+                <span
+                  class="badge"
+                  [ngClass]="{
+                    'badge-green': d.quality_status === 'passed',
+                    'badge-red': d.quality_status === 'failed',
+                    'badge-amber': d.quality_status === 'pending'
+                  }"
+                >
+                  {{ d.quality_status || 'pending' }}
+                </span>
+              </td>
+              <td class="text-muted">{{ d.remarks || '-' }}</td>
+              <td>
+                <button class="btn btn-xs btn-outline" (click)="openUpdateDeliveryModal(d)">
+                  <i class="fa-solid fa-pen-to-square"></i> Update Status
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="deliveryList().length === 0">
+              <td colspan="9" class="empty-cell">No deliveries dispatched yet. Click 'Dispatch New Delivery' to record a shipment.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB 4: INVOICES -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'invoices'" class="tab-content">
+    <!-- Invoice Pipeline Visual -->
+    <div class="delivery-pipeline-card">
+      <h4>Invoice & Payment Lifecycle</h4>
+      <div class="pipeline-steps">
+        <div class="step-item"><span class="step-circle active">1</span><span>Delivery Completed</span></div>
+        <div class="step-line active"></div>
+        <div class="step-item"><span class="step-circle active">2</span><span>Submit Invoice</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-circle">3</span><span>Admin Verification</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-circle">4</span><span>Payment Processing</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-circle">5</span><span>Paid</span></div>
+      </div>
+    </div>
+
+    <section class="panel mt-4">
+      <div class="panel-header">
+        <div>
+          <h3>Invoices & Billing</h3>
+          <p class="panel-subtitle">Submit bills for completed purchase orders and track verification & payment progress.</p>
+        </div>
+        <button class="btn btn-primary" (click)="openSubmitInvoiceModal()">
+          <i class="fa-solid fa-file-circle-plus"></i> Submit Invoice
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Invoice Number</th>
+              <th>PO Reference</th>
+              <th>Invoice Date</th>
+              <th>Amount (₹)</th>
+              <th>GST (₹)</th>
+              <th>Total Amount (₹)</th>
+              <th>Approval Status</th>
+              <th>Payment Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let inv of invoiceList()">
+              <td class="cell-title">
+                <strong>{{ inv.invoice_number }}</strong>
+              </td>
+              <td>{{ inv.purchase_order_id }}</td>
+              <td>{{ inv.invoice_date | date:'mediumDate' }}</td>
+              <td>₹{{ (inv.amount || 0) | number:'1.2-2' }}</td>
+              <td>₹{{ (inv.gst || 0) | number:'1.2-2' }}</td>
+              <td>
+                <strong>₹{{ ((inv.amount || 0) + (inv.gst || 0)) | number:'1.2-2' }}</strong>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="invoiceStatusBadge(inv.status)">{{ inv.status }}</span>
+                <span *ngIf="inv.verification_comments" class="info-tooltip" [title]="inv.verification_comments">
+                  <i class="fa-solid fa-info-circle"></i>
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="paymentStatusBadge(inv.payment_status)">{{ inv.payment_status }}</span>
+              </td>
+              <td>
+                <div class="action-row">
+                  <button class="btn btn-xs btn-outline" (click)="downloadInvoicePDF(inv)" title="Download Invoice PDF">
+                    <i class="fa-solid fa-download"></i> PDF
+                  </button>
+                  <a
+                    *ngIf="inv.attachment_url"
+                    [href]="inv.attachment_url"
+                    target="_blank"
+                    class="btn btn-xs btn-light"
+                    title="View Attachment"
+                  >
+                    <i class="fa-solid fa-paperclip"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="invoiceList().length === 0">
+              <td colspan="9" class="empty-cell">No invoices submitted yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB 5: NOTIFICATIONS -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'notifications'" class="tab-content">
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>Vendor Notification Feed</h3>
+          <p class="panel-subtitle">Real-time alerts regarding new purchase orders, delivery statuses, invoice approvals, and payment disbursements.</p>
+        </div>
+        <div class="action-row">
+          <button
+            class="pill-btn"
+            [class.active]="notificationFilter() === 'all'"
+            (click)="notificationFilter.set('all')"
+          >
+            All
+          </button>
+          <button
+            class="pill-btn"
+            [class.active]="notificationFilter() === 'unread'"
+            (click)="notificationFilter.set('unread')"
+          >
+            Unread ({{ unreadNotificationsCount() }})
+          </button>
+          <button class="btn btn-sm btn-outline" (click)="markAllNotificationsRead()">
+            <i class="fa-solid fa-check-double"></i> Mark All Read
+          </button>
+        </div>
+      </div>
+
+      <div class="notification-feed">
+        <div
+          class="notification-card"
+          *ngFor="let notif of filteredNotifications()"
+          [class.unread]="!notif.is_read"
+        >
+          <div
+            class="notif-icon-circle"
+            [ngClass]="{
+              'green': notif.type === 'success',
+              'amber': notif.type === 'warning' || notif.type === 'info',
+              'red': notif.type === 'alert'
+            }"
+          >
+            <i class="fa-solid fa-bell"></i>
+          </div>
+          <div class="notif-body">
+            <div class="notif-header">
+              <h4>{{ notif.title }}</h4>
+              <span class="notif-time">{{ notif.created_at | date:'medium' }}</span>
+            </div>
+            <p>{{ notif.message }}</p>
+          </div>
+        </div>
+
+        <div *ngIf="filteredNotifications().length === 0" class="empty-feed">
+          <i class="fa-solid fa-bell-slash empty-icon"></i>
+          <p>No notifications to display.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- TAB 6: PROFILE & SECURITY -->
+  <!-- ========================================================= -->
+  <div *ngIf="activeTab() === 'profile'" class="tab-content">
+    <div class="profile-grid">
+      <!-- Company Information Card -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="title-with-badge">
+            <i class="fa-solid fa-building panel-icon"></i>
+            <h3>Company Details</h3>
+          </div>
+          <span class="badge badge-green">Active Vendor</span>
+        </div>
+
+        <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="form-grid">
+          <div class="form-group">
+            <label>Company Name <span class="req">*</span></label>
+            <input type="text" formControlName="vendor_name" placeholder="e.g. Acme Building Supplies Ltd" />
+          </div>
+
+          <div class="form-group">
+            <label>Contact Person <span class="req">*</span></label>
+            <input type="text" formControlName="contact_person" placeholder="e.g. Ramesh Kumar" />
+          </div>
+
+          <div class="form-group">
+            <label>Official Email</label>
+            <input type="email" formControlName="email" />
+            <small class="help-text">Email is linked to your login credentials.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Phone Number <span class="req">*</span></label>
+            <input type="text" formControlName="phone" placeholder="e.g. +91 98765 43210" />
+          </div>
+
+          <div class="form-group">
+            <label>GST Number</label>
+            <input type="text" formControlName="gst_number" placeholder="e.g. 29AAAAA0000A1Z5" />
+          </div>
+
+          <div class="form-group">
+            <label>PAN Number</label>
+            <input type="text" formControlName="pan_number" placeholder="e.g. ABCDE1234F" />
+          </div>
+
+          <div class="form-group full-width">
+            <label>Address <span class="req">*</span></label>
+            <textarea formControlName="address" rows="2" placeholder="Full registered company address..."></textarea>
+          </div>
+
+          <div class="form-group full-width">
+            <label>Materials Supplied</label>
+            <input type="text" formControlName="materials_supplied" placeholder="e.g. Cement, TMT Steel, Sand, Bricks (comma separated)" />
+          </div>
+
+          <div class="form-actions full-width">
+            <button type="submit" class="btn btn-primary" [disabled]="isSavingProfile()">
+              <i class="fa-solid fa-floppy-disk"></i> {{ isSavingProfile() ? 'Saving...' : 'Save Company Details' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Change Password Card -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="title-with-badge">
+            <i class="fa-solid fa-shield-halved panel-icon"></i>
+            <h3>Change Password</h3>
+          </div>
+        </div>
+
+        <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="form-stack">
+          <div class="form-group">
+            <label>Current Password <span class="req">*</span></label>
+            <div class="password-input-group">
+              <input
+                [type]="showCurrentPassword() ? 'text' : 'password'"
+                formControlName="current_password"
+                placeholder="Enter current password"
+              />
+              <button
+                type="button"
+                class="eye-btn"
+                (click)="showCurrentPassword.set(!showCurrentPassword())"
+              >
+                <i class="fa-solid" [ngClass]="showCurrentPassword() ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>New Password <span class="req">*</span></label>
+            <div class="password-input-group">
+              <input
+                [type]="showNewPassword() ? 'text' : 'password'"
+                formControlName="new_password"
+                placeholder="Min 6 characters"
+              />
+              <button
+                type="button"
+                class="eye-btn"
+                (click)="showNewPassword.set(!showNewPassword())"
+              >
+                <i class="fa-solid" [ngClass]="showNewPassword() ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Confirm New Password <span class="req">*</span></label>
+            <div class="password-input-group">
+              <input
+                [type]="showConfirmPassword() ? 'text' : 'password'"
+                formControlName="confirm_password"
+                placeholder="Re-enter new password"
+              />
+              <button
+                type="button"
+                class="eye-btn"
+                (click)="showConfirmPassword.set(!showConfirmPassword())"
+              >
+                <i class="fa-solid" [ngClass]="showConfirmPassword() ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-actions mt-3">
+            <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword()">
+              <i class="fa-solid fa-key"></i> {{ isChangingPassword() ? 'Updating...' : 'Update Password' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: PO DETAILS -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showPODetailsModal()" (click)="closePODetails()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Purchase Order Details</h3>
+          <span class="badge" [ngClass]="poStatusBadge(selectedPO()?.status || '')">
+            {{ selectedPO()?.status }}
+          </span>
+        </div>
+        <button class="close-btn" (click)="closePODetails()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body" *ngIf="selectedPO()">
+        <div class="detail-summary-grid">
+          <div class="detail-item">
+            <label>PO Number</label>
+            <p><strong>{{ selectedPO()?.po_number || selectedPO()?.id }}</strong></p>
+          </div>
+          <div class="detail-item">
+            <label>Project</label>
+            <p>{{ selectedPO()?.project }}</p>
+          </div>
+          <div class="detail-item">
+            <label>Material</label>
+            <p><strong>{{ selectedPO()?.materials }}</strong></p>
+          </div>
+          <div class="detail-item">
+            <label>Quantity</label>
+            <p>{{ selectedPO()?.quantity }} units</p>
+          </div>
+          <div class="detail-item">
+            <label>Unit Price</label>
+            <p>₹{{ (selectedPO()?.unit_price || 0) | number:'1.2-2' }}</p>
+          </div>
+          <div class="detail-item">
+            <label>Total Amount</label>
+            <p class="highlight-price">
+              ₹{{ (selectedPO()?.total_cost || selectedPO()!.unit_price * selectedPO()!.quantity) | number:'1.2-2' }}
+            </p>
+          </div>
+          <div class="detail-item">
+            <label>Expected Delivery Date</label>
+            <p>{{ selectedPO()?.expected_delivery_date | date:'mediumDate' }}</p>
+          </div>
+          <div class="detail-item">
+            <label>Created On</label>
+            <p>{{ selectedPO()?.created_at | date:'mediumDate' }}</p>
+          </div>
+        </div>
+
+        <div class="rejection-box" *ngIf="selectedPO()?.rejection_reason">
+          <label><i class="fa-solid fa-triangle-exclamation"></i> Rejection Reason:</label>
+          <p>{{ selectedPO()?.rejection_reason }}</p>
+        </div>
+      </div>
+
+      <div class="modal-footer" *ngIf="selectedPO()">
+        <button class="btn btn-outline" (click)="downloadPOPDF(selectedPO()!)">
+          <i class="fa-solid fa-file-pdf"></i> Download PDF
+        </button>
+
+        <button
+          *ngIf="selectedPO()?.status === 'created' || selectedPO()?.status === 'sent'"
+          class="btn btn-danger-outline"
+          (click)="openRejectModal(selectedPO()!)"
+        >
+          Reject PO
+        </button>
+
+        <button
+          *ngIf="selectedPO()?.status === 'created' || selectedPO()?.status === 'sent'"
+          class="btn btn-primary"
+          (click)="acceptPO(selectedPO()!)"
+        >
+          Accept PO
+        </button>
+
+        <button
+          *ngIf="selectedPO()?.status === 'accepted'"
+          class="btn btn-success"
+          (click)="prepareDeliveryForPO(selectedPO()!)"
+        >
+          Prepare Delivery
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: REJECT PO -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showRejectModal()" (click)="closeRejectModal()">
+    <div class="modal-card modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reject Purchase Order</h3>
+        <button class="close-btn" (click)="closeRejectModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Please provide a mandatory reason for rejecting <strong>{{ selectedPO()?.po_number }}</strong>.
+        </p>
+        <div class="form-group">
+          <label>Rejection Reason <span class="req">*</span></label>
+          <textarea
+            rows="3"
+            placeholder="e.g. Stock unavailable, delivery timeline cannot be met, price discrepancy..."
+            [ngModel]="rejectionReason()"
+            (ngModelChange)="rejectionReason.set($event)"
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeRejectModal()">Cancel</button>
+        <button class="btn btn-danger" [disabled]="isRejecting()" (click)="submitPORejection()">
+          {{ isRejecting() ? 'Rejecting...' : 'Confirm Rejection' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: DISPATCH / CREATE DELIVERY -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showCreateDeliveryModal()" (click)="closeCreateDelivery()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Dispatch Material Delivery</h3>
+        <button class="close-btn" (click)="closeCreateDelivery()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form [formGroup]="deliveryForm" (ngSubmit)="submitCreateDelivery()">
+        <div class="modal-body form-grid">
+          <div class="form-group full-width">
+            <label>Select Purchase Order <span class="req">*</span></label>
+            <select formControlName="purchase_order_id" (change)="onDeliveryPOChange()">
+              <option value="" disabled>-- Choose Accepted Purchase Order --</option>
+              <option *ngFor="let po of acceptedPOs()" [value]="po._id || po.id">
+                {{ po.po_number }} - {{ po.materials }} ({{ po.project }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Quantity Dispatched <span class="req">*</span></label>
+            <input type="number" formControlName="quantity" min="0.01" step="any" />
+          </div>
+
+          <div class="form-group">
+            <label>Dispatch Date <span class="req">*</span></label>
+            <input type="date" formControlName="dispatch_date" />
+          </div>
+
+          <div class="form-group">
+            <label>Vehicle Number</label>
+            <input type="text" formControlName="vehicle_number" placeholder="e.g. KA-01-AB-1234" />
+          </div>
+
+          <div class="form-group">
+            <label>Waybill / Tracking #</label>
+            <input type="text" formControlName="tracking_number" placeholder="e.g. TRK-987654" />
+          </div>
+
+          <div class="form-group full-width">
+            <label>Driver / Dispatch Remarks</label>
+            <textarea formControlName="remarks" rows="2" placeholder="Driver contact, special handling instructions..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" (click)="closeCreateDelivery()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Log Shipment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: UPDATE DELIVERY STATUS -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showUpdateDeliveryModal()" (click)="closeUpdateDeliveryModal()">
+    <div class="modal-card modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Update Delivery Status</h3>
+        <button class="close-btn" (click)="closeUpdateDeliveryModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form [formGroup]="updateDeliveryForm" (ngSubmit)="submitUpdateDelivery()">
+        <div class="modal-body form-stack">
+          <div class="form-group">
+            <label>Delivery Status <span class="req">*</span></label>
+            <select formControlName="status">
+              <option value="processing">Processing Materials</option>
+              <option value="shipped">Shipped / In Transit</option>
+              <option value="delivered">Delivered to Site</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Vehicle Number</label>
+            <input type="text" formControlName="vehicle_number" />
+          </div>
+
+          <div class="form-group">
+            <label>Tracking Number</label>
+            <input type="text" formControlName="tracking_number" />
+          </div>
+
+          <div class="form-group">
+            <label>Status Remarks</label>
+            <textarea formControlName="remarks" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" (click)="closeUpdateDeliveryModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Status</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: SUBMIT INVOICE -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showSubmitInvoiceModal()" (click)="closeSubmitInvoiceModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Submit Vendor Invoice</h3>
+        <button class="close-btn" (click)="closeSubmitInvoiceModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form [formGroup]="invoiceForm" (ngSubmit)="submitInvoice()">
+        <div class="modal-body form-grid">
+          <div class="form-group full-width">
+            <label>Select Purchase Order <span class="req">*</span></label>
+            <select formControlName="purchase_order_id" (change)="onInvoicePOChange()">
+              <option value="" disabled>-- Choose Purchase Order --</option>
+              <option *ngFor="let po of acceptedPOs()" [value]="po._id || po.id">
+                {{ po.po_number }} - {{ po.materials }} ({{ po.project }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Invoice Number <span class="req">*</span></label>
+            <input type="text" formControlName="invoice_number" placeholder="e.g. INV-2026-001" />
+          </div>
+
+          <div class="form-group">
+            <label>Invoice Date <span class="req">*</span></label>
+            <input type="date" formControlName="invoice_date" />
+          </div>
+
+          <div class="form-group">
+            <label>Base Amount (₹) <span class="req">*</span></label>
+            <input type="number" formControlName="amount" min="0" step="any" />
+          </div>
+
+          <div class="form-group">
+            <label>GST / Tax (₹)</label>
+            <input type="number" formControlName="gst" min="0" step="any" />
+          </div>
+
+          <div class="form-group full-width total-invoice-box">
+            <label>Calculated Grand Total:</label>
+            <span class="total-amount">₹{{ calculatedInvoiceTotal() | number:'1.2-2' }}</span>
+          </div>
+
+          <div class="form-group full-width" style="background: rgba(99, 102, 241, 0.08); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fa-solid fa-file-pdf" style="font-size: 24px; color: #ef4444;"></i>
+              <div>
+                <strong style="color: #e2e8f0; font-size: 13px; display: block;">Automated PDF Invoice Generation</strong>
+                <small style="color: #94a3b8; font-size: 12px;">BuildTrack will automatically compile and format this into an official PDF invoice upon submission.</small>
+              </div>
+            </div>
+            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 4px 10px; font-size: 11px;">
+              <i class="fa-solid fa-check"></i> Auto-Generated
+            </span>
+          </div>
+
+          <div class="form-group full-width">
+            <label>Additional Attachment (Optional)</label>
+            <input type="file" (change)="onFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
+            <small class="help-text">Optional. If you also have a signed physical invoice or delivery challan to attach.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" (click)="closeSubmitInvoiceModal()" [disabled]="submittingInvoice()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="submittingInvoice()">
+            <i class="fa-solid fa-spinner fa-spin" *ngIf="submittingInvoice()"></i>
+            <i class="fa-solid fa-file-invoice" *ngIf="!submittingInvoice()"></i>
+            {{ submittingInvoice() ? 'Generating & Submitting...' : 'Generate & Submit Invoice' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: MATERIAL REQUEST DETAILS -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showRequestDetailsModal()" (click)="closeRequestDetails()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Material Request Details</h3>
+          <span class="modal-sub">Req ID: {{ selectedRequest()?.request_id || selectedRequest()?._id }}</span>
+        </div>
+        <button class="close-btn" (click)="closeRequestDetails()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body doc-modal-body" *ngIf="selectedRequest() as req">
+        <div class="doc-summary-grid">
+          <div class="doc-item">
+            <label>Project</label>
+            <span>{{ req.project }}</span>
+          </div>
+          <div class="doc-item">
+            <label>Material Name</label>
+            <span><strong>{{ req.material_name }}</strong></span>
+          </div>
+          <div class="doc-item">
+            <label>Requested Quantity</label>
+            <span>{{ req.quantity }} units</span>
+          </div>
+          <div class="doc-item">
+            <label>Required By Date</label>
+            <span>{{ formatDate(req.required_date) }}</span>
+          </div>
+          <div class="doc-item">
+            <label>Priority</label>
+            <span class="badge" [ngClass]="priorityBadgeClass(req.priority)">{{ req.priority }}</span>
+          </div>
+          <div class="doc-item">
+            <label>Current Status</label>
+            <span class="badge" [ngClass]="requestStatusBadge(req.status)">{{ req.status }}</span>
+          </div>
+          <div class="doc-item full-width" *ngIf="req.remarks">
+            <label>Specifications / Remarks</label>
+            <span>{{ req.remarks }}</span>
+          </div>
+          <div class="doc-item full-width" *ngIf="req.rejection_reason || req.vendor_comment">
+            <label>Vendor Comment / Rejection Reason</label>
+            <span class="text-danger">{{ req.rejection_reason || req.vendor_comment }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" *ngIf="selectedRequest() as req">
+        <button type="button" class="btn btn-outline" (click)="closeRequestDetails()">Close</button>
+        <button
+          *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+          type="button"
+          class="btn btn-danger-outline"
+          (click)="closeRequestDetails(); openRejectRequestModal(req)"
+        >
+          <i class="fa-solid fa-xmark"></i> Reject Request
+        </button>
+        <button
+          *ngIf="req.status === 'vendor_assigned' || req.status === 'sent_to_vendor' || req.status === 'pending'"
+          type="button"
+          class="btn btn-primary"
+          (click)="acceptMaterialRequest(req)"
+        >
+          <i class="fa-solid fa-check"></i> Accept Request
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: REJECT MATERIAL REQUEST -->
+  <!-- ========================================================= -->
+  <div class="modal-backdrop" *ngIf="showRejectRequestModal()" (click)="closeRejectRequestModal()">
+    <div class="modal-card modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reject Material Request</h3>
+        <button class="close-btn" (click)="closeRejectRequestModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Please provide a specific reason for declining request
+          <strong>{{ selectedRequest()?.request_id || selectedRequest()?._id }}</strong>. This will notify the project manager.
+        </p>
+        <div class="form-group">
+          <label>Reason for Rejection <span class="req">*</span></label>
+          <textarea
+            rows="3"
+            class="form-control"
+            placeholder="e.g. Stock unavailable, unable to meet delivery timeline, pricing adjustment needed..."
+            [ngModel]="requestRejectionReason()"
+            (ngModelChange)="requestRejectionReason.set($event)"
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeRejectRequestModal()">Cancel</button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          [disabled]="!requestRejectionReason().trim() || isRejectingRequest()"
+          (click)="submitRequestRejection()"
+        >
+          {{ isRejectingRequest() ? 'Rejecting...' : 'Confirm Rejection' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

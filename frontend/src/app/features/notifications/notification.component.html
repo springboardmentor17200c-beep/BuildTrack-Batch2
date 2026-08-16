@@ -1,0 +1,114 @@
+<div class="notifications-page">
+  <div class="notifications-page__header">
+    <div class="notifications-page__title-group">
+      <h1><i class="fa-solid fa-bell"></i> Notifications</h1>
+      <span class="unread-badge" *ngIf="notificationService.unreadCount() > 0">
+        {{ notificationService.unreadCount() }} Unread
+      </span>
+    </div>
+    <div class="notifications-page__actions">
+      <button class="btn btn--secondary" (click)="markAllAsRead()" [disabled]="notifications().length === 0">
+        <i class="fa-solid fa-check-double"></i> Mark All as Read
+      </button>
+    </div>
+  </div>
+
+  <!-- Category & Status Filter Bar -->
+  <div class="notifications-page__filters">
+    <div class="category-tabs">
+      <button
+        *ngFor="let cat of categories"
+        class="category-tab"
+        [class.active]="selectedCategory() === cat.value"
+        (click)="setCategory(cat.value)"
+      >
+        <i class="fa-solid" [ngClass]="cat.icon"></i>
+        <span>{{ cat.label }}</span>
+      </button>
+    </div>
+
+    <div class="status-filters">
+      <button
+        class="status-btn"
+        [class.active]="readStatusFilter() === 'all'"
+        (click)="setReadStatus('all')"
+      >
+        All
+      </button>
+      <button
+        class="status-btn"
+        [class.active]="readStatusFilter() === 'unread'"
+        (click)="setReadStatus('unread')"
+      >
+        Unread
+      </button>
+      <button
+        class="status-btn"
+        [class.active]="readStatusFilter() === 'read'"
+        (click)="setReadStatus('read')"
+      >
+        Read
+      </button>
+    </div>
+  </div>
+
+  <!-- Notification List Section -->
+  <div class="notifications-page__body">
+    <div *ngIf="loading()" class="state-container state-container--loading">
+      <i class="fa-solid fa-spinner fa-spin"></i>
+      <p>Loading notifications...</p>
+    </div>
+
+    <div *ngIf="error()" class="state-container state-container--error">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <p>{{ error() }}</p>
+      <button class="btn btn--secondary btn--sm" (click)="loadNotifications()">Retry</button>
+    </div>
+
+    <div *ngIf="!loading() && !error() && notifications().length === 0" class="state-container state-container--empty">
+      <i class="fa-regular fa-bell-slash"></i>
+      <h3>No notifications found</h3>
+      <p>You have no notifications in this category.</p>
+    </div>
+
+    <div *ngIf="!loading() && !error() && notifications().length > 0" class="notification-list">
+      <div
+        *ngFor="let item of notifications()"
+        class="notification-card"
+        [class.unread]="!item.is_read"
+        (click)="onNotificationClick(item)"
+      >
+        <div class="notification-card__icon" [ngClass]="'icon--' + (item.type || 'info')">
+          <i class="fa-solid" [ngClass]="getCategoryIcon(item.category)"></i>
+        </div>
+
+        <div class="notification-card__content">
+          <div class="notification-card__header">
+            <span class="category-badge">{{ getCategoryLabel(item.category) }}</span>
+            <span class="time-stamp">{{ formatTime(item.created_at) }}</span>
+          </div>
+          <h4 class="notification-card__title">{{ item.title }}</h4>
+          <p class="notification-card__message">{{ item.message }}</p>
+        </div>
+
+        <div class="notification-card__actions">
+          <button
+            *ngIf="!item.is_read"
+            class="action-btn action-btn--read"
+            title="Mark as Read"
+            (click)="markAsRead(item, $event)"
+          >
+            <i class="fa-solid fa-check"></i>
+          </button>
+          <button
+            class="action-btn action-btn--delete"
+            title="Delete Notification"
+            (click)="deleteNotification(item, $event)"
+          >
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

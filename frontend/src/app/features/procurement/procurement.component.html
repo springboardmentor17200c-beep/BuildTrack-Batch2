@@ -1,215 +1,1179 @@
 <div class="page procurement-page">
   <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Procurement</p>
+
   <div class="page-header">
     <div>
-      <h1>{{ pageTitle() }}</h1>
-      <p class="page-subtitle" *ngIf="activeTab() === 'requests'">Manage procurement list and procurement requests.</p>
-      <p class="page-subtitle" *ngIf="activeTab() === 'purchase-orders'">Manage purchase orders.</p>
-      <p class="page-subtitle" *ngIf="activeTab() === 'vendors'">Manage vendors and suppliers.</p>
-      <p class="page-subtitle" *ngIf="activeTab() === 'invoices'">Track supplier invoices.</p>
+      <h1>Procurement Management</h1>
+      <p class="page-subtitle">Manage material requests, vendors, purchase orders, deliveries, inventory, invoices, and payments.</p>
     </div>
     <div class="toolbar">
-      <div class="search-box">
+      <div class="search-box" *ngIf="activeTab() !== 'dashboard'">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" placeholder="Search procurement..." [value]="searchTerm()" (input)="onSearch($event)" />
+        <input type="text" placeholder="Search records..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
-      <button class="btn btn-outline" type="button" (click)="loadAll()"><i class="fa-solid fa-rotate"></i> Refresh</button>
-      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'requests'" (click)="openAdd('requests')"><i class="fa-solid fa-plus"></i> Add Procurement</button>
+
+      <select class="filter-select" *ngIf="['requests', 'vendors', 'purchase-orders', 'deliveries', 'invoices', 'payments'].includes(activeTab())" (change)="onFilterStatus($event)">
+        <option value="">All Statuses</option>
+        <option value="pending" *ngIf="['requests', 'invoices', 'payments'].includes(activeTab())">Pending</option>
+        <option value="approved" *ngIf="['requests', 'invoices', 'payments'].includes(activeTab())">Approved</option>
+        <option value="vendor_assigned" *ngIf="activeTab() === 'requests'">Vendor Assigned</option>
+        <option value="po_generated" *ngIf="activeTab() === 'requests'">PO Generated</option>
+        <option value="po_sent" *ngIf="activeTab() === 'requests'">PO Sent</option>
+        <option value="rejected" *ngIf="['requests', 'invoices'].includes(activeTab())">Rejected</option>
+        <option value="active" *ngIf="activeTab() === 'vendors'">Active</option>
+        <option value="inactive" *ngIf="activeTab() === 'vendors'">Inactive</option>
+        <option value="created" *ngIf="activeTab() === 'purchase-orders'">Created</option>
+        <option value="sent" *ngIf="activeTab() === 'purchase-orders'">Sent</option>
+        <option value="accepted" *ngIf="activeTab() === 'purchase-orders'">Accepted</option>
+        <option value="delivered" *ngIf="activeTab() === 'purchase-orders'">Delivered</option>
+      </select>
+
+      <select class="filter-select" *ngIf="activeTab() === 'requests'" (change)="onFilterPriority($event)">
+        <option value="">All Priorities</option>
+        <option value="low">Low Priority</option>
+        <option value="medium">Medium Priority</option>
+        <option value="high">High Priority</option>
+      </select>
+
+      <button class="btn btn-outline" type="button" (click)="loadData()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+
+      <!-- Role-gated Add Actions -->
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'requests' && isSiteEngineer()" (click)="openAddModal('requests')">
+        <i class="fa-solid fa-plus"></i> New Request
+      </button>
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'vendors' && isProjectManager()" (click)="openAddModal('vendors')">
+        <i class="fa-solid fa-plus"></i> Add Vendor
+      </button>
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'purchase-orders' && isProjectManager()" (click)="openAddModal('purchase-orders')">
+        <i class="fa-solid fa-plus"></i> Create PO
+      </button>
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'deliveries' && isStoreManager()" (click)="openAddModal('deliveries')">
+        <i class="fa-solid fa-plus"></i> Record Delivery
+      </button>
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'invoices' && (isFinance() || isProjectManager())" (click)="openAddModal('invoices')">
+        <i class="fa-solid fa-plus"></i> Create Invoice
+      </button>
+      <button class="btn btn-primary" type="button" *ngIf="activeTab() === 'payments' && isFinance()" (click)="openAddModal('payments')">
+        <i class="fa-solid fa-plus"></i> Record Payment
+      </button>
     </div>
   </div>
 
-  <div class="notice error" *ngIf="error()">{{ error() }}</div>
-  <div class="notice success" *ngIf="success()">{{ success() }}</div>
+  <!-- Navigation Tabs -->
+  <div class="tabs-nav">
+    <button [class.active]="activeTab() === 'dashboard'" (click)="setTab('dashboard')"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
+    <button [class.active]="activeTab() === 'requests'" (click)="setTab('requests')"><i class="fa-solid fa-clipboard-list"></i> Requests</button>
+    <button *ngIf="isProjectManager()" [class.active]="activeTab() === 'approvals'" (click)="setTab('approvals')"><i class="fa-solid fa-circle-check"></i> Approvals</button>
+    <button *ngIf="isProjectManager()" [class.active]="activeTab() === 'vendors'" (click)="setTab('vendors')"><i class="fa-solid fa-truck-field"></i> Vendors</button>
+    <button *ngIf="isProjectManager()" [class.active]="activeTab() === 'purchase-orders'" (click)="setTab('purchase-orders')"><i class="fa-solid fa-file-contract"></i> Purchase Orders</button>
+    <button *ngIf="isStoreManager()" [class.active]="activeTab() === 'deliveries'" (click)="setTab('deliveries')"><i class="fa-solid fa-boxes-packing"></i> Deliveries</button>
+    <button *ngIf="isStoreManager() || isSiteEngineer()" [class.active]="activeTab() === 'inventory'" (click)="setTab('inventory')"><i class="fa-solid fa-warehouse"></i> Inventory</button>
+    <button *ngIf="isFinance() || isProjectManager()" [class.active]="activeTab() === 'invoices'" (click)="setTab('invoices')"><i class="fa-solid fa-file-invoice-dollar"></i> Invoices</button>
+    <button *ngIf="isFinance()" [class.active]="activeTab() === 'payments'" (click)="setTab('payments')"><i class="fa-solid fa-money-check-dollar"></i> Payments</button>
+  </div>
 
-  <section class="panel" *ngIf="activeTab() === 'requests'">
-    <div class="section-heading">
-      <div>
-        <h3>Procurement List Page</h3>
-        <p>Add, edit, view details, and approve material procurement requests.</p>
+  <!-- Error / Loading Overlay -->
+  <div class="notice error" *ngIf="error()">{{ error() }}</div>
+  <div class="loading-state" *ngIf="loading()"><i class="fa-solid fa-spinner fa-spin"></i> Loading procurement data...</div>
+
+  <!-- 1. DASHBOARD TAB -->
+  <div *ngIf="activeTab() === 'dashboard' && !loading()">
+    <div class="stats-grid">
+      <div class="stat-card yellow">
+        <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div class="stat-info">
+          <h3>{{ dashboardStats()?.pending_requests || 0 }}</h3>
+          <p>Pending Requests</p>
+        </div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon"><i class="fa-solid fa-file-signature"></i></div>
+        <div class="stat-info">
+          <h3>{{ dashboardStats()?.active_purchase_orders || 0 }}</h3>
+          <p>Active Purchase Orders</p>
+        </div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div class="stat-info">
+          <h3>{{ dashboardStats()?.pending_deliveries || 0 }}</h3>
+          <p>Pending Deliveries</p>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon"><i class="fa-solid fa-receipt"></i></div>
+        <div class="stat-info">
+          <h3>{{ dashboardStats()?.pending_payments || 0 }}</h3>
+          <p>Pending Payments</p>
+        </div>
       </div>
     </div>
+
+    <section class="panel dashboard-activity mt-4">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h3>Recent Procurement Activity</h3>
+          <p style="color: #64748b; font-size: 0.85rem; margin-top: 0.2rem;">Latest 4 operational milestones and audit events across BuildTrack.</p>
+        </div>
+        <span class="badge badge-blue"><i class="fa-solid fa-bolt"></i> Live Feed</span>
+      </div>
+
+      <div class="activity-grid-4" *ngIf="dashboardStats()?.recent_activity?.length; else emptyActivity">
+        <div class="activity-card-modern" *ngFor="let item of (dashboardStats()?.recent_activity || []).slice(0, 4)">
+          <div class="activity-card-icon" [ngClass]="item.color || 'blue'">
+            <i class="fa-solid" [ngClass]="item.icon || 'fa-bell'"></i>
+          </div>
+          <div class="activity-card-body">
+            <div class="activity-card-header">
+              <strong class="activity-card-title">{{ item.title || (item.entity + ' ' + item.action) }}</strong>
+              <span class="activity-card-time">{{ (item.timestamp || item.created_at) | date:'mediumDate' }} &bull; {{ (item.timestamp || item.created_at) | date:'shortTime' }}</span>
+            </div>
+            <p class="activity-card-desc">{{ item.description || ('Action ' + item.action + ' performed on ' + item.entity) }}</p>
+            <div class="activity-card-footer">
+              <span class="activity-user-badge">
+                <i class="fa-solid fa-circle-user"></i> {{ item.user_name || 'System' }}
+              </span>
+              <span class="activity-entity-tag" [ngClass]="item.color || 'blue'">
+                {{ (item.entity || 'Procurement') | titlecase }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #emptyActivity>
+        <div style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+          <i class="fa-solid fa-clock-rotate-left" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1;"></i>
+          <p style="font-size: 0.95rem; font-weight: 500;">No recent procurement activities logged yet.</p>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+
+  <!-- 2. MATERIAL REQUESTS TAB -->
+  <section class="panel" *ngIf="activeTab() === 'requests' && !loading()">
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Items</th><th>Vendor</th><th>Amount</th><th>Status</th><th>Request Date</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let item of filteredRequests()">
-            <td class="cell-title">{{ itemSummary(item) }}</td>
-            <td>{{ vendorName(item.vendor_id) }}</td>
-            <td>Rs {{ item.total_amount | number }}</td>
-            <td><span class="badge" [ngClass]="statusClass(item.status)">{{ item.status }}</span></td>
-            <td>{{ formatDate(item.request_date) }}</td>
-            <td><div class="action-row">
-              <button class="icon-action" title="Details" (click)="openDetails(item)"><i class="fa-solid fa-eye"></i></button>
-              <button class="icon-action" title="Edit" (click)="openEdit('requests', item)"><i class="fa-solid fa-pen"></i></button>
-              <button class="icon-action danger" title="Delete" (click)="remove('requests', item._id, itemSummary(item))"><i class="fa-solid fa-trash"></i></button>
-            </div></td>
+        <thead>
+          <tr>
+            <th (click)="toggleSort('request_id')" class="sortable">Req ID <i class="fa-solid fa-sort"></i></th>
+            <th (click)="toggleSort('project')" class="sortable">Project <i class="fa-solid fa-sort"></i></th>
+            <th (click)="toggleSort('material_name')" class="sortable">Material <i class="fa-solid fa-sort"></i></th>
+            <th>Quantity</th>
+            <th>Req. Date</th>
+            <th>Priority</th>
+            <th>Vendor</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
-          <tr *ngIf="filteredRequests().length === 0"><td colspan="6" class="empty-cell">No procurement requests found.</td></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of requests()">
+            <td class="cell-title">{{ item.request_id || item._id }}</td>
+            <td>{{ item.project }}</td>
+            <td><strong>{{ item.material_name }}</strong></td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ formatDate(item.required_date) }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.priority)">{{ item.priority }}</span></td>
+            <td>{{ item.vendor_name || vendorName(item.vendor_id) }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" title="View Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+                <button *ngIf="isProjectManager() && item.status === 'pending'" class="icon-action success" title="Approve/Reject" (click)="openApprovalModal(item)"><i class="fa-solid fa-user-check"></i></button>
+                <button *ngIf="isProjectManager() && item.status === 'approved'" class="btn btn-sm btn-primary" type="button" (click)="openAssignVendorModal(item)">
+                  <i class="fa-solid fa-truck"></i> Assign Vendor
+                </button>
+                <button *ngIf="isProjectManager() && item.status === 'vendor_assigned'" class="btn btn-sm btn-primary" type="button" (click)="openPOFromRequest(item)">
+                  <i class="fa-solid fa-file-signature"></i> Generate PO
+                </button>
+                <button *ngIf="item.purchase_order_id" class="btn btn-sm btn-outline" type="button" (click)="setTab('purchase-orders')">
+                  <i class="fa-solid fa-file-contract"></i> View PO
+                </button>
+                <button *ngIf="isSiteEngineer()" class="icon-action" title="Edit" (click)="openEditModal('requests', item)"><i class="fa-solid fa-pen"></i></button>
+                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('requests', item._id!, item.material_name)"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="requests().length === 0"><td colspan="9" class="empty-cell">No material requests found.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="pagination-bar" *ngIf="totalItems() > 0">
+      <span>Showing {{ (pageIndex() - 1) * pageSize() + 1 }} - {{ pageIndex() * pageSize() > totalItems() ? totalItems() : pageIndex() * pageSize() }} of {{ totalItems() }} items</span>
+      <div class="pager-btns">
+        <button class="btn btn-sm btn-outline" [disabled]="pageIndex() === 1" (click)="prevPage()">Previous</button>
+        <span>Page {{ pageIndex() }} of {{ totalPages }}</span>
+        <button class="btn btn-sm btn-outline" [disabled]="pageIndex() >= totalPages" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. APPROVALS TAB (Project Manager / Admin) -->
+  <section class="panel" *ngIf="activeTab() === 'approvals' && !loading()">
+    <div class="section-heading">
+      <div><h3>Material Request Approvals</h3><p>Review and act on pending material requests.</p></div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Req ID</th><th>Project</th><th>Material</th><th>Quantity</th><th>Requested By</th><th>Priority</th><th>Status</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of requests()">
+            <td>{{ item.request_id || item._id }}</td>
+            <td>{{ item.project }}</td>
+            <td><strong>{{ item.material_name }}</strong></td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.requested_by || 'Site Engineer' }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.priority)">{{ item.priority }}</span></td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <button *ngIf="item.status === 'pending'" class="btn btn-sm btn-primary" (click)="openApprovalModal(item)"><i class="fa-solid fa-check"></i> Review</button>
+              <button *ngIf="item.status === 'approved'" class="btn btn-sm btn-primary" (click)="openAssignVendorModal(item)"><i class="fa-solid fa-truck"></i> Assign Vendor</button>
+              <button *ngIf="item.status === 'vendor_assigned'" class="btn btn-sm btn-primary" (click)="openPOFromRequest(item)"><i class="fa-solid fa-file-signature"></i> Generate PO</button>
+            </td>
+          </tr>
+          <tr *ngIf="requests().length === 0"><td colspan="8" class="empty-cell">No material requests pending review.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="panel" *ngIf="activeTab() === 'purchase-orders'">
-    <div class="section-heading">
-      <div><h3>Purchase Orders</h3><p>Create and track issued purchase orders.</p></div>
-      <button class="btn btn-primary" type="button" (click)="openAdd('purchase-orders')"><i class="fa-solid fa-plus"></i> Add Purchase Order</button>
-    </div>
+  <!-- 4. VENDORS TAB -->
+  <section class="panel" *ngIf="activeTab() === 'vendors' && !loading()">
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>PO Number</th><th>Vendor</th><th>Procurement</th><th>Amount</th><th>Status</th><th>Issue Date</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let item of filteredPurchaseOrders()">
-            <td class="cell-title">{{ item.po_number }}</td>
-            <td>{{ vendorName(item.vendor_id) }}</td>
-            <td>{{ item.procurement_id }}</td>
-            <td>Rs {{ item.total_amount | number }}</td>
-            <td><span class="badge" [ngClass]="statusClass(item.status)">{{ item.status }}</span></td>
-            <td>{{ formatDate(item.issue_date) }}</td>
-            <td><div class="action-row">
-              <button class="icon-action" title="Details" (click)="openDetails(item)"><i class="fa-solid fa-eye"></i></button>
-              <button class="icon-action" title="Edit" (click)="openEdit('purchase-orders', item)"><i class="fa-solid fa-pen"></i></button>
-              <button class="icon-action danger" title="Delete" (click)="remove('purchase-orders', item._id, item.po_number)"><i class="fa-solid fa-trash"></i></button>
-            </div></td>
+        <thead>
+          <tr>
+            <th (click)="toggleSort('vendor_name')" class="sortable">Vendor Name <i class="fa-solid fa-sort"></i></th>
+            <th>Contact Person</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Materials Supplied</th>
+            <th>Rating</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
-          <tr *ngIf="filteredPurchaseOrders().length === 0"><td colspan="7" class="empty-cell">No purchase orders found.</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel" *ngIf="activeTab() === 'vendors'">
-    <div class="section-heading">
-      <div><h3>Vendor / Supplier Management</h3><p>Vendor and supplier records use the same backend vendor source.</p></div>
-      <button class="btn btn-primary" type="button" (click)="openAdd('vendors')"><i class="fa-solid fa-plus"></i> Add Vendor</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Vendor</th><th>Contact</th><th>Email</th><th>Phone</th><th>City</th><th>Rating</th><th>Actions</th></tr></thead>
+        </thead>
         <tbody>
-          <tr *ngFor="let item of filteredVendors()">
+          <tr *ngFor="let item of vendors()">
             <td class="cell-title">{{ item.vendor_name }}</td>
             <td>{{ item.contact_person }}</td>
-            <td>{{ item.email }}</td>
             <td>{{ item.phone }}</td>
-            <td>{{ item.city || '-' }}</td>
-            <td>{{ item.rating }}/5</td>
-            <td><div class="action-row">
-              <button class="icon-action" title="Details" (click)="openDetails(item)"><i class="fa-solid fa-eye"></i></button>
-              <button class="icon-action" title="Edit" (click)="openEdit('vendors', item)"><i class="fa-solid fa-pen"></i></button>
-              <button class="icon-action danger" title="Delete" (click)="remove('vendors', item._id, item.vendor_name)"><i class="fa-solid fa-trash"></i></button>
-            </div></td>
+            <td>{{ item.email }}</td>
+            <td>{{ item.materials_supplied.join(', ') || '-' }}</td>
+            <td><i class="fa-solid fa-star text-warning"></i> {{ item.rating }}/5</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" title="View Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+                <button *ngIf="isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('vendors', item)"><i class="fa-solid fa-pen"></i></button>
+                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('vendors', item._id!, item.vendor_name)"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
           </tr>
-          <tr *ngIf="filteredVendors().length === 0"><td colspan="7" class="empty-cell">No vendors found.</td></tr>
+          <tr *ngIf="vendors().length === 0"><td colspan="8" class="empty-cell">No vendors found.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination-bar" *ngIf="totalItems() > 0">
+      <span>Total Vendors: {{ totalItems() }}</span>
+      <div class="pager-btns">
+        <button class="btn btn-sm btn-outline" [disabled]="pageIndex() === 1" (click)="prevPage()">Previous</button>
+        <span>Page {{ pageIndex() }} of {{ totalPages }}</span>
+        <button class="btn btn-sm btn-outline" [disabled]="pageIndex() >= totalPages" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. PURCHASE ORDERS TAB -->
+  <section class="panel" *ngIf="activeTab() === 'purchase-orders' && !loading()">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Vendor</th>
+            <th>Project</th>
+            <th>Materials</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total Cost</th>
+            <th>Expected Delivery</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of purchaseOrders()">
+            <td class="cell-title">{{ item.po_number || item._id }}</td>
+            <td>{{ vendorName(item.vendor_id) }}</td>
+            <td>{{ item.project }}</td>
+            <td>{{ item.materials }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>Rs {{ item.unit_price | number }}</td>
+            <td><strong>Rs {{ item.total_cost || (item.quantity * item.unit_price) | number }}</strong></td>
+            <td>{{ formatDate(item.expected_delivery_date) }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" title="Download PDF" (click)="downloadPDF(item)"><i class="fa-solid fa-file-pdf"></i></button>
+                <button *ngIf="isProjectManager() && item.status === 'created'" class="icon-action success" title="Send PO" (click)="sendPO(item)"><i class="fa-solid fa-paper-plane"></i></button>
+                <button class="icon-action" title="Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+                <button *ngIf="isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('purchase-orders', item)"><i class="fa-solid fa-pen"></i></button>
+                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('purchase-orders', item._id!, item.po_number || 'PO')"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="purchaseOrders().length === 0"><td colspan="10" class="empty-cell">No purchase orders found.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="panel" *ngIf="activeTab() === 'invoices'">
+  <!-- 6. MATERIAL DELIVERIES TAB (Store Manager & Site Engineers) -->
+  <section class="panel" *ngIf="activeTab() === 'deliveries' && !loading()">
+    <div class="section-heading" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <div>
+        <h3>Material Deliveries & Vendor Dispatch Tracking</h3>
+        <p style="color: #64748b; font-size: 0.85rem; margin-top: 0.2rem;">Track shipments dispatched by vendors. Accepting a verified delivery automatically increments warehouse inventory stock.</p>
+      </div>
+      <button *ngIf="isStoreManager() || isSiteEngineer() || isAdmin()" class="btn btn-primary" (click)="openAddModal('deliveries')">
+        <i class="fa-solid fa-plus"></i> Record Delivery
+      </button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Vendor</th>
+            <th>Material & Quantity</th>
+            <th>Tracking / Vehicle</th>
+            <th>Dispatch / Delivery Date</th>
+            <th>Transit Status</th>
+            <th>Quality Inspection</th>
+            <th>Remarks</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of deliveries()">
+            <td class="cell-title">
+              <strong>{{ item.po_number || poNumber(item.purchase_order_id) }}</strong>
+            </td>
+            <td><strong>{{ vendorName(item.vendor_id, item) }}</strong></td>
+            <td>
+              <strong>{{ item.material }}</strong>
+              <span style="color: #64748b; font-size: 0.825rem;"> &bull; {{ item.quantity_received }} units</span>
+            </td>
+            <td>
+              <div *ngIf="item.vehicle_number || item.tracking_number; else noTracking" style="display: flex; flex-direction: column; gap: 4px;">
+                <div *ngIf="item.vehicle_number" style="font-size: 0.825rem; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 5px;">
+                  <i class="fa-solid fa-truck" style="color: #64748b;"></i> {{ item.vehicle_number }}
+                </div>
+                <div *ngIf="item.tracking_number" style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 5px;">
+                  <i class="fa-solid fa-barcode" style="color: #94a3b8;"></i> {{ item.tracking_number }}
+                </div>
+              </div>
+              <ng-template #noTracking><span style="color: #94a3b8;">-</span></ng-template>
+            </td>
+            <td>
+              <div>{{ formatDate(item.delivery_date || item.dispatch_date) }}</div>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="deliveryStatusBadge(item.status)">
+                <i class="fa-solid fa-truck-fast" *ngIf="item.status === 'shipped' || item.status === 'in_transit' || item.status === 'dispatched'"></i>
+                <i class="fa-solid fa-check" *ngIf="item.status === 'accepted'"></i>
+                <i class="fa-solid fa-box-open" *ngIf="item.status === 'delivered'"></i>
+                {{ (item.status || 'Pending') | titlecase }}
+              </span>
+            </td>
+            <td>
+              <span
+                class="badge"
+                style="cursor: pointer;"
+                [ngClass]="item.quality_status === 'passed' ? 'badge-green' : item.quality_status === 'failed' ? 'badge-red' : 'badge-amber'"
+                (click)="openQualityInspectionModal(item)"
+                title="Click to Perform Quality Inspection"
+              >
+                <i class="fa-solid fa-clipboard-check"></i> {{ (item.quality_status || 'Pending') | titlecase }}
+              </span>
+            </td>
+            <td>{{ item.remarks || '-' }}</td>
+            <td>
+              <div class="action-row">
+                <button
+                  *ngIf="isStoreManager() || isSiteEngineer() || isAdmin()"
+                  class="btn btn-sm btn-outline"
+                  style="padding: 0.35rem 0.65rem; font-size: 0.775rem; border-color: #3b82f6; color: #2563eb; font-weight: 600;"
+                  (click)="openQualityInspectionModal(item)"
+                  title="Perform Site Quality Inspection"
+                >
+                  <i class="fa-solid fa-clipboard-check"></i> Inspect QA
+                </button>
+                <button
+                  *ngIf="(item.status === 'shipped' || item.status === 'delivered' || item.status === 'in_transit' || item.status === 'dispatched' || item.status === 'pending') && (isStoreManager() || isSiteEngineer() || isAdmin())"
+                  class="btn btn-sm btn-primary"
+                  style="background: #16a34a; border-color: #16a34a; padding: 0.35rem 0.65rem; font-size: 0.775rem;"
+                  (click)="acceptDelivery(item)"
+                  title="Accept & Auto-Update Inventory Stock"
+                >
+                  <i class="fa-solid fa-check"></i> Accept & Stock
+                </button>
+                <button *ngIf="isStoreManager() || isSiteEngineer() || isAdmin()" class="icon-action" title="Edit Delivery" (click)="openEditModal('deliveries', item)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action" title="Details" (click)="openDetailsModal(item)">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="deliveries().length === 0">
+            <td colspan="9" class="empty-cell">No material deliveries recorded yet. When vendors dispatch materials, shipments will appear here in real time.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 7. INVENTORY TAB -->
+  <section class="panel" *ngIf="activeTab() === 'inventory' && !loading()">
     <div class="section-heading">
-      <div><h3>Invoice Tracking</h3><p>Track supplier invoices against purchase orders.</p></div>
-      <button class="btn btn-primary" type="button" (click)="openAdd('invoices')"><i class="fa-solid fa-plus"></i> Add Invoice</button>
+      <div><h3>Current Stock & Inventory Integration</h3><p>Stock automatically updates when deliveries are received.</p></div>
     </div>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Invoice No.</th><th>PO</th><th>Vendor</th><th>Amount</th><th>Status</th><th>Due Date</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let item of filteredInvoices()">
-            <td class="cell-title">{{ item.invoice_number }}</td>
-            <td>{{ item.purchase_order_id }}</td>
-            <td>{{ vendorName(item.vendor_id) }}</td>
-            <td>Rs {{ item.amount | number }}</td>
-            <td><span class="badge" [ngClass]="statusClass(item.status)">{{ item.status }}</span></td>
-            <td>{{ formatDate(item.due_date) }}</td>
-            <td><div class="action-row">
-              <button class="icon-action" title="Details" (click)="openDetails(item)"><i class="fa-solid fa-eye"></i></button>
-              <button class="icon-action" title="Edit" (click)="openEdit('invoices', item)"><i class="fa-solid fa-pen"></i></button>
-              <button class="icon-action danger" title="Delete" (click)="remove('invoices', item._id, item.invoice_number)"><i class="fa-solid fa-trash"></i></button>
-            </div></td>
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Stock Quantity</th>
+            <th>Last Updated</th>
+            <th>Transactions Count</th>
           </tr>
-          <tr *ngIf="filteredInvoices().length === 0"><td colspan="7" class="empty-cell">No invoices found.</td></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of inventoryItems()">
+            <td class="cell-title"><strong>{{ item.material }}</strong></td>
+            <td><span class="stock-num">{{ item.stock_quantity }}</span></td>
+            <td>{{ formatDate(item.updated_at) }}</td>
+            <td>{{ item.transactions?.length || 0 }} logged</td>
+          </tr>
+          <tr *ngIf="inventoryItems().length === 0"><td colspan="4" class="empty-cell">No stock inventory items found.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 8. INVOICES TAB (Finance) -->
+  <section class="panel" *ngIf="activeTab() === 'invoices' && !loading()">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice No.</th>
+            <th>Vendor</th>
+            <th>Purchase Order</th>
+            <th>Amount</th>
+            <th>GST</th>
+            <th>Total Amount</th>
+            <th>Invoice Date</th>
+            <th>Payment Status</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of invoices()">
+            <td class="cell-title">{{ item.invoice_number }}</td>
+            <td>{{ vendorName(item.vendor_id) }}</td>
+            <td>{{ poNumber(item.purchase_order_id) }}</td>
+            <td>Rs {{ item.amount | number }}</td>
+            <td>Rs {{ item.gst || 0 | number }}</td>
+            <td><strong>Rs {{ (item.amount + (item.gst || 0)) | number }}</strong></td>
+            <td>{{ formatDate(item.invoice_date) }}</td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.payment_status)">{{ item.payment_status }}</span></td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button *ngIf="item.payment_status !== 'paid' && (isFinance() || isAdmin())" class="btn btn-sm btn-primary" (click)="openPayInvoiceModal(item)" title="Record Payment for this Invoice">
+                  <i class="fa-solid fa-credit-card"></i> Pay
+                </button>
+                <button *ngIf="isFinance() && item.status !== 'verified' && item.status !== 'approved'" class="btn btn-sm btn-outline" (click)="openInvoiceActionModal(item, 'verify')">Verify</button>
+                <button class="icon-action" title="Download Invoice PDF" (click)="downloadInvoicePDF(item)"><i class="fa-solid fa-file-pdf"></i></button>
+                <a *ngIf="item.attachment_url" [href]="item.attachment_url" target="_blank" class="icon-action" title="View Attachment"><i class="fa-solid fa-paperclip"></i></a>
+                <button class="icon-action" title="View Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('invoices', (item._id || item.id)!, item.invoice_number)"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+
+      </table>
+    </div>
+  </section>
+
+  <!-- 9. PAYMENTS TAB (Finance) -->
+  <section class="panel" *ngIf="activeTab() === 'payments' && !loading()">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice ID</th>
+            <th>Vendor</th>
+            <th>Purchase Order</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Paid At</th>
+            <th>Remarks</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of payments()">
+            <td class="cell-title">{{ item.invoice_id }}</td>
+            <td>{{ vendorName(item.vendor_id) }}</td>
+            <td>{{ poNumber(item.purchase_order_id) }}</td>
+            <td><strong>Rs {{ item.amount | number }}</strong></td>
+            <td><span class="badge" [ngClass]="statusBadgeClass(item.status)">{{ item.status }}</span></td>
+            <td>{{ formatDate(item.paid_at) }}</td>
+            <td>{{ item.remarks || '-' }}</td>
+            <td>
+              <button *ngIf="isFinance()" class="icon-action" title="Edit Payment" (click)="openEditModal('payments', item)"><i class="fa-solid fa-pen"></i></button>
+              <button class="icon-action" title="Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
+            </td>
+          </tr>
+          <tr *ngIf="payments().length === 0"><td colspan="8" class="empty-cell">No payment records found.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 </div>
 
-<div class="modal-backdrop" *ngIf="modal()" (click)="closeModal()">
-  <div class="modal-card modal-wide" (click)="$event.stopPropagation()">
+<!-- MODAL DIALOGS -->
+
+<!-- 1. MATERIAL REQUEST MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'requests'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>{{ selected() ? 'Edit' : 'Add' }} {{ modal() === 'requests' ? 'Procurement' : modal() === 'purchase-orders' ? 'Purchase Order' : modal() === 'vendors' ? 'Vendor / Supplier' : 'Invoice' }}</h3>
-      <button class="modal-close" type="button" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+      <h3>{{ selectedItem() ? 'Edit' : 'Create' }} Material Request</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-
-    <form *ngIf="modal() === 'requests'" [formGroup]="requestForm" (ngSubmit)="saveRequest()">
+    <form [formGroup]="requestForm" (ngSubmit)="saveMaterialRequest()">
       <div class="modal-body form-grid">
-        <div class="modal-field"><label>Vendor</label><select formControlName="vendor_id"><option value="">Select vendor</option><option *ngFor="let vendor of vendors()" [value]="vendor._id">{{ vendor.vendor_name }}</option></select><p class="modal-error" *ngIf="requestForm.get('vendor_id')?.touched && requestForm.get('vendor_id')?.invalid">Required.</p></div>
-        <div class="modal-field"><label>Item Name</label><input formControlName="item_name" placeholder="e.g. Cement bags" /><p class="modal-error" *ngIf="requestForm.get('item_name')?.touched && requestForm.get('item_name')?.invalid">Required.</p></div>
-        <div class="modal-field"><label>Project ID</label><input formControlName="project_id" placeholder="Optional project id" /></div>
-        <div class="modal-field"><label>Quantity</label><input type="number" min="1" formControlName="quantity" placeholder="e.g. 100" /></div>
-        <div class="modal-field"><label>Unit Price</label><input type="number" min="0" formControlName="unit_price" placeholder="e.g. 450" /></div>
-        <div class="modal-field"><label>Requested By</label><input formControlName="requested_by" placeholder="Requester name" /></div>
-        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="pending">Pending</option><option value="approved">Approved</option><option value="ordered">Ordered</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select></div>
-        <div class="modal-field"><label>Request Date</label><input type="date" formControlName="request_date" /></div>
-        <div class="modal-field"><label>Expected Delivery</label><input type="date" formControlName="expected_delivery" /></div>
-        <div class="modal-field form-span"><label>Notes</label><input formControlName="notes" placeholder="Extra details" /></div>
+        <div class="modal-field">
+          <label>Project Name</label>
+          <select formControlName="project">
+            <option value="" disabled>-- Select Existing Project --</option>
+            <option *ngFor="let p of availableProjects()" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Material Name</label>
+          <select formControlName="material_name">
+            <option value="" disabled>-- Select Existing Material --</option>
+            <option *ngFor="let m of availableMaterials()" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Quantity</label>
+          <input type="number" min="0.1" step="0.1" formControlName="quantity" />
+        </div>
+        <div class="modal-field">
+          <label>Required Date</label>
+          <input type="date" formControlName="required_date" />
+        </div>
+        <div class="modal-field">
+          <label>Priority</label>
+          <select formControlName="priority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="modal-field form-span">
+          <label>Remarks</label>
+          <textarea formControlName="remarks" rows="2" placeholder="Additional specifications"></textarea>
+        </div>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save Procurement</button></div>
-    </form>
-
-    <form *ngIf="modal() === 'vendors'" [formGroup]="vendorForm" (ngSubmit)="saveVendor()">
-      <div class="modal-body form-grid">
-        <div class="modal-field"><label>Vendor Name</label><input formControlName="vendor_name" placeholder="e.g. ABC Supplies" /><p class="modal-error" *ngIf="vendorForm.get('vendor_name')?.touched && vendorForm.get('vendor_name')?.invalid">Required.</p></div>
-        <div class="modal-field"><label>Contact Person</label><input formControlName="contact_person" placeholder="e.g. Ramesh Kumar" /></div>
-        <div class="modal-field"><label>Email</label><input type="email" formControlName="email" placeholder="vendor@example.com" /></div>
-        <div class="modal-field"><label>Phone</label><input formControlName="phone" placeholder="e.g. 9876500000" /></div>
-        <div class="modal-field"><label>City</label><input formControlName="city" placeholder="e.g. Kolkata" /></div>
-        <div class="modal-field"><label>Rating</label><input type="number" min="0" max="5" step="0.1" formControlName="rating" placeholder="0 to 5" /></div>
-        <div class="modal-field"><label>Payment Terms</label><input formControlName="payment_terms" placeholder="e.g. Net 30" /></div>
-        <div class="modal-field"><label>Address</label><input formControlName="address" /></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+          <i class="fa-solid fa-spinner fa-spin" *ngIf="submitting()"></i>
+          {{ submitting() ? 'Saving Request...' : 'Save Request' }}
+        </button>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save Vendor</button></div>
-    </form>
-
-    <form *ngIf="modal() === 'purchase-orders'" [formGroup]="purchaseForm" (ngSubmit)="savePurchaseOrder()">
-      <div class="modal-body form-grid">
-        <div class="modal-field"><label>Procurement Request</label><select formControlName="procurement_id"><option value="">Select request</option><option *ngFor="let item of requests()" [value]="item._id">{{ itemSummary(item) }}</option></select></div>
-        <div class="modal-field"><label>Vendor</label><select formControlName="vendor_id"><option value="">Select vendor</option><option *ngFor="let vendor of vendors()" [value]="vendor._id">{{ vendor.vendor_name }}</option></select></div>
-        <div class="modal-field"><label>PO Number</label><input formControlName="po_number" placeholder="e.g. PO-1001" /></div>
-        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="draft">Draft</option><option value="issued">Issued</option><option value="partially_received">Partially Received</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
-        <div class="modal-field"><label>Issue Date</label><input type="date" formControlName="issue_date" /></div>
-        <div class="modal-field"><label>Expected Delivery</label><input type="date" formControlName="expected_delivery" /></div>
-        <div class="modal-field"><label>Total Amount</label><input type="number" min="0" formControlName="total_amount" placeholder="e.g. 25000" /></div>
-        <div class="modal-field"><label>Notes</label><input formControlName="notes" placeholder="Optional notes" /></div>
-      </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save PO</button></div>
-    </form>
-
-    <form *ngIf="modal() === 'invoices'" [formGroup]="invoiceForm" (ngSubmit)="saveInvoice()">
-      <div class="modal-body form-grid">
-        <div class="modal-field"><label>Purchase Order</label><select formControlName="purchase_order_id"><option value="">Select PO</option><option *ngFor="let po of purchaseOrders()" [value]="po._id">{{ po.po_number }}</option></select></div>
-        <div class="modal-field"><label>Vendor</label><select formControlName="vendor_id"><option value="">Select vendor</option><option *ngFor="let vendor of vendors()" [value]="vendor._id">{{ vendor.vendor_name }}</option></select></div>
-        <div class="modal-field"><label>Invoice Number</label><input formControlName="invoice_number" placeholder="e.g. INV-1001" /></div>
-        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="pending">Pending</option><option value="approved">Approved</option><option value="paid">Paid</option><option value="overdue">Overdue</option><option value="rejected">Rejected</option></select></div>
-        <div class="modal-field"><label>Invoice Date</label><input type="date" formControlName="invoice_date" /></div>
-        <div class="modal-field"><label>Due Date</label><input type="date" formControlName="due_date" /></div>
-        <div class="modal-field"><label>Amount</label><input type="number" min="0" formControlName="amount" placeholder="e.g. 25000" /></div>
-        <div class="modal-field"><label>Notes</label><input formControlName="notes" placeholder="Optional notes" /></div>
-      </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save Invoice</button></div>
     </form>
   </div>
 </div>
 
-<div class="modal-backdrop" *ngIf="selected() && !modal()" (click)="closeDetails()">
+<!-- 2. APPROVAL MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'approval'" (click)="closeModal()">
   <div class="modal-card" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>Procurement Details</h3>
-      <button class="modal-close" type="button" (click)="closeDetails()"><i class="fa-solid fa-xmark"></i></button>
+      <h3>Material Request Approval</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="approvalForm" (ngSubmit)="submitApproval()">
+      <div class="modal-body">
+        <p><strong>Material:</strong> {{ selectedItem()?.material_name }} (Qty: {{ selectedItem()?.quantity }})</p>
+        <p><strong>Project:</strong> {{ selectedItem()?.project }}</p>
+        <div class="modal-field">
+          <label>Decision</label>
+          <select formControlName="status">
+            <option value="approved">Approve Request</option>
+            <option value="rejected">Reject Request</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Approval Comments</label>
+          <textarea formControlName="comments" rows="3" placeholder="Enter comments or guidelines..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+          <i class="fa-solid fa-spinner fa-spin" *ngIf="submitting()"></i>
+          {{ submitting() ? 'Submitting...' : 'Submit Decision' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ASSIGN VENDOR MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'assign_vendor'" (click)="closeModal()">
+  <div class="modal-card wide-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Assign Vendor</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="vendorAssignmentForm" (ngSubmit)="submitVendorAssignment()">
+      <div class="modal-body">
+        <div class="request-summary">
+          <strong>{{ selectedItem()?.request_id || selectedItem()?._id }}</strong>
+          <span>{{ selectedItem()?.project }}</span>
+          <span>{{ selectedItem()?.material_name }} - {{ selectedItem()?.quantity }}</span>
+        </div>
+        <div class="vendor-options">
+          <label class="vendor-choice" *ngFor="let vendor of vendors()">
+            <input type="radio" formControlName="vendor_id" [value]="vendor._id || vendor.id" />
+            <span>
+              <strong>{{ vendor.vendor_name }}</strong>
+              <small>{{ vendor.contact_person }} | {{ vendor.phone }} | {{ vendor.email }}</small>
+              <small>{{ vendor.address }}</small>
+              <em>{{ vendor.status }}</em>
+            </span>
+          </label>
+        </div>
+        <p class="empty-text" *ngIf="vendors().length === 0">No active vendors available.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="vendors().length === 0 || submitting()">
+          <i class="fa-solid fa-spinner fa-spin" *ngIf="submitting()"></i>
+          {{ submitting() ? 'Assigning...' : 'Assign Vendor' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. VENDOR MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'vendors'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ selectedItem() ? 'Edit' : 'Add' }} Vendor</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="vendorForm" (ngSubmit)="saveVendor()">
+      <div class="modal-body form-grid">
+        <div class="modal-field"><label>Vendor Name</label><input formControlName="vendor_name" /></div>
+        <div class="modal-field"><label>Contact Person</label><input formControlName="contact_person" /></div>
+        <div class="modal-field"><label>Phone</label><input formControlName="phone" /></div>
+        <div class="modal-field"><label>Email</label><input type="email" formControlName="email" /></div>
+        <div class="modal-field form-span"><label>Address</label><input formControlName="address" /></div>
+        <div class="modal-field form-span"><label>Materials Supplied (comma separated)</label><input formControlName="materials_supplied" placeholder="e.g. Cement, Steel, Bricks" /></div>
+        <div class="modal-field"><label>Rating (0-5)</label><input type="number" step="0.1" min="0" max="5" formControlName="rating" /></div>
+        <div class="modal-field"><label>Status</label><select formControlName="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+
+        <!-- Create Login Account Toggle — only for admins creating NEW vendors -->
+        <div class="modal-field form-span" *ngIf="isAdmin() && !selectedItem()" style="margin-top: 8px;">
+          <label class="toggle-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" [checked]="createLoginAccount()" (change)="toggleCreateLoginAccount($event)" style="width: 18px; height: 18px; accent-color: #6366f1; cursor: pointer;" />
+            <span style="font-weight: 600; color: #e2e8f0;">Create Vendor Login Account</span>
+          </label>
+          <small style="color: #94a3b8; margin-top: 4px; display: block;">
+            When enabled, a login account will be created so the vendor can access their dashboard.
+          </small>
+        </div>
+
+        <!-- Password field — shown only when toggle is ON -->
+        <div class="modal-field form-span" *ngIf="createLoginAccount() && isAdmin() && !selectedItem()">
+          <label>Login Password <span style="color: #f87171;">*</span></label>
+          <input type="password" formControlName="password" placeholder="Min 6 characters" minlength="6" autocomplete="new-password" />
+          <small style="color: #94a3b8; margin-top: 4px; display: block;">
+            The vendor will use their email and this password to log in.
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          {{ createLoginAccount() && !selectedItem() ? 'Save Vendor & Create Account' : 'Save Vendor' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 4. PURCHASE ORDER MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'purchase-orders'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ selectedItem() ? 'Edit' : 'Create' }} Purchase Order</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="purchaseForm" (ngSubmit)="savePurchaseOrder()">
+      <div class="modal-body form-grid">
+        <div class="modal-field">
+          <label>Select Approved Material Request</label>
+          <select formControlName="request_id" (change)="onMaterialRequestSelectForPO($event)">
+            <option value="">-- Choose Approved Request --</option>
+            <option *ngFor="let req of approvedRequests()" [value]="req._id || req.request_id">
+              {{ req.request_id || req.material_name }} ({{ req.project }} - {{ req.material_name }} - {{ req.vendor_name || vendorName(req.vendor_id) }})
+            </option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Select Vendor</label>
+          <select formControlName="vendor_id">
+            <option value="">-- Select Vendor --</option>
+            <option *ngFor="let v of vendors()" [value]="v._id || v.id">{{ v.vendor_name }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Project</label>
+          <select formControlName="project">
+            <option value="" disabled>-- Select Existing Project --</option>
+            <option *ngFor="let p of availableProjects()" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Materials Description / Name</label>
+          <select formControlName="materials">
+            <option value="" disabled>-- Select Existing Material --</option>
+            <option *ngFor="let m of availableMaterials()" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+        <div class="modal-field"><label>Quantity</label><input type="number" formControlName="quantity" min="0.1" step="0.1" /></div>
+        <div class="modal-field"><label>Unit Price (₹)</label><input type="number" formControlName="unit_price" min="0" step="any" /></div>
+        <div class="modal-field"><label>Expected Delivery Date</label><input type="date" formControlName="expected_delivery_date" /></div>
+        <div class="modal-field">
+          <label>PO Status</label>
+          <select formControlName="status">
+            <option value="created">Created</option>
+            <option value="sent">Sent</option>
+            <option value="accepted">Accepted</option>
+            <option value="delivered">Delivered</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="submitting()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+          <i class="fa-solid fa-spinner fa-spin" *ngIf="submitting()"></i>
+          {{ submitting() ? 'Saving PO...' : 'Save PO' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 5. DELIVERY MODAL (Store Manager) -->
+<div class="modal-backdrop" *ngIf="modal() === 'deliveries'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Record Material Delivery</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="deliveryForm" (ngSubmit)="saveDelivery()">
+      <div class="modal-body form-grid">
+        <div class="modal-field">
+          <label>Purchase Order</label>
+          <select formControlName="purchase_order_id">
+            <option value="">-- Select Purchase Order --</option>
+            <option *ngFor="let po of purchaseOrders()" [value]="po._id">{{ po.po_number }} - {{ po.materials }}</option>
+          </select>
+        </div>
+        <div class="modal-field"><label>Material Name</label><input formControlName="material" /></div>
+        <div class="modal-field"><label>Quantity Received</label><input type="number" formControlName="quantity_received" /></div>
+        <div class="modal-field">
+          <label>Quality Verification</label>
+          <select formControlName="quality_status">
+            <option value="passed">Passed Inspection</option>
+            <option value="pending">Pending Verification</option>
+            <option value="failed">Failed / Damaged</option>
+          </select>
+        </div>
+        <div class="modal-field"><label>Delivery Date</label><input type="date" formControlName="delivery_date" /></div>
+        <div class="modal-field">
+          <label>Delivery Status</label>
+          <select formControlName="status">
+            <option value="accepted">Accepted</option>
+            <option value="partial">Partial Delivery</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="modal-field form-span"><label>Remarks</label><input formControlName="remarks" /></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Delivery & Update Stock</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 6. INVOICE MODAL (Finance) -->
+<div class="modal-backdrop" *ngIf="modal() === 'invoices'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ selectedItem() ? 'Edit' : 'Create' }} Invoice</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="invoiceForm" (ngSubmit)="saveInvoice()">
+      <div class="modal-body form-grid">
+        <div class="modal-field"><label>Invoice Number</label><input formControlName="invoice_number" /></div>
+        <div class="modal-field">
+          <label>Vendor</label>
+          <select formControlName="vendor_id">
+            <option value="">-- Select Vendor --</option>
+            <option *ngFor="let v of vendors()" [value]="v._id">{{ v.vendor_name }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Purchase Order</label>
+          <select formControlName="purchase_order_id" (change)="onPOSelectForInvoice($event)">
+            <option value="">-- Select PO --</option>
+            <option *ngFor="let po of purchaseOrders()" [value]="po._id">{{ po.po_number }}</option>
+          </select>
+        </div>
+        <div class="modal-field"><label>Amount (Rs)</label><input type="number" formControlName="amount" /></div>
+        <div class="modal-field"><label>GST Amount (Rs)</label><input type="number" formControlName="gst" /></div>
+        <div class="modal-field"><label>Invoice Date</label><input type="date" formControlName="invoice_date" /></div>
+        <div class="modal-field form-span">
+          <label>Upload Invoice File (PDF / Image)</label>
+          <input type="file" (change)="onFileSelected($event)" accept="application/pdf,image/*" />
+          <p class="file-status" *ngIf="uploadingFile()"><i class="fa-solid fa-spinner fa-spin"></i> Uploading attachment...</p>
+          <p class="file-status success" *ngIf="uploadedAttachmentUrl()"><i class="fa-solid fa-check"></i> File uploaded!</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Invoice</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 6.5 QUALITY INSPECTION MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'quality_inspection'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()" style="max-width: 580px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <i class="fa-solid fa-clipboard-check" style="color: #2563eb; font-size: 1.25rem;"></i>
+        <h3>Site Material Quality Inspection (QA/QC)</h3>
+      </div>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <form [formGroup]="inspectionForm" (ngSubmit)="saveQualityInspection()">
+      <div class="modal-body" style="padding: 1.5rem;">
+        <!-- Shipment Summary Box -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.875rem;">
+            <div>
+              <span style="color: #64748b; font-size: 0.8rem; display: block;">Material</span>
+              <strong style="color: #0f172a; font-size: 1rem;">{{ selectedItem()?.material }}</strong>
+            </div>
+            <div>
+              <span style="color: #64748b; font-size: 0.8rem; display: block;">PO Reference</span>
+              <strong style="color: #2563eb;">{{ selectedItem()?.po_number || poNumber(selectedItem()?.purchase_order_id) || 'PO-Direct' }}</strong>
+            </div>
+            <div>
+              <span style="color: #64748b; font-size: 0.8rem; display: block;">Vendor / Supplier</span>
+              <strong>{{ vendorName(selectedItem()?.vendor_id, selectedItem()) }}</strong>
+            </div>
+            <div>
+              <span style="color: #64748b; font-size: 0.8rem; display: block;">Vehicle / Tracking</span>
+              <span>{{ selectedItem()?.vehicle_number || selectedItem()?.tracking_number || 'Direct Delivery' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QA Decision -->
+        <div class="modal-field" style="margin-bottom: 1.25rem;">
+          <label style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; display: block;">
+            Quality Verification Result <span style="color: #ef4444;">*</span>
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+            <label
+              style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 0.85rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.2s;"
+              [style.borderColor]="inspectionForm.get('quality_status')?.value === 'passed' ? '#16a34a' : '#e2e8f0'"
+              [style.background]="inspectionForm.get('quality_status')?.value === 'passed' ? '#dcfce7' : '#ffffff'"
+            >
+              <input type="radio" formControlName="quality_status" value="passed" style="display: none;" />
+              <i class="fa-solid fa-circle-check" style="font-size: 1.25rem; color: #16a34a; display: block; margin-bottom: 0.35rem;"></i>
+              <strong style="font-size: 0.85rem; color: #166534; display: block;">PASSED</strong>
+              <small style="color: #15803d; font-size: 0.7rem;">Meets Specs & Add Stock</small>
+            </label>
+
+            <label
+              style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 0.85rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.2s;"
+              [style.borderColor]="inspectionForm.get('quality_status')?.value === 'failed' ? '#dc2626' : '#e2e8f0'"
+              [style.background]="inspectionForm.get('quality_status')?.value === 'failed' ? '#fee2e2' : '#ffffff'"
+            >
+              <input type="radio" formControlName="quality_status" value="failed" style="display: none;" />
+              <i class="fa-solid fa-circle-xmark" style="font-size: 1.25rem; color: #dc2626; display: block; margin-bottom: 0.35rem;"></i>
+              <strong style="font-size: 0.85rem; color: #991b1b; display: block;">FAILED</strong>
+              <small style="color: #b91c1c; font-size: 0.7rem;">Damaged / Reject</small>
+            </label>
+
+            <label
+              style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 0.85rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.2s;"
+              [style.borderColor]="inspectionForm.get('quality_status')?.value === 'pending' ? '#d97706' : '#e2e8f0'"
+              [style.background]="inspectionForm.get('quality_status')?.value === 'pending' ? '#fef3c7' : '#ffffff'"
+            >
+              <input type="radio" formControlName="quality_status" value="pending" style="display: none;" />
+              <i class="fa-solid fa-hourglass-half" style="font-size: 1.25rem; color: #d97706; display: block; margin-bottom: 0.35rem;"></i>
+              <strong style="font-size: 0.85rem; color: #92400e; display: block;">PENDING</strong>
+              <small style="color: #b45309; font-size: 0.7rem;">Under Lab Test</small>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quantity Accepted -->
+        <div class="modal-field" style="margin-bottom: 1rem;">
+          <label style="font-weight: 600; font-size: 0.85rem;">Quantity Verified & Accepted (Units)</label>
+          <input type="number" formControlName="quantity_received" min="0.01" step="any" style="padding: 0.65rem;" />
+        </div>
+
+        <!-- QA Verification Remarks -->
+        <div class="modal-field" style="margin-bottom: 0.5rem;">
+          <label style="font-weight: 600; font-size: 0.85rem;">Inspector QA Observations / Notes</label>
+          <textarea
+            formControlName="remarks"
+            rows="3"
+            placeholder="e.g. Dimensions verified, test certificate matches grade, packaging intact, approved for project site."
+            style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.6rem; font-family: inherit; font-size: 0.875rem;"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [style.background]="inspectionForm.get('quality_status')?.value === 'failed' ? '#dc2626' : '#16a34a'"
+          [style.borderColor]="inspectionForm.get('quality_status')?.value === 'failed' ? '#dc2626' : '#16a34a'"
+        >
+          <i class="fa-solid" [ngClass]="inspectionForm.get('quality_status')?.value === 'failed' ? 'fa-ban' : 'fa-check'"></i>
+          {{ inspectionForm.get('quality_status')?.value === 'failed' ? 'Submit QA Rejection' : 'Approve QA & Update Stock' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 7. INVOICE ACTION MODAL -->
+<div class="modal-backdrop" *ngIf="modal() === 'invoice_action'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Process Invoice</h3>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="invoiceActionForm" (ngSubmit)="submitInvoiceAction()">
+      <div class="modal-body">
+        <p><strong>Invoice Number:</strong> {{ selectedItem()?.invoice_number }}</p>
+        <p><strong>Amount:</strong> Rs {{ selectedItem()?.amount | number }}</p>
+        <div class="modal-field">
+          <label>Action</label>
+          <select formControlName="action">
+            <option value="verify">Verify Invoice</option>
+            <option value="approve">Approve Invoice</option>
+            <option value="reject">Reject Invoice</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Verification Comments</label>
+          <textarea formControlName="comments" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Status</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 8. PAYMENT MODAL WITH QR & INSTANT PHONE SCAN -->
+<div class="modal-backdrop" *ngIf="modal() === 'payments'" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()" style="max-width: 520px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <i class="fa-solid fa-qrcode" style="color: #3b82f6; font-size: 1.25rem;"></i>
+        <h3>Procurement Payment</h3>
+      </div>
+      <button class="modal-close" (click)="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div *ngIf="!paymentConfirmed()" style="display: flex; border-bottom: 1px solid #e2e8f0; background: #f8fafc; padding: 0 1.5rem;">
+      <button
+        type="button"
+        style="padding: 0.75rem 1.25rem; font-weight: 600; font-size: 0.875rem; border: none; background: none; cursor: pointer;"
+        [style.borderBottom]="paymentMode() === 'qr' ? '2px solid #2563eb' : 'none'"
+        [style.color]="paymentMode() === 'qr' ? '#2563eb' : '#64748b'"
+        (click)="paymentMode.set('qr')"
+      >
+        <i class="fa-solid fa-qrcode"></i> Dynamic QR & Phone Scan
+      </button>
+      <button
+        type="button"
+        style="padding: 0.75rem 1.25rem; font-weight: 600; font-size: 0.875rem; border: none; background: none; cursor: pointer;"
+        [style.borderBottom]="paymentMode() === 'manual' ? '2px solid #2563eb' : 'none'"
+        [style.color]="paymentMode() === 'manual' ? '#2563eb' : '#64748b'"
+        (click)="paymentMode.set('manual')"
+      >
+        <i class="fa-solid fa-file-invoice-dollar"></i> Manual Entry
+      </button>
+    </div>
+
+    <!-- SUCCESS VIEW (Upon Phone Scan or Confirmation) -->
+    <div *ngIf="paymentConfirmed()" class="modal-body" style="text-align: center; padding: 2.5rem 1.5rem;">
+      <div style="width: 64px; height: 64px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1.25rem; border: 2px solid #86efac;">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <h3 style="color: #166534; font-size: 1.35rem; font-weight: 700; margin-bottom: 0.5rem;">Payment Verified & Completed!</h3>
+      <p style="color: #475569; font-size: 0.95rem; margin-bottom: 1.5rem;">
+        Payment of <strong>₹{{ (paymentForm.get('amount')?.value || 0) | number:'1.2-2' }}</strong> has been recorded and the invoice status updated to <strong style="color: #16a34a;">PAID</strong> in both Procurement and Vendor Portal.
+      </p>
+      <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.85rem;" (click)="closeModal(); setTab('payments');">
+        <i class="fa-solid fa-receipt"></i> View in Payments Tab
+      </button>
+    </div>
+
+    <!-- QR CODE SCAN VIEW -->
+    <div *ngIf="!paymentConfirmed() && paymentMode() === 'qr'" class="modal-body" style="padding: 1.5rem; text-align: center;">
+      <div style="background: #f1f5f9; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem; text-align: left;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: #64748b; font-size: 0.85rem;">Vendor:</span>
+          <strong style="color: #1e293b; font-size: 0.9rem;">{{ vendorName(paymentForm.get('vendor_id')?.value) || 'Vendor Partner' }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: #64748b; font-size: 0.85rem;">Invoice Ref:</span>
+          <strong style="color: #1e293b; font-size: 0.9rem;">{{ selectedItem()?.invoice_number || 'INV' }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 0.5rem; margin-top: 0.5rem;">
+          <span style="color: #64748b; font-size: 0.85rem; font-weight: 600;">Total Payable:</span>
+          <strong style="color: #2563eb; font-size: 1.2rem;">₹{{ (paymentForm.get('amount')?.value || 0) | number:'1.2-2' }}</strong>
+        </div>
+      </div>
+
+      <!-- QR Code Image -->
+      <div style="display: inline-block; padding: 12px; background: #ffffff; border: 2px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1rem;">
+        <img [src]="getQRImageUrl()" alt="Payment QR Code" style="width: 180px; height: 180px; display: block; border-radius: 8px;" />
+      </div>
+
+      <p style="color: #64748b; font-size: 0.825rem; margin-bottom: 1rem;">
+        <i class="fa-solid fa-camera"></i> Scan with Phone Camera or any UPI App (GPay, PhonePe, Paytm, BHIM) to confirm payment.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="width: 100%; padding: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+          [disabled]="quickPaying()"
+          (click)="simulateQRPayment()"
+        >
+          <i class="fa-solid fa-spinner fa-spin" *ngIf="quickPaying()"></i>
+          <i class="fa-solid fa-circle-check" *ngIf="!quickPaying()"></i>
+          {{ quickPaying() ? 'Processing...' : 'Confirm Payment / Simulate Scan (₹' + ((paymentForm.get('amount')?.value || 0) | number:'1.2-2') + ')' }}
+        </button>
+
+        <a
+          [href]="getMobileCheckoutUrl()"
+          target="_blank"
+          style="font-size: 0.8rem; color: #2563eb; text-decoration: underline; display: inline-block;"
+        >
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Phone Checkout Page in New Tab
+        </a>
+      </div>
+    </div>
+
+    <!-- MANUAL ENTRY VIEW -->
+    <form *ngIf="!paymentConfirmed() && paymentMode() === 'manual'" [formGroup]="paymentForm" (ngSubmit)="savePayment()">
+      <div class="modal-body form-grid">
+        <div class="modal-field">
+          <label>Select Invoice</label>
+          <select formControlName="invoice_id">
+            <option value="">-- Select Invoice --</option>
+            <option *ngFor="let inv of invoices()" [value]="inv._id">{{ inv.invoice_number }} (₹{{ inv.amount }})</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Vendor</label>
+          <select formControlName="vendor_id">
+            <option value="">-- Select Vendor --</option>
+            <option *ngFor="let v of vendors()" [value]="v._id">{{ v.vendor_name }}</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Purchase Order</label>
+          <select formControlName="purchase_order_id">
+            <option value="">-- Select PO --</option>
+            <option *ngFor="let po of purchaseOrders()" [value]="po._id">{{ po.po_number }}</option>
+          </select>
+        </div>
+        <div class="modal-field"><label>Amount Paid (₹)</label><input type="number" formControlName="amount" /></div>
+        <div class="modal-field">
+          <label>Payment Status</label>
+          <select formControlName="status">
+            <option value="pending">Pending Approval</option>
+            <option value="approved">Approved</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+        <div class="modal-field form-span"><label>Remarks</label><input formControlName="remarks" /></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- DETAILS VIEW MODAL -->
+<div class="modal-backdrop" *ngIf="selectedItem() && !modal()" (click)="closeDetailsModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Record Details</h3>
+      <button class="modal-close" (click)="closeDetailsModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="details-list">
-      <div *ngFor="let row of selected() | keyvalue">
+      <div *ngFor="let row of selectedItem() | keyvalue">
         <span>{{ row.key }}</span>
         <strong>{{ row.value }}</strong>
       </div>

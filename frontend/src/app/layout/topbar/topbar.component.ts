@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { NotificationItem } from '../../core/models/models';
 import { AuthService } from '../../core/services/auth.service';
 import { MockDataService } from '../../core/services/mock-data.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 interface SearchResult {
   label: string;
@@ -19,12 +21,13 @@ interface SearchResult {
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss',
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit {
   @Input() title = 'Dashboard';
   @Output() menuClick = new EventEmitter<void>();
 
   query = signal('');
   showResults = signal(false);
+  showNotificationsPanel = signal(false);
 
   results = computed<SearchResult[]>(() => {
     const term = this.query().trim().toLowerCase();
@@ -64,15 +67,76 @@ export class TopbarComponent {
   constructor(
     public auth: AuthService,
     public data: MockDataService,
+    public notificationService: NotificationService,
     private router: Router,
   ) {}
+
+  ngOnInit(): void {
+    if (this.auth.currentUser()) {
+      this.refreshNotifications();
+      setInterval(() => this.refreshNotifications(), 30000);
+    }
+  }
+
+  refreshNotifications(): void {
+    this.notificationService.getUnreadCount().subscribe();
+    this.notificationService.getNotifications({ limit: 10 }).subscribe();
+  }
+
+  toggleNotifications(): void {
+    this.showNotificationsPanel.update((v) => !v);
+    if (this.showNotificationsPanel()) {
+      this.refreshNotifications();
+    }
+  }
+
+  markAsRead(item: NotificationItem, event: MouseEvent): void {
+    event.stopPropagation();
+    const id = item._id || item.id;
+    if (id && !item.is_read) {
+      this.notificationService.markAsRead(id).subscribe(() => {
+        this.refreshNotifications();
+      });
+    }
+  }
+
+  markAllAsRead(event: MouseEvent): void {
+    event.stopPropagation();
+    this.notificationService.markAllAsRead().subscribe(() => {
+      this.refreshNotifications();
+    });
+  }
+
+  viewAllNotifications(): void {
+    this.showNotificationsPanel.set(false);
+    this.router.navigate(['/notifications']);
+  }
+
+  onNotificationClick(item: NotificationItem): void {
+    const id = item._id || item.id;
+    if (id && !item.is_read) {
+      this.notificationService.markAsRead(id).subscribe();
+    }
+    this.showNotificationsPanel.set(false);
+
+    if (item.entity_type === 'project' && item.entity_id) {
+      this.router.navigate(['/projects', item.entity_id]);
+    } else if (item.entity_type === 'procurement') {
+      this.router.navigate(['/procurement']);
+    } else if (item.entity_type === 'attendance') {
+      this.router.navigate(['/attendance']);
+    } else if (item.entity_type === 'task' || item.category === 'task_assignment') {
+      this.router.navigate(['/workers']);
+    } else {
+      this.router.navigate(['/notifications']);
+    }
+  }
 
   onFocus(): void {
     this.showResults.set(true);
   }
 
   onBlur(): void {
-    // Delay so a click on a result registers before the list disappears.
     setTimeout(() => this.showResults.set(false), 150);
   }
 
@@ -81,4 +145,10 @@ export class TopbarComponent {
     this.query.set('');
     this.showResults.set(false);
   }
+
+  openNotifications(): void {
+    this.refreshNotifications();
+    this.router.navigate(['/notifications']);
+  }
 }
+
