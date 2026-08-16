@@ -51,18 +51,33 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Team Members & Workers</h3>
-        <a routerLink="/workers">Manage workers -></a>
+        <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }">Manage workers -></a>
       </div>
-      <div class="team-grid">
-        <div class="team-card" *ngFor="let worker of projectWorkers">
-          <img [src]="worker.avatarUrl || 'assets/default-avatar.svg'" alt="" />
-          <div>
-            <p class="cell-title">{{ worker.name }}</p>
-            <p class="cell-sub">{{ worker.role }} - {{ worker.skillType }}</p>
+
+      <p class="empty" *ngIf="loadingTeam()">Loading team...</p>
+      <p class="modal-error" *ngIf="teamError()">{{ teamError() }}</p>
+
+      <ng-container *ngIf="!loadingTeam()">
+        <div class="team-role-group" *ngFor="let group of groupedTeam()">
+          <div class="role-header">
+            <h4>{{ group.role }}</h4>
+            <span class="role-count">{{ group.members.length }}</span>
+          </div>
+          <div class="team-grid">
+            <div class="team-card" *ngFor="let member of group.members">
+              <img *ngIf="member.avatarUrl" [src]="member.avatarUrl" [alt]="member.name" />
+              <div *ngIf="!member.avatarUrl" class="team-card__initials">
+                {{ member.name ? member.name.charAt(0).toUpperCase() : '?' }}
+              </div>
+              <div class="team-card__info">
+                <p class="cell-title">{{ member.name }}</p>
+                <p class="cell-sub">{{ member.designation }}</p>
+              </div>
+            </div>
           </div>
         </div>
-        <p class="empty" *ngIf="projectWorkers.length === 0">No worker assigned to this project yet.</p>
-      </div>
+        <p class="empty" *ngIf="groupedTeam().length === 0">No worker assigned to this project yet.</p>
+      </ng-container>
     </div>
   </ng-container>
 

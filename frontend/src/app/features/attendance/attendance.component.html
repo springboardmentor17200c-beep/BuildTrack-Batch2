@@ -8,19 +8,26 @@
         <input type="text" placeholder="Search workers..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
       <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ today() }}</button>
-      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
-      <button class="btn btn-outline"><i class="fa-solid fa-file-export"></i> Export</button>
       <button class="btn btn-primary" type="button" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Entry</button>
     </div>
   </div>
 
+  <div class="alert alert-danger" *ngIf="errorMessage()">
+    {{ errorMessage() }}
+  </div>
+
   <div class="panel">
-    <div class="table-wrap">
+    <div class="loading" *ngIf="loading()" style="padding: 30px; text-align: center;">
+      Loading attendance...
+    </div>
+
+    <div class="table-wrap" *ngIf="!loading()">
       <table class="data-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Role</th>
+            <th>Date</th>
             <th>Check In</th>
             <th>Check Out</th>
             <th>Status</th>
@@ -31,9 +38,10 @@
           <tr *ngFor="let a of filteredAttendance">
             <td class="cell-title">{{ a.workerName }}</td>
             <td>{{ a.role }}</td>
+            <td>{{ a.date || '—' }}</td>
             <td>{{ a.checkIn || '—' }}</td>
             <td>{{ a.checkOut || '—' }}</td>
-            <td><span class="badge" [ngClass]="statusClass(a.status)">{{ a.status }}</span></td>
+            <td><span class="badge" [ngClass]="statusClass(a.status)">{{ statusLabel(a.status) }}</span></td>
             <td>
               <div class="action-row">
                 <button class="icon-action" type="button" title="Edit attendance" (click)="openEdit(a)">
@@ -46,24 +54,16 @@
             </td>
           </tr>
           <tr *ngIf="filteredAttendance.length === 0">
-            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
-              No entries match "{{ searchTerm() }}".
+            <td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">
+              No attendance entries found.
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="pagination-bar">
-      <span>Showing {{ filteredAttendance.length }} of {{ data.attendance.length }} entries</span>
-      <div class="pagination">
-        <button><i class="fa-solid fa-chevron-left"></i></button>
-        <button class="active">1</button>
-        <button>2</button>
-        <button>3</button>
-        <button>4</button>
-        <button><i class="fa-solid fa-chevron-right"></i></button>
-      </div>
+    <div class="pagination-bar" *ngIf="!loading()">
+      <span>Showing {{ filteredAttendance.length }} of {{ attendance().length }} entries</span>
     </div>
   </div>
 </div>
@@ -77,22 +77,36 @@
     <form [formGroup]="form" (ngSubmit)="submitAdd()">
       <div class="modal-body">
         <div class="modal-field">
-          <label for="aworker">Worker Name</label>
+          <label for="aworker">Worker</label>
           <select id="aworker" formControlName="workerId" (change)="onWorkerChange($any($event.target).value)">
-            <option *ngFor="let worker of data.workers" [value]="worker.id">{{ worker.name }}</option>
+            <option *ngFor="let worker of workers()" [value]="worker.id || worker._id">
+              {{ worker.first_name }} {{ worker.last_name }}
+            </option>
           </select>
           <p class="modal-error" *ngIf="form.get('workerId')?.touched && form.get('workerId')?.invalid">Required.</p>
         </div>
+
+        <div class="modal-field">
+          <label for="aproject">Project</label>
+          <select id="aproject" formControlName="projectId">
+            <option value="">Unassigned</option>
+            <option *ngFor="let project of projects()" [value]="project.id">{{ project.name }}</option>
+          </select>
+        </div>
+
         <div class="modal-field-row">
-          <div class="modal-field">
-            <label for="arole">Role</label>
-            <input id="arole" type="text" formControlName="role" />
-          </div>
           <div class="modal-field">
             <label for="adate">Date</label>
             <input id="adate" type="date" formControlName="date" />
           </div>
+          <div class="modal-field">
+            <label for="astatus">Status</label>
+            <select id="astatus" formControlName="status">
+              <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
         </div>
+
         <div class="modal-field-row">
           <div class="modal-field">
             <label for="ain">Check In</label>
@@ -103,18 +117,21 @@
             <input id="aout" type="time" formControlName="checkOut" />
           </div>
         </div>
+
         <div class="modal-field">
-          <label for="astatus">Status</label>
-          <select id="astatus" formControlName="status">
-            <option value="Present">Present</option>
-            <option value="Absent">Absent</option>
-            <option value="On Leave">On Leave</option>
-          </select>
+          <label for="aremarks">Remarks</label>
+          <input id="aremarks" type="text" formControlName="remarks" placeholder="Optional" />
+        </div>
+
+        <div class="alert alert-danger" *ngIf="errorMessage()">
+          {{ errorMessage() }}
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline" (click)="closeAdd()">Cancel</button>
-        <button type="submit" class="btn btn-primary">{{ editingAttendance() ? 'Save Changes' : 'Save Entry' }}</button>
+        <button type="button" class="btn btn-outline" (click)="closeAdd()" [disabled]="saving()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : (editingAttendance() ? 'Save Changes' : 'Save Entry') }}
+        </button>
       </div>
     </form>
   </div>

@@ -1,318 +1,1612 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import get_current_user
 from app.db.mongodb import get_database
+
 from app.modules.workforce.db import (
+    # Workers
     create_worker,
-    delete_attendance,
-    delete_worker,
-    get_attendance,
     get_worker,
+    update_worker,
+    delete_worker,
+    list_workers,
     get_workers_by_project,
     get_workers_by_skill,
-    list_attendance,
-    list_workers,
+    get_workers_by_category,
+    get_available_workers,
+
+    # Allocation
+    create_workforce_allocation,
+    get_workforce_allocation,
+    update_workforce_allocation,
+    delete_workforce_allocation,
+    get_project_workforce,
+    get_worker_allocations,
+
+    # Attendance
     record_attendance,
+    get_attendance,
     update_attendance,
-    update_worker,
+    delete_attendance,
+    list_attendance,
     get_worker_attendance,
+    get_project_attendance,
+
+    # Shifts
+    create_shift,
+    get_shift,
+    list_shifts,
+    update_shift,
+    delete_shift,
+    assign_worker_shift,
+    get_worker_shifts,
+    get_project_shift_assignments,
+    delete_shift_assignment,
+
+    # Payroll
+    create_payroll,
+    get_payroll,
+    list_payroll,
+    update_payroll,
+    delete_payroll,
+
+    # Dashboard
+    get_workforce_summary,
 )
+
 from app.modules.workforce.models import (
     Worker,
     WorkerCreate,
     WorkerUpdate,
+
+    WorkforceAllocation,
+    WorkforceAllocationCreate,
+    WorkforceAllocationUpdate,
+
     Attendance,
     AttendanceCreate,
+    AttendanceUpdate,
+
+    Shift,
+    ShiftCreate,
+    ShiftUpdate,
+
+    ShiftAssignment,
+    ShiftAssignmentCreate,
+
+    Payroll,
+    PayrollCreate,
+    PayrollUpdate,
 )
+
+from app.modules.notifications.db import create_notification
+
 
 router = APIRouter()
 
 
-def serialize_worker_doc(doc: dict) -> dict:
-    """Convert MongoDB's ObjectId _id field to a string so Pydantic models validate correctly."""
-    doc = dict(doc)  # avoid mutating the original dict
+# ============================================================
+# Helpers
+# ============================================================
+
+def is_manager_or_admin(current_user) -> bool:
+    return current_user.get("role") in ["admin", "manager"]
+
+
+def is_admin(current_user) -> bool:
+    return current_user.get("role") == "admin"
+
+
+def serialize_doc(doc: dict) -> dict:
+    """
+    Convert MongoDB ObjectId to string.
+    Also ensures timestamps exist.
+    """
+    if not doc:
+        return doc
+
+    doc = dict(doc)
+
     if "_id" in doc:
         doc["_id"] = str(doc["_id"])
 
-    name_parts = str(doc.get("name") or "Worker").split()
-    doc.setdefault("first_name", name_parts[0] if name_parts else "Worker")
-    doc.setdefault("last_name", " ".join(name_parts[1:]) if len(name_parts) > 1 else "-")
-    doc.setdefault("email", doc.get("email") or f"{str(doc['_id'])}@buildtrack.local")
-    doc.setdefault("phone", doc.get("phone") or doc.get("contact"))
-    doc.setdefault("skill_type", doc.get("skillType") or doc.get("role") or "General")
-    doc.setdefault("hourly_rate", doc.get("hourlyRate") or doc.get("salary") or 0)
-    doc.setdefault("project_id", doc.get("assignedProjectId") or doc.get("projectId"))
-    doc.setdefault("status", doc.get("status") or "available")
     doc.setdefault("created_at", datetime.utcnow())
     doc.setdefault("updated_at", datetime.utcnow())
+
+    return doc
+
+
+def serialize_worker_doc(doc: dict) -> dict:
+    """
+    Convert old/legacy worker documents into the current Worker model.
+    """
+    doc = serialize_doc(doc)
+
+    # Legacy name support
+    name_parts = str(
+        doc.get("name") or "Worker"
+    ).split()
+
+    doc.setdefault(
+        "first_name",
+        name_parts[0] if name_parts else "Worker",
+    )
+
+    doc.setdefault(
+        "last_name",
+        " ".join(name_parts[1:])
+        if len(name_parts) > 1
+        else "-",
+    )
+
+    doc.setdefault(
+        "email",
+        doc.get("email")
+        or f"{doc['_id']}@buildtrack.local",
+    )
+
+    doc.setdefault(
+        "phone",
+        doc.get("phone") or doc.get("contact"),
+    )
+
+    doc.setdefault(
+        "category",
+        doc.get("category") or "SKILLED_WORKER",
+    )
+
+    doc.setdefault(
+        "skill_type",
+        doc.get("skillType")
+        or doc.get("role")
+        or "General",
+    )
+
+    doc.setdefault(
+        "designation",
+        doc.get("designation")
+        or doc.get("role"),
+    )
+
+    doc.setdefault(
+        "experience_years",
+        doc.get("experience_years")
+        or doc.get("experience")
+        or 0,
+    )
+
+    doc.setdefault(
+        "employment_type",
+        doc.get("employment_type")
+        or "FULL_TIME",
+    )
+
+    doc.setdefault(
+        "salary_type",
+        doc.get("salary_type")
+        or "HOURLY",
+    )
+
+    doc.setdefault(
+        "hourly_rate",
+        doc.get("hourly_rate")
+        or doc.get("hourlyRate")
+        or doc.get("salary")
+        or 0,
+    )
+
+    doc.setdefault(
+        "salary_amount",
+        doc.get("salary_amount")
+        or doc.get("salary"),
+    )
+
+    doc.setdefault(
+        "project_id",
+        doc.get("project_id")
+        or doc.get("assignedProjectId")
+        or doc.get("projectId"),
+    )
+
+    doc.setdefault(
+        "status",
+        doc.get("status") or "available",
+    )
+
     return doc
 
 
 def serialize_attendance_doc(doc: dict) -> dict:
-    """Convert legacy attendance documents to the attendance module schema."""
-    doc = dict(doc)
-    if "_id" in doc:
-        doc["_id"] = str(doc["_id"])
-    doc.setdefault("worker_id", doc.get("workerId") or doc.get("worker_id") or "")
-    doc.setdefault("date", doc.get("date") or datetime.utcnow())
-    doc.setdefault("check_in_time", normalize_attendance_time(doc.get("checkIn") or doc.get("check_in_time"), doc["date"]))
-    doc.setdefault("check_out_time", normalize_attendance_time(doc.get("checkOut") or doc.get("check_out_time"), doc["date"]))
-    doc.setdefault("status", doc.get("status") or "absent")
-    doc.setdefault("hours_worked", doc.get("hoursWorked"))
-    doc.setdefault("created_at", datetime.utcnow())
-    doc.setdefault("updated_at", datetime.utcnow())
+    """
+    Convert old/legacy attendance documents into current schema.
+    """
+    doc = serialize_doc(doc)
+
+    doc.setdefault(
+        "worker_id",
+        doc.get("workerId")
+        or doc.get("worker_id")
+        or "",
+    )
+
+    doc.setdefault(
+        "project_id",
+        doc.get("projectId")
+        or doc.get("project_id"),
+    )
+
+    date_value = doc.get("date") or datetime.utcnow()
+
+    doc.setdefault(
+        "date",
+        date_value,
+    )
+
+    doc.setdefault(
+        "check_in_time",
+        normalize_attendance_time(
+            doc.get("checkIn")
+            or doc.get("check_in_time"),
+            date_value,
+        ),
+    )
+
+    doc.setdefault(
+        "check_out_time",
+        normalize_attendance_time(
+            doc.get("checkOut")
+            or doc.get("check_out_time"),
+            date_value,
+        ),
+    )
+
+    doc.setdefault(
+        "status",
+        doc.get("status") or "absent",
+    )
+
+    doc.setdefault(
+        "hours_worked",
+        doc.get("hoursWorked")
+        or doc.get("hours_worked"),
+    )
+
+    doc.setdefault(
+        "overtime_hours",
+        doc.get("overtime_hours")
+        or doc.get("overtimeHours")
+        or 0,
+    )
+
+    doc.setdefault(
+        "remarks",
+        doc.get("remarks"),
+    )
+
     return doc
 
 
-def normalize_attendance_time(value, date_value):
+def normalize_attendance_time(
+    value,
+    date_value,
+):
     if not value:
         return None
+
     if isinstance(value, datetime):
         return value
+
     text = str(value)
+
     try:
         return datetime.fromisoformat(text)
     except ValueError:
         pass
 
-    date_text = str(date_value).split("T")[0].split(" ")[0]
+    date_text = (
+        str(date_value)
+        .split("T")[0]
+        .split(" ")[0]
+    )
+
     try:
-        return datetime.fromisoformat(f"{date_text}T{text}")
+        return datetime.fromisoformat(
+            f"{date_text}T{text}"
+        )
     except ValueError:
         return None
 
 
-from app.modules.notifications.db import create_notification
+def serialize_allocation_doc(doc: dict) -> dict:
+    return serialize_doc(doc)
 
-# Worker endpoints
-@router.post("/workers", response_model=Worker)
+
+def serialize_shift_doc(doc: dict) -> dict:
+    return serialize_doc(doc)
+
+
+def serialize_shift_assignment_doc(doc: dict) -> dict:
+    return serialize_doc(doc)
+
+
+def serialize_payroll_doc(doc: dict) -> dict:
+    return serialize_doc(doc)
+
+
+# ============================================================
+# WORKER REGISTRATION
+# ============================================================
+
+@router.post(
+    "/workers",
+    response_model=Worker,
+)
 async def create_worker_endpoint(
     worker: WorkerCreate,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Create a new worker"""
-    if current_user.get("role") not in ["admin", "manager"]:
+    """
+    Register a new workforce member.
+    """
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admin or manager can create workers",
         )
 
     worker_data = worker.model_dump()
-    result = await create_worker(db, worker_data)
 
-    # Notify current manager / creator about task assignment / worker assignment
-    await create_notification(db, {
-        "user_id": str(current_user["_id"]),
-        "title": "New Task / Worker Assigned",
-        "message": f"Worker '{result.get('name') or 'Worker'}' assigned as '{result.get('skill_type', 'General')}'.",
-        "type": "info",
-        "category": "task_assignment",
-        "entity_type": "task",
-        "entity_id": str(result["_id"]),
-    })
+    result = await create_worker(
+        db,
+        worker_data,
+    )
 
-    return Worker(**serialize_worker_doc(result))
+    if not result:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create worker",
+        )
+
+    await create_notification(
+        db,
+        {
+            "user_id": str(current_user["_id"]),
+            "title": "New Worker Registered",
+            "message": (
+                f"Worker "
+                f"'{result.get('first_name', 'Worker')} "
+                f"{result.get('last_name', '')}' "
+                f"has been registered."
+            ),
+            "type": "info",
+            "category": "workforce",
+            "entity_type": "worker",
+            "entity_id": str(result["_id"]),
+        },
+    )
+
+    return Worker(
+        **serialize_worker_doc(result)
+    )
 
 
-@router.get("/workers", response_model=list[Worker])
+@router.get(
+    "/workers",
+    response_model=list[Worker],
+)
 async def list_workers_endpoint(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 100,
+    category: Optional[str] = None,
+    skill_type: Optional[str] = None,
+    project_id: Optional[str] = None,
+    status_filter: Optional[str] = None,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """List all workers"""
-    workers = await list_workers(db, skip, limit)
-    return [Worker(**serialize_worker_doc(w)) for w in workers]
+    """
+    List workers with optional filters.
+    """
+    if category:
+        workers = await get_workers_by_category(
+            db,
+            category,
+        )
+    elif skill_type:
+        workers = await get_workers_by_skill(
+            db,
+            skill_type,
+        )
+    elif project_id:
+        workers = await get_workers_by_project(
+            db,
+            project_id,
+        )
+    else:
+        workers = await list_workers(
+            db,
+            skip,
+            limit,
+        )
+
+    if status_filter:
+        workers = [
+            worker
+            for worker in workers
+            if worker.get("status") == status_filter
+        ]
+
+    return [
+        Worker(**serialize_worker_doc(worker))
+        for worker in workers
+    ]
 
 
-@router.get("/workers/project/{project_id}", response_model=list[Worker])
+@router.get(
+    "/workers/available",
+    response_model=list[Worker],
+)
+async def get_available_workers_endpoint(
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Get all currently available workers.
+    """
+    workers = await get_available_workers(db)
+
+    return [
+        Worker(**serialize_worker_doc(worker))
+        for worker in workers
+    ]
+
+
+@router.get(
+    "/workers/project/{project_id}",
+    response_model=list[Worker],
+)
 async def get_project_workers(
     project_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get all workers in a project"""
-    workers = await get_workers_by_project(db, project_id)
-    return [Worker(**serialize_worker_doc(w)) for w in workers]
+    """
+    Get all workers associated with a project.
+    """
+    workers = await get_workers_by_project(
+        db,
+        project_id,
+    )
+
+    return [
+        Worker(**serialize_worker_doc(worker))
+        for worker in workers
+    ]
 
 
-@router.get("/workers/skill/{skill_type}", response_model=list[Worker])
+@router.get(
+    "/workers/category/{category}",
+    response_model=list[Worker],
+)
+async def get_workers_by_category_endpoint(
+    category: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Get workers by workforce category.
+    """
+    workers = await get_workers_by_category(
+        db,
+        category,
+    )
+
+    return [
+        Worker(**serialize_worker_doc(worker))
+        for worker in workers
+    ]
+
+
+@router.get(
+    "/workers/skill/{skill_type}",
+    response_model=list[Worker],
+)
 async def get_workers_by_skill_type(
     skill_type: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get all workers with specific skill"""
-    workers = await get_workers_by_skill(db, skill_type)
-    return [Worker(**serialize_worker_doc(w)) for w in workers]
+    """
+    Get workers with a specific skill.
+    """
+    workers = await get_workers_by_skill(
+        db,
+        skill_type,
+    )
+
+    return [
+        Worker(**serialize_worker_doc(worker))
+        for worker in workers
+    ]
 
 
-@router.get("/workers/{worker_id}", response_model=Worker)
+@router.get(
+    "/workers/{worker_id}",
+    response_model=Worker,
+)
 async def get_worker_endpoint(
     worker_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get worker by ID"""
-    worker = await get_worker(db, worker_id)
+    worker = await get_worker(
+        db,
+        worker_id,
+    )
+
     if not worker:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Worker not found",
         )
-    return Worker(**serialize_worker_doc(worker))
+
+    return Worker(
+        **serialize_worker_doc(worker)
+    )
 
 
-@router.put("/workers/{worker_id}", response_model=Worker)
+@router.put(
+    "/workers/{worker_id}",
+    response_model=Worker,
+)
 async def update_worker_endpoint(
     worker_id: str,
     update: WorkerUpdate,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Update worker"""
-    if current_user.get("role") not in ["admin", "manager"]:
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="Only admin or manager can update workers",
         )
 
-    worker = await get_worker(db, worker_id)
-    if not worker:
+    existing = await get_worker(
+        db,
+        worker_id,
+    )
+
+    if not existing:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Worker not found",
         )
 
-    update_data = update.model_dump(exclude_unset=True)
-    result = await update_worker(db, worker_id, update_data)
-    return Worker(**serialize_worker_doc(result))
+    update_data = update.model_dump(
+        exclude_unset=True,
+        exclude_none=True
+    )
+    if "assigned_project_id" in update_data:
+        update_data["project_id"] = update_data.pop(
+            "assigned_project_id"
+        )
+
+    updated = await update_worker(
+        db,
+        worker_id,
+        update_data
+    )
+
+    return Worker(
+        **serialize_worker_doc(updated)
+    )
 
 
-@router.delete("/workers/{worker_id}")
+@router.delete(
+    "/workers/{worker_id}"
+)
 async def delete_worker_endpoint(
     worker_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Delete worker"""
-    if current_user.get("role") != "admin":
+    if not is_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="Only admin can delete workers",
         )
 
-    deleted = await delete_worker(db, worker_id)
+    deleted = await delete_worker(
+        db,
+        worker_id,
+    )
+
     if not deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Worker not found",
         )
-    return {"message": "Worker deleted successfully"}
+
+    return {
+        "message": "Worker deleted successfully"
+    }
 
 
-# Attendance endpoints
-@router.post("/attendance", response_model=Attendance)
+# ============================================================
+# WORKFORCE ALLOCATION
+# ============================================================
+
+@router.post(
+    "/allocations",
+    response_model=WorkforceAllocation,
+)
+async def create_allocation_endpoint(
+    allocation: WorkforceAllocationCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Assign a worker to a project.
+    """
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can allocate workers",
+        )
+
+    worker = await get_worker(
+        db,
+        allocation.worker_id,
+    )
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Worker not found",
+        )
+
+    allocation_data = allocation.model_dump()
+
+    result = await create_workforce_allocation(
+        db,
+        allocation_data,
+    )
+
+    await create_notification(
+        db,
+        {
+            "user_id": str(current_user["_id"]),
+            "title": "Workforce Allocation",
+            "message": (
+                f"Worker '{allocation.worker_id}' "
+                f"was assigned to project "
+                f"'{allocation.project_id}'."
+            ),
+            "type": "info",
+            "category": "workforce",
+            "entity_type": "workforce_allocation",
+            "entity_id": str(result["_id"]),
+        },
+    )
+
+    return WorkforceAllocation(
+        **serialize_allocation_doc(result)
+    )
+
+
+@router.get(
+    "/allocations/{allocation_id}",
+    response_model=WorkforceAllocation,
+)
+async def get_allocation_endpoint(
+    allocation_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    allocation = await get_workforce_allocation(
+        db,
+        allocation_id,
+    )
+
+    if not allocation:
+        raise HTTPException(
+            status_code=404,
+            detail="Workforce allocation not found",
+        )
+
+    return WorkforceAllocation(
+        **serialize_allocation_doc(allocation)
+    )
+
+
+@router.put(
+    "/allocations/{allocation_id}",
+    response_model=WorkforceAllocation,
+)
+async def update_allocation_endpoint(
+    allocation_id: str,
+    update: WorkforceAllocationUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can update allocations",
+        )
+
+    existing = await get_workforce_allocation(
+        db,
+        allocation_id,
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Workforce allocation not found",
+        )
+
+    result = await update_workforce_allocation(
+        db,
+        allocation_id,
+        update.model_dump(
+            exclude_unset=True
+        ),
+    )
+
+    return WorkforceAllocation(
+        **serialize_allocation_doc(result)
+    )
+
+
+@router.delete(
+    "/allocations/{allocation_id}"
+)
+async def delete_allocation_endpoint(
+    allocation_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can remove allocations",
+        )
+
+    deleted = await delete_workforce_allocation(
+        db,
+        allocation_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Workforce allocation not found",
+        )
+
+    return {
+        "message": "Workforce allocation removed successfully"
+    }
+
+
+@router.get(
+    "/allocations/project/{project_id}",
+    response_model=list[WorkforceAllocation],
+)
+async def get_project_workforce_endpoint(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    allocations = await get_project_workforce(
+        db,
+        project_id,
+    )
+
+    return [
+        WorkforceAllocation(
+            **serialize_allocation_doc(item)
+        )
+        for item in allocations
+    ]
+
+
+@router.get(
+    "/allocations/worker/{worker_id}",
+    response_model=list[WorkforceAllocation],
+)
+async def get_worker_allocations_endpoint(
+    worker_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    allocations = await get_worker_allocations(
+        db,
+        worker_id,
+    )
+
+    return [
+        WorkforceAllocation(
+            **serialize_allocation_doc(item)
+        )
+        for item in allocations
+    ]
+
+
+# ============================================================
+# ATTENDANCE
+# ============================================================
+
+@router.post(
+    "/attendance",
+    response_model=Attendance,
+)
 async def record_attendance_endpoint(
     attendance: AttendanceCreate,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Record worker attendance"""
-    if current_user.get("role") not in ["admin", "manager"]:
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="Only admin or manager can record attendance",
         )
 
-    attendance_data = attendance.model_dump()
-    result = await record_attendance(db, attendance_data)
+    worker = await get_worker(
+        db,
+        attendance.worker_id,
+    )
 
-    status_val = str(result.get("status") or "absent").lower()
-    msg_type = "alert" if status_val in ["absent", "late"] else "info"
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Worker not found",
+        )
 
-    await create_notification(db, {
-        "user_id": str(current_user["_id"]),
-        "title": "Attendance Alert",
-        "message": f"Worker attendance recorded: Status '{status_val}'.",
-        "type": msg_type,
-        "category": "attendance_alert",
-        "entity_type": "attendance",
-        "entity_id": str(result["_id"]),
-    })
+    result = await record_attendance(
+        db,
+        attendance.model_dump(),
+    )
 
-    return Attendance(**serialize_attendance_doc(result))
+    status_value = str(
+        result.get("status") or "absent"
+    ).lower()
+
+    await create_notification(
+        db,
+        {
+            "user_id": str(current_user["_id"]),
+            "title": "Attendance Alert",
+            "message": (
+                f"Worker attendance recorded: "
+                f"Status '{status_value}'."
+            ),
+            "type": (
+                "alert"
+                if status_value in ["absent", "late"]
+                else "info"
+            ),
+            "category": "attendance_alert",
+            "entity_type": "attendance",
+            "entity_id": str(result["_id"]),
+        },
+    )
+
+    return Attendance(
+        **serialize_attendance_doc(result)
+    )
 
 
-
-@router.get("/attendance", response_model=list[Attendance])
+@router.get(
+    "/attendance",
+    response_model=list[Attendance],
+)
 async def list_attendance_endpoint(
     skip: int = 0,
     limit: int = 100,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """List attendance records"""
-    attendance = await list_attendance(db, skip, limit)
-    return [Attendance(**serialize_attendance_doc(a)) for a in attendance]
+    records = await list_attendance(
+        db,
+        skip,
+        limit,
+    )
+
+    return [
+        Attendance(
+            **serialize_attendance_doc(record)
+        )
+        for record in records
+    ]
 
 
-@router.put("/attendance/{attendance_id}", response_model=Attendance)
-async def update_attendance_endpoint(
-    attendance_id: str,
-    attendance: AttendanceCreate,
+@router.get(
+    "/attendance/project/{project_id}",
+    response_model=list[Attendance],
+)
+async def get_project_attendance_endpoint(
+    project_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Update attendance record"""
-    if current_user.get("role") not in ["admin", "manager"]:
+    records = await get_project_attendance(
+        db,
+        project_id,
+    )
+
+    return [
+        Attendance(
+            **serialize_attendance_doc(record)
+        )
+        for record in records
+    ]
+
+
+@router.get(
+    "/attendance/worker/{worker_id}",
+    response_model=list[Attendance],
+)
+async def get_worker_attendance_endpoint(
+    worker_id: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    records = await get_worker_attendance(
+        db,
+        worker_id,
+        start_date,
+        end_date,
+    )
+
+    return [
+        Attendance(
+            **serialize_attendance_doc(record)
+        )
+        for record in records
+    ]
+
+
+@router.put(
+    "/attendance/{attendance_id}",
+    response_model=Attendance,
+)
+async def update_attendance_endpoint(
+    attendance_id: str,
+    attendance: AttendanceUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="Only admin or manager can update attendance",
         )
 
-    existing = await get_attendance(db, attendance_id)
+    existing = await get_attendance(
+        db,
+        attendance_id,
+    )
+
     if not existing:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Attendance record not found",
         )
 
-    result = await update_attendance(db, attendance_id, attendance.model_dump())
-    return Attendance(**serialize_attendance_doc(result))
+    result = await update_attendance(
+        db,
+        attendance_id,
+        attendance.model_dump(
+            exclude_unset=True
+        ),
+    )
+
+    return Attendance(
+        **serialize_attendance_doc(result)
+    )
 
 
-@router.delete("/attendance/{attendance_id}")
+@router.delete(
+    "/attendance/{attendance_id}"
+)
 async def delete_attendance_endpoint(
     attendance_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Delete attendance record"""
-    if current_user.get("role") != "admin":
+    if not is_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=403,
             detail="Only admin can delete attendance records",
         )
 
-    deleted = await delete_attendance(db, attendance_id)
+    deleted = await delete_attendance(
+        db,
+        attendance_id,
+    )
+
     if not deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Attendance record not found",
         )
-    return {"message": "Attendance record deleted successfully"}
+
+    return {
+        "message": "Attendance record deleted successfully"
+    }
 
 
-@router.get("/attendance/{worker_id}", response_model=list[Attendance])
-async def get_worker_attendance_endpoint(
+# ============================================================
+# SHIFT SCHEDULING
+# ============================================================
+
+@router.post(
+    "/shifts",
+    response_model=Shift,
+)
+async def create_shift_endpoint(
+    shift: ShiftCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can create shifts",
+        )
+
+    result = await create_shift(
+        db,
+        shift.model_dump(),
+    )
+
+    return Shift(
+        **serialize_shift_doc(result)
+    )
+
+
+@router.get(
+    "/shifts",
+    response_model=list[Shift],
+)
+async def list_shifts_endpoint(
+    project_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    shifts = await list_shifts(
+        db,
+        project_id,
+    )
+
+    return [
+        Shift(
+            **serialize_shift_doc(shift)
+        )
+        for shift in shifts
+    ]
+
+
+@router.get(
+    "/shifts/{shift_id}",
+    response_model=Shift,
+)
+async def get_shift_endpoint(
+    shift_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    shift = await get_shift(
+        db,
+        shift_id,
+    )
+
+    if not shift:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift not found",
+        )
+
+    return Shift(
+        **serialize_shift_doc(shift)
+    )
+
+
+@router.put(
+    "/shifts/{shift_id}",
+    response_model=Shift,
+)
+async def update_shift_endpoint(
+    shift_id: str,
+    update: ShiftUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can update shifts",
+        )
+
+    existing = await get_shift(
+        db,
+        shift_id,
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift not found",
+        )
+
+    result = await update_shift(
+        db,
+        shift_id,
+        update.model_dump(
+            exclude_unset=True
+        ),
+    )
+
+    return Shift(
+        **serialize_shift_doc(result)
+    )
+
+
+@router.delete(
+    "/shifts/{shift_id}"
+)
+async def delete_shift_endpoint(
+    shift_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can delete shifts",
+        )
+
+    deleted = await delete_shift(
+        db,
+        shift_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift not found",
+        )
+
+    return {
+        "message": "Shift deleted successfully"
+    }
+
+
+# ============================================================
+# SHIFT ASSIGNMENT
+# ============================================================
+
+@router.post(
+    "/shift-assignments",
+    response_model=ShiftAssignment,
+)
+async def assign_worker_shift_endpoint(
+    assignment: ShiftAssignmentCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can assign shifts",
+        )
+
+    worker = await get_worker(
+        db,
+        assignment.worker_id,
+    )
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Worker not found",
+        )
+
+    shift = await get_shift(
+        db,
+        assignment.shift_id,
+    )
+
+    if not shift:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift not found",
+        )
+
+    data = assignment.model_dump()
+
+    result = await assign_worker_shift(
+        db,
+        data,
+    )
+
+    return ShiftAssignment(
+        **serialize_shift_assignment_doc(result)
+    )
+
+
+@router.get(
+    "/shift-assignments",
+    response_model=list[ShiftAssignment],
+)
+async def list_shift_assignments_endpoint(
+    worker_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Get shift assignments.
+
+    Optional filters:
+    - worker_id
+    - project_id
+    """
+
+    if worker_id:
+        assignments = await get_worker_shifts(
+            db,
+            worker_id,
+        )
+
+    elif project_id:
+        assignments = await get_project_shift_assignments(
+            db,
+            project_id,
+        )
+
+    else:
+        assignments = await db.shift_assignments.find(
+            {}
+        ).sort(
+            "created_at",
+            -1,
+        ).to_list(
+            length=None,
+        )
+
+    return [
+        ShiftAssignment(
+            **serialize_shift_assignment_doc(item)
+        )
+        for item in assignments
+    ]
+
+
+@router.get(
+    "/shift-assignments/worker/{worker_id}",
+    response_model=list[ShiftAssignment],
+)
+async def get_worker_shifts_endpoint(
     worker_id: str,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):
-    """Get attendance records for worker"""
-    attendance = await get_worker_attendance(db, worker_id)
-    return [Attendance(**serialize_attendance_doc(a)) for a in attendance]
+    assignments = await get_worker_shifts(
+        db,
+        worker_id,
+    )
+
+    return [
+        ShiftAssignment(
+            **serialize_shift_assignment_doc(item)
+        )
+        for item in assignments
+    ]
+
+
+@router.get(
+    "/shift-assignments/project/{project_id}",
+    response_model=list[ShiftAssignment],
+)
+async def get_project_shift_assignments_endpoint(
+    project_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    assignments = await get_project_shift_assignments(
+        db,
+        project_id,
+    )
+
+    return [
+        ShiftAssignment(
+            **serialize_shift_assignment_doc(item)
+        )
+        for item in assignments
+    ]
+
+
+@router.delete(
+    "/shift-assignments/{assignment_id}"
+)
+async def delete_shift_assignment_endpoint(
+    assignment_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can remove shift assignments",
+        )
+
+    deleted = await delete_shift_assignment(
+        db,
+        assignment_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift assignment not found",
+        )
+
+    return {
+        "message": "Shift assignment removed successfully"
+    }
+
+
+# ============================================================
+# PAYROLL MONITORING
+# ============================================================
+
+@router.post(
+    "/payroll",
+    response_model=Payroll,
+)
+async def create_payroll_endpoint(
+    payroll: PayrollCreate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can create payroll",
+        )
+
+    worker = await get_worker(
+        db,
+        payroll.worker_id,
+    )
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Worker not found",
+        )
+
+    payroll_data = payroll.model_dump()
+
+    # Automatically calculate net amount
+    basic = float(
+        payroll_data.get("basic_amount") or 0
+    )
+
+    overtime_amount = float(
+        payroll_data.get("overtime_amount") or 0
+    )
+
+    deductions = float(
+        payroll_data.get("deductions") or 0
+    )
+
+    bonus = float(
+        payroll_data.get("bonus") or 0
+    )
+
+    payroll_data["net_amount"] = (
+        basic
+        + overtime_amount
+        + bonus
+        - deductions
+    )
+
+    result = await create_payroll(
+        db,
+        payroll_data,
+    )
+
+    return Payroll(
+        **serialize_payroll_doc(result)
+    )
+
+
+@router.get(
+    "/payroll",
+    response_model=list[Payroll],
+)
+async def list_payroll_endpoint(
+    project_id: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    payroll_records = await list_payroll(
+        db,
+        project_id,
+        worker_id,
+    )
+
+    return [
+        Payroll(
+            **serialize_payroll_doc(record)
+        )
+        for record in payroll_records
+    ]
+
+
+@router.get(
+    "/payroll/{payroll_id}",
+    response_model=Payroll,
+)
+async def get_payroll_endpoint(
+    payroll_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    payroll = await get_payroll(
+        db,
+        payroll_id,
+    )
+
+    if not payroll:
+        raise HTTPException(
+            status_code=404,
+            detail="Payroll record not found",
+        )
+
+    return Payroll(
+        **serialize_payroll_doc(payroll)
+    )
+
+
+@router.put(
+    "/payroll/{payroll_id}",
+    response_model=Payroll,
+)
+async def update_payroll_endpoint(
+    payroll_id: str,
+    update: PayrollUpdate,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can update payroll",
+        )
+
+    existing = await get_payroll(
+        db,
+        payroll_id,
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Payroll record not found",
+        )
+
+    update_data = update.model_dump(
+        exclude_unset=True
+    )
+
+    # Recalculate net amount when financial values change.
+    basic = float(
+        update_data.get(
+            "basic_amount",
+            existing.get("basic_amount", 0),
+        )
+        or 0
+    )
+
+    overtime_amount = float(
+        update_data.get(
+            "overtime_amount",
+            existing.get("overtime_amount", 0),
+        )
+        or 0
+    )
+
+    deductions = float(
+        update_data.get(
+            "deductions",
+            existing.get("deductions", 0),
+        )
+        or 0
+    )
+
+    bonus = float(
+        update_data.get(
+            "bonus",
+            existing.get("bonus", 0),
+        )
+        or 0
+    )
+
+    update_data["net_amount"] = (
+        basic
+        + overtime_amount
+        + bonus
+        - deductions
+    )
+
+    result = await update_payroll(
+        db,
+        payroll_id,
+        update_data,
+    )
+
+    return Payroll(
+        **serialize_payroll_doc(result)
+    )
+
+
+@router.delete(
+    "/payroll/{payroll_id}"
+)
+async def delete_payroll_endpoint(
+    payroll_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can delete payroll records",
+        )
+
+    deleted = await delete_payroll(
+        db,
+        payroll_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Payroll record not found",
+        )
+
+    return {
+        "message": "Payroll record deleted successfully"
+    }
+
+
+# ============================================================
+# WORKFORCE DASHBOARD
+# ============================================================
+
+@router.get(
+    "/dashboard/summary"
+)
+async def workforce_dashboard_summary(
+    project_id: Optional[str] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Workforce overview for dashboard.
+    """
+    return await get_workforce_summary(
+        db,
+        project_id,
+    )

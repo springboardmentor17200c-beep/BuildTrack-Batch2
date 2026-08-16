@@ -1,0 +1,126 @@
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <p class="crumb">Workforce / Shifts</p>
+      <h1>Shift Scheduling</h1>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-outline" type="button" (click)="openShiftModal()">
+        <i class="fa-solid fa-plus"></i> New Shift
+      </button>
+      <button class="btn btn-primary" type="button" (click)="openAssignModal()">
+        <i class="fa-solid fa-user-plus"></i> Assign Worker
+      </button>
+      <a routerLink="/attendance" class="btn btn-outline">
+        <i class="fa-solid fa-clock"></i> Attendance
+      </a>
+    </div>
+  </div>
+
+  <div class="error" *ngIf="errorMessage()">
+    {{ errorMessage() }}
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Shift Assignments</h3>
+      <a routerLink="/workers">Worker management</a>
+    </div>
+
+    <div class="loading" *ngIf="loading()">Loading shifts...</div>
+
+    <div class="shift-grid" *ngIf="!loading()">
+      <div class="shift-card" *ngFor="let assignment of assignments()">
+        <span class="badge badge-blue">{{ assignment.shiftName || 'Shift' }}</span>
+        <h3>{{ assignment.workerName || assignment.worker_id }}</h3>
+        <p>{{ assignment.startTime || '-' }} - {{ assignment.endTime || '-' }}</p>
+        <div class="cell-sub">{{ assignment.date || '-' }}</div>
+        <button class="icon-action danger" type="button" title="Remove assignment" (click)="deleteAssignment(assignment)">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+
+      <p class="empty" *ngIf="assignments().length === 0">No shift assignments found.</p>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE SHIFT MODAL -->
+<div class="modal-overlay" *ngIf="showShiftModal()">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>New Shift</h3>
+      <button type="button" class="modal-close" (click)="closeShiftModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="shiftForm" (ngSubmit)="submitShift()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="sname">Shift Name</label>
+          <input id="sname" type="text" formControlName="name" placeholder="e.g. Day Shift" />
+        </div>
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="sstart">Start Time</label>
+            <input id="sstart" type="time" formControlName="startTime" />
+          </div>
+          <div class="modal-field">
+            <label for="send">End Time</label>
+            <input id="send" type="time" formControlName="endTime" />
+          </div>
+        </div>
+        <div class="modal-field">
+          <label for="sdesc">Description</label>
+          <input id="sdesc" type="text" formControlName="description" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeShiftModal()" [disabled]="saving()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : 'Create Shift' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ASSIGN WORKER MODAL -->
+<div class="modal-overlay" *ngIf="showAssignModal()">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>Assign Worker to Shift</h3>
+      <button type="button" class="modal-close" (click)="closeAssignModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="assignForm" (ngSubmit)="submitAssignment()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="asworker">Worker</label>
+          <select id="asworker" formControlName="workerId">
+            <option *ngFor="let worker of workers()" [value]="worker.id || worker._id">
+              {{ worker.first_name }} {{ worker.last_name }}
+            </option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="asshift">Shift</label>
+          <select id="asshift" formControlName="shiftId" (change)="onShiftChange($any($event.target).value)">
+            <option *ngFor="let shift of shifts()" [value]="shift.id">
+              {{ shift.name }} ({{ shift.start_time }}–{{ shift.end_time }})
+            </option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="asdate">Date</label>
+          <input id="asdate" type="date" formControlName="date" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAssignModal()" [disabled]="saving()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : 'Assign' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

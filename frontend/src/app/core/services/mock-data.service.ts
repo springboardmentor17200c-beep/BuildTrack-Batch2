@@ -235,7 +235,7 @@ export class MockDataService {
     this.deleteRecord('attendance', record.id);
   }
 
-  private loadProjects(): void {
+  loadProjects(): void {
     this.get('projects', (records) => {
       this.replace(this.projects, records.map((item) => this.toProject(item)));
       this.replace(

@@ -263,6 +263,35 @@ export const routes: Routes = [
         },
       },
       {
+        path: "workers/allocation",
+        loadComponent: () =>
+          import("./features/allocation/allocation.component").then(
+            (m) => m.AllocationComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Project Manager",
+            "Site Engineer",
+          ] as UserRole[],
+        },
+      },
+      {
+        path: "workers/payroll",
+        loadComponent: () =>
+          import("./features/payroll/payroll.component").then(
+            (m) => m.PayrollComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: [
+            "Administrator",
+            "Project Manager",
+          ] as UserRole[],
+        },
+      },
+      {
         path: "procurement",
         loadComponent: () =>
           import("./features/procurement/procurement.component").then(

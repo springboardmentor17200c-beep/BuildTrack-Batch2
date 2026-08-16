@@ -193,3 +193,98 @@
     grid-template-columns: 1fr;
   }
 }
+// ==========================================================
+// TEAM MEMBERS & WORKERS — role-grouped section
+// Add this block to project-details.component.scss
+// (keeps using the existing .team-grid / .team-card / .empty
+// rules already in the file — these are the new additions)
+// ==========================================================
+
+.team-role-group {
+  padding: 0 20px;
+  margin-bottom: 22px;
+
+  &:first-of-type {
+    margin-top: 14px;
+  }
+
+  &:last-of-type {
+    margin-bottom: 20px;
+  }
+}
+
+.role-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+
+  h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--slate);
+    text-transform: capitalize;
+    letter-spacing: 0.01em;
+  }
+}
+
+.role-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--blue-light);
+  padding: 2px 9px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+
+// Team section now lives inside .team-role-group, so drop the
+// standalone padding the old flat .team-grid used and let the
+// parent group control spacing instead.
+.team-role-group .team-grid {
+  padding: 0;
+}
+
+.team-card {
+  position: relative;
+
+  img {
+    flex: none;
+  }
+}
+
+.team-card__initials {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--blue-light);
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.team-card__info {
+  min-width: 0;
+
+  .cell-title {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell-sub {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

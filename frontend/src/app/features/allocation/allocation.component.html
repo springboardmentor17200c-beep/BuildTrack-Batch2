@@ -1,0 +1,136 @@
+<div class="page">
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Workforce / Allocation</p>
+
+  <div class="page-header">
+    <div>
+      <h1>Workforce Allocation</h1>
+      <p class="page-subtitle">Assign registered workers to a project.</p>
+    </div>
+
+    <div class="toolbar">
+      <select
+        [value]="selectedProjectId()"
+        (change)="onProjectFilterChange($any($event.target).value)"
+      >
+        <option value="">Select a project</option>
+        <option *ngFor="let project of projects()" [value]="project.id">{{ project.name }}</option>
+      </select>
+
+      <button class="btn btn-primary" type="button" (click)="openAdd()" [disabled]="!selectedProjectId()">
+        <i class="fa-solid fa-plus"></i> Allocate Worker
+      </button>
+    </div>
+  </div>
+
+  <div class="alert alert-danger" *ngIf="errorMessage()">
+    {{ errorMessage() }}
+  </div>
+
+  <div class="panel">
+    <div class="loading" *ngIf="loading()" style="padding: 30px; text-align: center;">
+      Loading allocations...
+    </div>
+
+    <div class="table-wrap" *ngIf="!loading()">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Role on Site</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of allocations()">
+            <td class="cell-title">{{ a.workerName }}</td>
+            <td>{{ a.role }}</td>
+            <td>{{ a.startDate || '—' }}</td>
+            <td>{{ a.endDate || 'Ongoing' }}</td>
+            <td><span class="badge" [ngClass]="statusClass(a.status)">{{ a.status }}</span></td>
+            <td>
+              <div class="action-row">
+                <button class="icon-action" type="button" title="Edit allocation" (click)="openEdit(a)">
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-action danger" type="button" title="Remove allocation" (click)="deleteAllocation(a)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="allocations().length === 0">
+            <td colspan="6" style="text-align:center; padding: 30px; color: var(--muted);">
+              {{ selectedProjectId() ? 'No workers allocated to this project yet.' : 'Select a project to view allocations.' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="showAddModal()">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>{{ editingAllocation() ? 'Edit Allocation' : 'Allocate Worker' }}</h3>
+      <button type="button" class="modal-close" (click)="closeAdd()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="submitAdd()">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="alworker">Worker</label>
+          <select id="alworker" formControlName="workerId" [attr.disabled]="editingAllocation() ? true : null">
+            <option *ngFor="let worker of workers()" [value]="worker.id || worker._id">
+              {{ worker.first_name }} {{ worker.last_name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label for="alproject">Project</label>
+          <select id="alproject" formControlName="projectId" [attr.disabled]="editingAllocation() ? true : null">
+            <option *ngFor="let project of projects()" [value]="project.id">{{ project.name }}</option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label for="alrole">Role on Site</label>
+          <input id="alrole" type="text" formControlName="role" placeholder="e.g. Site Supervisor" />
+        </div>
+
+        <div class="modal-field-row">
+          <div class="modal-field">
+            <label for="alstart">Start Date</label>
+            <input id="alstart" type="date" formControlName="startDate" />
+          </div>
+          <div class="modal-field">
+            <label for="alend">End Date</label>
+            <input id="alend" type="date" formControlName="endDate" />
+          </div>
+        </div>
+
+        <div class="modal-field">
+          <label for="alstatus">Status</label>
+          <select id="alstatus" formControlName="status">
+            <option value="ACTIVE">Active</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+
+        <div class="alert alert-danger" *ngIf="errorMessage()">
+          {{ errorMessage() }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="closeAdd()" [disabled]="saving()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : (editingAllocation() ? 'Save Changes' : 'Allocate') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

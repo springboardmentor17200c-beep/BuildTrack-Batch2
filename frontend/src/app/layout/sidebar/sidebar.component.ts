@@ -103,6 +103,18 @@ export class SidebarComponent {
           route: '/workers/shift-scheduling',
           roles: ['Administrator', 'Project Manager', 'Site Engineer'],
         },
+        {
+          label: 'Allocation',
+          icon: 'fa-diagram-project',
+          route: '/workers/allocation',
+          roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+        },
+        {
+          label: 'Payroll',
+          icon: 'fa-money-check-dollar',
+          route: '/workers/payroll',
+          roles: ['Administrator', 'Project Manager'],
+        },
       ],
     },
     {

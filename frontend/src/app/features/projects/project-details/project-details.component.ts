@@ -1,9 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MockDataService } from '../../../core/services/mock-data.service';
-import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem, Worker } from '../../../core/models/models';
+import { WorkforceService } from '../../../core/services/workforce.service';
+import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem } from '../../../core/models/models';
+
+interface TeamMember {
+  id: string;
+  name: string;
+  designation: string;
+  avatarUrl?: string;
+  role: string;
+}
+
+interface TeamRoleGroup {
+  role: string;
+  members: TeamMember[];
+}
 
 @Component({
   selector: 'app-project-details',
@@ -41,6 +55,49 @@ export class ProjectDetailsComponent {
   editingMilestone = signal<Milestone | null>(null);
   editingTask = signal<ProjectTask | null>(null);
 
+  // =========================
+  // TEAM MEMBERS & WORKERS (real data — allocations + workers, grouped by role)
+  // =========================
+  private teamAllocations = signal<any[]>([]);
+  private allWorkers = signal<any[]>([]);
+  loadingTeam = signal(false);
+  teamError = signal('');
+
+  groupedTeam = computed<TeamRoleGroup[]>(() => {
+    const workers = this.allWorkers();
+    const activeAllocations = this.teamAllocations().filter(
+      (allocation) => (allocation.status || '').toUpperCase() === 'ACTIVE',
+    );
+
+    const groups = new Map<string, TeamMember[]>();
+    for (const allocation of activeAllocations) {
+      const worker = workers.find(
+        (w) => (w.id || w._id) === allocation.worker_id,
+      );
+      const role =
+        allocation.role || worker?.designation || worker?.skill_type || 'Unassigned';
+      const member: TeamMember = {
+        id: allocation.worker_id,
+        name: worker
+          ? `${worker.first_name || ''} ${worker.last_name || ''}`.trim() || allocation.worker_id
+          : allocation.worker_id,
+        designation: worker?.designation || worker?.skill_type || '-',
+        avatarUrl: worker?.avatar_url,
+        role,
+      };
+      if (!groups.has(role)) groups.set(role, []);
+      groups.get(role)!.push(member);
+    }
+
+    return Array.from(groups.entries())
+      .map(([role, members]) => ({ role, members }))
+      .sort((a, b) => a.role.localeCompare(b.role));
+  });
+
+  get teamMemberCount(): number {
+    return this.groupedTeam().reduce((sum, group) => sum + group.members.length, 0);
+  }
+
   form = this.fb.group({
     name: ['', Validators.required],
     manager: ['', Validators.required],
@@ -73,9 +130,41 @@ export class ProjectDetailsComponent {
   constructor(
     private route: ActivatedRoute,
     public data: MockDataService,
+    private workforceService: WorkforceService,
   ) {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.project = this.data.getProjectById(id) ?? this.data.projects[0] ?? this.project;
+    this.loadTeamMembers();
+  }
+
+  private loadTeamMembers(): void {
+    if (!this.project.id) return;
+
+    this.loadingTeam.set(true);
+    this.teamError.set('');
+
+    // GET /workforce/allocations/project/{id} — the only allocations-by-project
+    // endpoint the backend exposes (see WorkforceService.getAllocations).
+    this.workforceService.getAllocations(this.project.id).subscribe({
+      next: (response: any) => {
+        const list = Array.isArray(response) ? response : response?.items || response?.data || [];
+        this.teamAllocations.set(list);
+        this.loadingTeam.set(false);
+      },
+      error: (error) => {
+        console.error('Failed to load project team', error);
+        this.teamError.set('Failed to load team members for this project.');
+        this.loadingTeam.set(false);
+      },
+    });
+
+    this.workforceService.getWorkers().subscribe({
+      next: (response: any) => {
+        const list = Array.isArray(response) ? response : response?.items || response?.data || [];
+        this.allWorkers.set(list);
+      },
+      error: (error) => console.error('Failed to load workers', error),
+    });
   }
 
   get projectMilestones(): Milestone[] {
@@ -98,10 +187,6 @@ export class ProjectDetailsComponent {
     return this.data.resources.filter((resource) => !resource.allocatedProjectId || resource.allocatedProjectId === this.project.id);
   }
 
-  get projectWorkers(): Worker[] {
-    return this.data.workers.filter((worker) => worker.assignedProjectId === this.project.id);
-  }
-
   get averageMilestoneProgress(): number {
     if (!this.projectMilestones.length) return 0;
     const total = this.projectMilestones.reduce((sum, milestone) => sum + milestone.progress, 0);
@@ -113,7 +198,7 @@ export class ProjectDetailsComponent {
     return [
       { label: 'Budget', value: `Rs ${(this.project.budget ?? 0).toLocaleString('en-IN')}` },
       { label: 'Estimated Expense', value: `Rs ${expense.toLocaleString('en-IN')}` },
-      { label: 'Workers', value: String(this.projectWorkers.length) },
+      { label: 'Workers', value: String(this.teamMemberCount) },
       { label: 'Progress', value: `${this.project.progress}%` },
       { label: 'Status', value: this.project.status },
       { label: 'Milestone Progress', value: `${this.averageMilestoneProgress}%` },
