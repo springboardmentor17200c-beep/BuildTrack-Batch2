@@ -35,10 +35,15 @@ export class MainLayoutComponent {
     this.router.events
       .pipe(
         filter((e) => e instanceof NavigationEnd),
-        map(() => this.router.url.split('/')[1]?.split('?')[0] ?? 'dashboard'),
+        map(() => {
+          const path = this.router.url.split('?')[0];
+          if (path.includes('vendor-dashboard')) return 'Vendor Portal';
+          const segment = path.split('/')[1] || 'dashboard';
+          return TITLES[segment] ?? 'BuildTrack';
+        }),
       )
-      .subscribe((segment) => {
-        this.pageTitle.set(TITLES[segment] ?? 'BuildTrack');
+      .subscribe((title) => {
+        this.pageTitle.set(title);
         this.sidebarOpen.set(false);
       });
   }
