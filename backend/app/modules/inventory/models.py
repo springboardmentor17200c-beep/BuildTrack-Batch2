@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field
 
 class InventoryItemBase(BaseModel):
     material_name: str
-    quantity: int
-    unit: str = Field(..., description="kg, meter, piece, etc.")
-    unit_cost: float
+    quantity: float = 0.0
+    unit: str = Field(default="Nos", description="kg, meter, piece, etc.")
+    unit_cost: float = 0.0
     supplier_id: Optional[str] = None
     location: Optional[str] = None
     status: str = Field(
