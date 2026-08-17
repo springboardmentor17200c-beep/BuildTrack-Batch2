@@ -86,8 +86,6 @@ export class ShiftSchedulingComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadWorkers();
-    this.loadShifts();
-    this.loadAssignments();
   }
 
   // =========================
@@ -99,6 +97,9 @@ export class ShiftSchedulingComponent implements OnInit {
       next: (response: any) => {
         const list = Array.isArray(response) ? response : response?.items || response?.data || [];
         this.workers.set(list);
+        // Workers are loaded now; load shifts next before touching
+        // assignments, since fromBackend() needs both to resolve names.
+        this.loadShifts();
       },
       error: (error) => console.error('Failed to load workers', error),
     });
@@ -109,6 +110,9 @@ export class ShiftSchedulingComponent implements OnInit {
       next: (response: any) => {
         const list = Array.isArray(response) ? response : response?.items || response?.data || [];
         this.shifts.set(list.map((s: any) => ({ ...s, id: s._id || s.id })));
+        // Workers and shifts are both loaded now, so assignments can
+        // safely resolve worker_id -> name and shift_id -> shift details.
+        this.loadAssignments();
       },
       error: (error) => console.error('Failed to load shifts', error),
     });

@@ -45,7 +45,6 @@ export class PayrollComponent implements OnInit {
   ngOnInit(): void {
     this.loadProjects();
     this.loadWorkers();
-    this.loadPayroll();
   }
 
   private loadProjects(): void {
@@ -58,6 +57,9 @@ export class PayrollComponent implements OnInit {
       next: (response: any) => {
         const list = Array.isArray(response) ? response : response?.items || response?.data || [];
         this.workers.set(list);
+        // Workers are loaded now, so payroll records can safely resolve
+        // worker_id -> first_name + last_name.
+        this.loadPayroll();
       },
       error: (error) => console.error('Failed to load workers', error),
     });

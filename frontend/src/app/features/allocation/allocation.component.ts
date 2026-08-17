@@ -60,7 +60,6 @@ export class AllocationComponent implements OnInit {
 
     if (projectId) {
       this.selectedProjectId.set(projectId);
-      this.loadAllocationsForProject();
     }
   }
 
@@ -71,6 +70,11 @@ export class AllocationComponent implements OnInit {
           ? response
           : response?.items || response?.data || [];
         this.workers.set(list);
+        // Workers are loaded now, so allocations can safely resolve
+        // worker_id -> first_name + last_name.
+        if (this.selectedProjectId()) {
+          this.loadAllocationsForProject();
+        }
       },
       error: (error) => console.error('Failed to load workers', error),
     });

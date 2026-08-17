@@ -60,11 +60,6 @@ export class AttendanceComponent implements OnInit {
   ngOnInit(): void {
     this.loadProjects();
     this.loadWorkers();
-    this.loadAttendance();
-
-    if (!this.isWorkerView) {
-      this.loadLowAttendance();
-    }
   }
 
   // =========================
@@ -83,6 +78,12 @@ export class AttendanceComponent implements OnInit {
           ? response
           : response?.items || response?.data || [];
         this.workers.set(list);
+        // Workers are loaded now, so attendance records can safely resolve
+        // worker_id -> first_name + last_name.
+        this.loadAttendance();
+        if (!this.isWorkerView) {
+          this.loadLowAttendance();
+        }
       },
       error: (error) => {
         console.error('Failed to load workers', error);
