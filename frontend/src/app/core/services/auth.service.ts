@@ -259,6 +259,12 @@ export class AuthService {
     return 'Active';
   }
 
+  getManagers(): Observable<User[]> {
+    return this.http.get<BackendUser[]>(`${this.apiBase}/auth/managers`).pipe(
+      map((users) => (users || []).map((u) => this.toFrontendUser(u))),
+    );
+  }
+
   private readStoredUser(): User | null {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as User) : null;

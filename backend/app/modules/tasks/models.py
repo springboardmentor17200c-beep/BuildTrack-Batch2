@@ -9,9 +9,9 @@ class TaskBase(BaseModel):
     description: Optional[str] = None
     project_id: str
 
-    # Replaces the old free-text "owner" field — a task is now
-    # assigned to an actual Worker record (or left unassigned).
+    # Assigned to an individual Worker record or a whole category
     assigned_worker_id: Optional[str] = None
+    assigned_category: Optional[str] = None
 
     due_date: Optional[datetime] = None
 
@@ -29,6 +29,7 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     assigned_worker_id: Optional[str] = None
+    assigned_category: Optional[str] = None
     due_date: Optional[datetime] = None
     status: Optional[str] = None
 

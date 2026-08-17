@@ -203,7 +203,26 @@
     <form [formGroup]="form" (ngSubmit)="submitEdit()">
       <div class="modal-body">
         <div class="modal-field"><label for="detail-name">Project Name</label><input id="detail-name" type="text" formControlName="name" /></div>
-        <div class="modal-field"><label for="detail-manager">Manager</label><input id="detail-manager" type="text" formControlName="manager" /></div>
+        <div class="modal-field">
+          <label for="detail-manager">Manager</label>
+          <select id="detail-manager" formControlName="manager">
+            <option value="" disabled>-- Select a Manager --</option>
+            <option value="Unassigned">Unassigned</option>
+            <optgroup label="Project Managers" *ngIf="projectManagers().length">
+              <option *ngFor="let m of projectManagers()" [value]="getManagerName(m)">
+                {{ getManagerName(m) }} ({{ m.email }})
+              </option>
+            </optgroup>
+            <optgroup label="Administrators" *ngIf="administrators().length">
+              <option *ngFor="let m of administrators()" [value]="getManagerName(m)">
+                {{ getManagerName(m) }} ({{ m.email }})
+              </option>
+            </optgroup>
+            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !managers().length" [value]="form.get('manager')?.value">
+              {{ form.get('manager')?.value }}
+            </option>
+          </select>
+        </div>
         <div class="modal-field-row">
           <div class="modal-field"><label for="detail-client">Client</label><input id="detail-client" type="text" formControlName="client" /></div>
           <div class="modal-field"><label for="detail-location">Location</label><input id="detail-location" type="text" formControlName="location" /></div>
@@ -243,7 +262,7 @@
     <form [formGroup]="taskForm" (ngSubmit)="submitTask()">
       <div class="modal-body">
         <div class="modal-field"><label>Task</label><input type="text" formControlName="title" placeholder="e.g. Complete excavation checklist" /><p class="modal-error" *ngIf="taskForm.get('title')?.touched && taskForm.get('title')?.invalid">Required.</p></div>
-        <div class="modal-field" *ngIf="!editingTask()">
+        <div class="modal-field">
           <label>Assign To</label>
           <select formControlName="assignMode">
             <option value="single">A single worker</option>
@@ -252,14 +271,14 @@
         </div>
 
         <div class="modal-field" *ngIf="taskForm.get('assignMode')?.value === 'single'">
-          <label *ngIf="editingTask()">Assign To</label>
+          <label>Worker</label>
           <select formControlName="assignedWorkerId">
             <option value="">Unassigned</option>
             <option *ngFor="let worker of assignableWorkers" [value]="worker.id">{{ worker.name }}</option>
           </select>
         </div>
 
-        <ng-container *ngIf="taskForm.get('assignMode')?.value === 'category' && !editingTask()">
+        <ng-container *ngIf="taskForm.get('assignMode')?.value === 'category'">
           <div class="modal-field">
             <label>Category</label>
             <select formControlName="category">
@@ -267,7 +286,7 @@
               <option *ngFor="let cat of assignableCategories" [value]="cat">{{ cat.replace('_', ' ') }}</option>
             </select>
           </div>
-          <div class="modal-field">
+          <div class="modal-field" *ngIf="!editingTask()">
             <label>How should this be assigned?</label>
             <select formControlName="groupMode">
               <option value="individual">One task per worker (each completes independently)</option>

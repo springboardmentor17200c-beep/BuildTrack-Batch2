@@ -618,3 +618,28 @@ async def change_password(
     )
 
     return {"message": "Password changed successfully"}
+
+
+@router.get("/managers", response_model=list[User])
+async def list_managers_endpoint(
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Return all registered users who have a manager or admin role,
+    for project manager assignment dropdowns.
+    """
+    cursor = db.users.find({
+        "role": {
+            "$in": [
+                "manager",
+                "Project Manager",
+                "project_manager",
+                "admin",
+                "Administrator",
+                "superadmin",
+            ]
+        }
+    })
+    users = await cursor.to_list(200)
+    return [serialize_user(u) for u in users]

@@ -7,7 +7,7 @@ import { MockDataService } from '../../../core/services/mock-data.service';
 import { WorkforceService } from '../../../core/services/workforce.service';
 import { TasksService } from '../../../core/services/tasks.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem } from '../../../core/models/models';
+import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem, User } from '../../../core/models/models';
 
 interface TeamMember {
   id: string;
@@ -137,6 +137,20 @@ export class ProjectDetailsComponent {
     resourceId: ['', Validators.required],
   });
 
+  managers = signal<User[]>([]);
+
+  projectManagers = computed(() =>
+    this.managers().filter((m) => m.role === 'Project Manager' || (m.role as string).toLowerCase().includes('manager'))
+  );
+
+  administrators = computed(() =>
+    this.managers().filter((m) => m.role === 'Administrator' || (m.role as string).toLowerCase().includes('admin'))
+  );
+
+  getManagerName(m: User): string {
+    return (m.name && m.name !== 'string' && m.name !== 'None') ? m.name : m.email.split('@')[0];
+  }
+
   constructor(
     private route: ActivatedRoute,
     public data: MockDataService,
@@ -148,6 +162,10 @@ export class ProjectDetailsComponent {
     this.project = this.data.getProjectById(id) ?? this.data.projects[0] ?? this.project;
     this.loadTeamMembers();
     this.loadTasks();
+    this.auth.getManagers().subscribe({
+      next: (list) => this.managers.set(list || []),
+      error: () => {},
+    });
   }
 
   // =========================
@@ -205,6 +223,14 @@ export class ProjectDetailsComponent {
         categories.add(worker.category);
       }
     }
+    if (categories.size === 0) {
+      for (const worker of workers) {
+        if (worker.category) categories.add(worker.category);
+      }
+    }
+    if (categories.size === 0) {
+      ['SKILLED_WORKER', 'UNSKILLED_WORKER', 'ENGINEER', 'SUPERVISOR', 'MASON', 'LABOUR'].forEach((c) => categories.add(c));
+    }
     return Array.from(categories);
   }
 
@@ -213,7 +239,7 @@ export class ProjectDetailsComponent {
     const workers = this.allWorkers();
     const teamWorkerIds = new Set(this.assignableWorkers.map((w) => w.id));
     return workers
-      .filter((w: any) => teamWorkerIds.has(w.id || w._id) && w.category === category)
+      .filter((w: any) => (teamWorkerIds.size === 0 || teamWorkerIds.has(w.id || w._id)) && w.category === category)
       .map((w: any) => w.id || w._id);
   }
 
@@ -243,8 +269,6 @@ export class ProjectDetailsComponent {
     this.loadingTeam.set(true);
     this.teamError.set('');
 
-    // GET /workforce/allocations/project/{id} — the only allocations-by-project
-    // endpoint the backend exposes (see WorkforceService.getAllocations).
     this.workforceService.getAllocations(this.project.id).subscribe({
       next: (response: any) => {
         const list = Array.isArray(response) ? response : response?.items || response?.data || [];
@@ -252,8 +276,8 @@ export class ProjectDetailsComponent {
         this.loadingTeam.set(false);
       },
       error: (error) => {
-        console.error('Failed to load project team', error);
-        this.teamError.set('Failed to load team members for this project.');
+        console.error('Failed to load team members', error);
+        this.teamError.set('Failed to load team allocations.');
         this.loadingTeam.set(false);
       },
     });
@@ -391,12 +415,13 @@ export class ProjectDetailsComponent {
 
   openTask(task?: any): void {
     this.editingTask.set(task ?? null);
+    const isCategory = Boolean(task?.assignedCategory);
     this.taskForm.reset({
       title: task?.title ?? '',
-      assignMode: task?.assignedCategory ? 'category' : 'single',
+      assignMode: isCategory ? 'category' : 'single',
       assignedWorkerId: task?.assignedWorkerId ?? '',
-      category: task?.assignedCategory ?? '',
-      groupMode: 'individual',
+      category: task?.assignedCategory ?? (this.assignableCategories[0] || ''),
+      groupMode: 'shared',
       status: task?.status ?? 'Pending',
     });
     this.errorMessageTask = '';
@@ -415,15 +440,21 @@ export class ProjectDetailsComponent {
     const backendStatus = v.status === 'Completed' ? 'completed' : 'pending';
 
     // -----------------------------------------------------
-    // EDIT — single-worker reassignment only (editing a shared
-    // category task keeps its original category unless you switch
-    // this task to a single worker instead).
+    // EDIT — single worker or category
     // -----------------------------------------------------
     if (editing?.id) {
       const payload: any = { title: v.title!, status: backendStatus };
       if (v.assignMode === 'single') {
-        payload.assigned_worker_id = v.assignedWorkerId || undefined;
-        payload.assigned_category = undefined;
+        payload.assigned_worker_id = v.assignedWorkerId || null;
+        payload.assigned_category = null;
+      } else {
+        const category = v.category || '';
+        if (!category) {
+          this.errorMessageTask = 'Please select a workforce category.';
+          return;
+        }
+        payload.assigned_category = category;
+        payload.assigned_worker_id = null;
       }
       this.tasksService.updateTask(editing.id, payload).subscribe({
         next: () => {

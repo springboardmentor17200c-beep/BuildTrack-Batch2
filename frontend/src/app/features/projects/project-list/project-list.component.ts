@@ -1,11 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MockDataService } from '../../../core/services/mock-data.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { WorkforceService } from '../../../core/services/workforce.service';
-import { Project, ProjectStatus } from '../../../core/models/models';
+import { Project, ProjectStatus, User } from '../../../core/models/models';
 
 @Component({
   selector: 'app-project-list',
@@ -24,8 +24,26 @@ export class ProjectListComponent implements OnInit {
   }
 
   private myProjectIds = signal<string[] | null>(null);
+  managers = signal<User[]>([]);
+
+  projectManagers = computed(() =>
+    this.managers().filter((m) => m.role === 'Project Manager' || (m.role as string).toLowerCase().includes('manager'))
+  );
+
+  administrators = computed(() =>
+    this.managers().filter((m) => m.role === 'Administrator' || (m.role as string).toLowerCase().includes('admin'))
+  );
+
+  getManagerName(m: User): string {
+    return (m.name && m.name !== 'string' && m.name !== 'None') ? m.name : m.email.split('@')[0];
+  }
 
   ngOnInit(): void {
+    this.auth.getManagers().subscribe({
+      next: (list) => this.managers.set(list || []),
+      error: () => {},
+    });
+
     if (!this.isWorkerView) return;
 
     const workerId = this.auth.currentUser()?.workerId;

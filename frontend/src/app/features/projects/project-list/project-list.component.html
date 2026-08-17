@@ -89,7 +89,23 @@
         </div>
         <div class="modal-field">
           <label for="pmanager">Manager</label>
-          <input id="pmanager" type="text" formControlName="manager" placeholder="e.g. Priya Sharma" />
+          <select id="pmanager" formControlName="manager">
+            <option value="" disabled>-- Select a Manager --</option>
+            <option value="Unassigned">Unassigned</option>
+            <optgroup label="Project Managers" *ngIf="projectManagers().length">
+              <option *ngFor="let m of projectManagers()" [value]="getManagerName(m)">
+                {{ getManagerName(m) }} ({{ m.email }})
+              </option>
+            </optgroup>
+            <optgroup label="Administrators" *ngIf="administrators().length">
+              <option *ngFor="let m of administrators()" [value]="getManagerName(m)">
+                {{ getManagerName(m) }} ({{ m.email }})
+              </option>
+            </optgroup>
+            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !managers().length" [value]="form.get('manager')?.value">
+              {{ form.get('manager')?.value }}
+            </option>
+          </select>
           <p class="modal-error" *ngIf="form.get('manager')?.touched && form.get('manager')?.invalid">Required.</p>
         </div>
         <div class="modal-field-row">
