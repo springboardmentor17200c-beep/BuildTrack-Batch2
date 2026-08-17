@@ -38,6 +38,7 @@ interface BackendLoginResponse {
   access_token: string;
   token_type: string;
   user: BackendUser;
+  worker_id?: string;
 }
 
 interface BackendRegisterResponse {
@@ -82,7 +83,7 @@ export class AuthService {
       .pipe(
         map((res) => ({
           token: res.access_token,
-          user: this.toFrontendUser(res.user),
+          user: this.toFrontendUser(res.user, res.worker_id),
         })),
         tap((res) => this.persistSession(res.token, res.user)),
       );
@@ -125,7 +126,7 @@ export class AuthService {
       .pipe(
         map((res) => ({
           token: res.access_token,
-          user: this.toFrontendUser(res.user),
+          user: this.toFrontendUser(res.user, res.worker_id),
         })),
         tap((res) => this.persistSession(res.token, res.user)),
       );
@@ -195,7 +196,7 @@ export class AuthService {
     this.currentUser.set(user);
   }
 
-  private toFrontendUser(user: BackendUser): User {
+  private toFrontendUser(user: BackendUser, workerId?: string): User {
     return {
       id: user.id ?? user._id ?? user.email,
       name: user.full_name,
@@ -203,6 +204,7 @@ export class AuthService {
       role: this.toFrontendRole(user.role),
       status: this.toFrontendStatus(user.status),
       vendorId: user.vendor_id,
+      workerId: workerId,
     };
   }
 

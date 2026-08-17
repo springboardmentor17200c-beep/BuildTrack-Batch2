@@ -1,0 +1,49 @@
+<div class="page">
+  <div class="page-header">
+    <h1>My Tasks</h1>
+  </div>
+
+  <p class="empty" *ngIf="!loading() && !auth.currentUser()?.workerId">
+    Your account isn't linked to a worker profile yet. Contact your administrator.
+  </p>
+
+  <div class="panel" *ngIf="auth.currentUser()?.workerId">
+    <div class="loading" *ngIf="loading()">Loading your tasks...</div>
+
+    <ng-container *ngIf="!loading()">
+      <div class="task-list-row" *ngFor="let task of tasks()" (click)="openDetails(task)">
+        <div>
+          <div class="cell-title">{{ task.title }}</div>
+          <div class="project">{{ task.projectName }}</div>
+        </div>
+        <span class="badge" [ngClass]="statusClass(task.status)">{{ task.status }}</span>
+      </div>
+      <p class="empty" *ngIf="tasks().length === 0">No tasks assigned to you yet.</p>
+    </ng-container>
+  </div>
+</div>
+
+<div class="modal-overlay" *ngIf="selectedTask()" (click)="closeDetails()">
+  <div class="modal-panel" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Task Details</h3>
+      <button class="modal-close" type="button" (click)="closeDetails()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <dt>Task</dt>
+      <dd>{{ selectedTask()?.title }}</dd>
+
+      <dt>Project</dt>
+      <dd>{{ selectedTask()?.projectName }}</dd>
+
+      <dt>Instructions</dt>
+      <dd>{{ selectedTask()?.description || 'No additional instructions.' }}</dd>
+
+      <dt>Due Date</dt>
+      <dd>{{ selectedTask()?.dueDate || 'No due date set' }}</dd>
+
+      <dt>Status</dt>
+      <dd><span class="badge" [ngClass]="statusClass(selectedTask()?.status)">{{ selectedTask()?.status }}</span></dd>
+    </div>
+  </div>
+</div>

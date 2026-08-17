@@ -219,6 +219,56 @@ export class WorkforceService {
   }
 
   // =========================
+  // LOW ATTENDANCE
+  // =========================
+  // Manager/admin only. Flags workers whose attendance % over the
+  // lookback window (`days`) is below `threshold`. notifyLowAttendance
+  // sends a one-off warning notification to the worker's linked user
+  // account (404s server-side if that worker hasn't logged in yet).
+
+  getLowAttendanceWorkers(params?: {
+    projectId?: string;
+    days?: number;
+    threshold?: number;
+  }): Observable<any> {
+    let httpParams = new HttpParams();
+
+    if (params?.projectId) {
+      httpParams = httpParams.set('project_id', params.projectId);
+    }
+
+    if (params?.days != null) {
+      httpParams = httpParams.set('days', params.days);
+    }
+
+    if (params?.threshold != null) {
+      httpParams = httpParams.set('threshold', params.threshold);
+    }
+
+    return this.http.get<any>(
+      `${this.baseUrl}/attendance/low-attendance`,
+      { params: httpParams }
+    );
+  }
+
+  notifyLowAttendance(
+    workerId: string,
+    days?: number
+  ): Observable<any> {
+    let httpParams = new HttpParams();
+
+    if (days != null) {
+      httpParams = httpParams.set('days', days);
+    }
+
+    return this.http.post<any>(
+      `${this.baseUrl}/attendance/notify-low-attendance/${workerId}`,
+      {},
+      { params: httpParams }
+    );
+  }
+
+  // =========================
   // SHIFTS
   // =========================
 

@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MockDataService } from '../../../core/services/mock-data.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { WorkforceService } from '../../../core/services/workforce.service';
 import { Project, ProjectStatus } from '../../../core/models/models';
 
 @Component({
@@ -12,8 +14,37 @@ import { Project, ProjectStatus } from '../../../core/models/models';
   templateUrl: './project-list.component.html',
   styleUrl: './project-list.component.scss',
 })
-export class ProjectListComponent {
+export class ProjectListComponent implements OnInit {
   private fb = new FormBuilder();
+  private readonly auth = inject(AuthService);
+  private readonly workforceService = inject(WorkforceService);
+
+  get isWorkerView(): boolean {
+    return this.auth.currentUser()?.role === 'Worker';
+  }
+
+  private myProjectIds = signal<string[] | null>(null);
+
+  ngOnInit(): void {
+    if (!this.isWorkerView) return;
+
+    const workerId = this.auth.currentUser()?.workerId;
+    if (!workerId) {
+      this.myProjectIds.set([]);
+      return;
+    }
+
+    this.workforceService.getAllocations(undefined, workerId).subscribe({
+      next: (response: any) => {
+        const list = Array.isArray(response) ? response : response?.items || response?.data || [];
+        this.myProjectIds.set(list.map((a: any) => a.project_id));
+      },
+      error: (error) => {
+        console.error('Failed to load your project allocations', error);
+        this.myProjectIds.set([]);
+      },
+    });
+  }
 
   searchTerm = signal('');
   showAddModal = signal(false);
@@ -22,7 +53,13 @@ export class ProjectListComponent {
   /** Plain getter (not computed()) so it re-evaluates after addProject() mutates the array. */
   get filteredProjects() {
     const term = this.searchTerm().trim().toLowerCase();
-    const list = this.data.projects;
+    let list = this.data.projects;
+
+    if (this.isWorkerView) {
+      const allowed = this.myProjectIds();
+      list = allowed ? list.filter((p) => allowed.includes(p.id)) : [];
+    }
+
     if (!term) return list;
     return list.filter(
       (p) => p.name.toLowerCase().includes(term) || p.manager.toLowerCase().includes(term),

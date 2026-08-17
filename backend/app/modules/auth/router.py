@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,6 +21,7 @@ from app.modules.auth.db import (
     update_password_and_clear_reset,
 )
 from app.modules.auth.models import User, UserCreate
+from app.modules.workforce.db import get_worker_by_email
 
 router = APIRouter()
 
@@ -37,6 +39,7 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: User
+    worker_id: Optional[str] = None
 
 
 class RegisterRequest(UserCreate):
@@ -362,6 +365,21 @@ async def login(
         await get_active_vendor(db, str(vendor_id))
 
     # --------------------------------------------------------
+    # WORKER-SPECIFIC LINKING
+    # --------------------------------------------------------
+    # Unlike vendor accounts, a worker login is NOT blocked if no
+    # matching Worker record exists yet — the account can still log
+    # in, worker_id just stays None until an admin creates their
+    # Worker record with a matching email.
+    worker_id = None
+
+    if user_role == "worker":
+        worker = await get_worker_by_email(db, user["email"])
+
+        if worker:
+            worker_id = str(worker["_id"])
+
+    # --------------------------------------------------------
     # Create JWT
     # --------------------------------------------------------
     token = create_access_token(
@@ -370,12 +388,14 @@ async def login(
             "email": user["email"],
             "role": user["role"],
             "vendor_id": user.get("vendor_id"),
+            "worker_id": worker_id,
         },
     )
 
     return LoginResponse(
         access_token=token,
         user=serialize_user(user),
+        worker_id=worker_id,
     )
 
 
@@ -427,6 +447,17 @@ async def social_login(
         )
 
     # --------------------------------------------------------
+    # WORKER-SPECIFIC LINKING (same as /login)
+    # --------------------------------------------------------
+    worker_id = None
+
+    if normalize_role(user.get("role")) == "worker":
+        worker = await get_worker_by_email(db, user["email"])
+
+        if worker:
+            worker_id = str(worker["_id"])
+
+    # --------------------------------------------------------
     # Create JWT
     # --------------------------------------------------------
     token = create_access_token(
@@ -435,12 +466,14 @@ async def social_login(
             "email": user["email"],
             "role": user["role"],
             "vendor_id": user.get("vendor_id"),
+            "worker_id": worker_id,
         },
     )
 
     return LoginResponse(
         access_token=token,
         user=serialize_user(user),
+        worker_id=worker_id,
     )
 
 

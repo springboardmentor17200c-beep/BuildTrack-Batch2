@@ -9,7 +9,7 @@
       </div>
       <p class="crumb" style="margin-top:6px;">{{ project.category }} Project</p>
     </div>
-    <button class="btn btn-outline" type="button" (click)="openEdit()"><i class="fa-solid fa-pen"></i> Edit Project</button>
+    <button class="btn btn-outline" type="button" (click)="openEdit()" *ngIf="!isReadOnly"><i class="fa-solid fa-pen"></i> Edit Project</button>
   </div>
 
   <div class="tabs">
@@ -51,7 +51,7 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Team Members & Workers</h3>
-        <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }">Manage workers -></a>
+        <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }" *ngIf="!isReadOnly">Manage workers -></a>
       </div>
 
       <p class="empty" *ngIf="loadingTeam()">Loading team...</p>
@@ -85,7 +85,7 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Project Milestone Plan</h3>
-        <button class="btn btn-primary" type="button" (click)="openMilestone()"><i class="fa-solid fa-plus"></i> Add Milestone</button>
+        <button class="btn btn-primary" type="button" (click)="openMilestone()" *ngIf="!isReadOnly"><i class="fa-solid fa-plus"></i> Add Milestone</button>
       </div>
       <div class="table-wrap">
         <table class="data-table">
@@ -96,7 +96,7 @@
               <td>{{ m.dueDate || '-' }}</td>
               <td><span class="badge" [ngClass]="milestoneStatusClass(m.status)">{{ m.status }}</span></td>
               <td><div class="progress-row"><div class="progress-mini"><span [style.width.%]="m.progress"></span></div>{{ m.progress }}%</div></td>
-              <td>
+              <td *ngIf="!isReadOnly">
                 <div class="action-row">
                   <button class="icon-action" type="button" (click)="openMilestone(m)"><i class="fa-solid fa-pen"></i></button>
                   <button class="icon-action danger" type="button" (click)="deleteMilestone(m)"><i class="fa-solid fa-trash"></i></button>
@@ -113,22 +113,27 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Project Tasks</h3>
-        <button class="btn btn-primary" type="button" (click)="openTask()"><i class="fa-solid fa-plus"></i> Add Task</button>
+        <button class="btn btn-primary" type="button" (click)="openTask()" *ngIf="!isReadOnly"><i class="fa-solid fa-plus"></i> Add Task</button>
       </div>
-      <div class="table-wrap">
+      <p class="empty" *ngIf="loadingTasks()">Loading tasks...</p>
+      <p class="modal-error" *ngIf="tasksError()">{{ tasksError() }}</p>
+      <div class="table-wrap" *ngIf="!loadingTasks()">
         <table class="data-table">
-          <thead><tr><th>Task</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Task</th><th>Assigned To</th><th>Status</th><th *ngIf="!isReadOnly">Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let task of tasks">
+            <tr *ngFor="let task of tasks()">
               <td class="cell-title">{{ task.title }}</td>
-              <td>{{ task.owner || '-' }}</td>
+              <td>{{ task.owner || 'Unassigned' }}</td>
               <td><span class="badge" [ngClass]="taskStatusClass(task.status)">{{ task.status }}</span></td>
-              <td>
+              <td *ngIf="!isReadOnly">
                 <div class="action-row">
                   <button class="icon-action" type="button" (click)="openTask(task)"><i class="fa-solid fa-pen"></i></button>
                   <button class="icon-action danger" type="button" (click)="deleteTask(task)"><i class="fa-solid fa-trash"></i></button>
                 </div>
               </td>
+            </tr>
+            <tr *ngIf="tasks().length === 0">
+              <td colspan="4" class="empty-cell">No tasks yet for this project.</td>
             </tr>
           </tbody>
         </table>
@@ -140,20 +145,20 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Resources Used</h3>
-        <button class="btn btn-primary" type="button" (click)="openResource()"><i class="fa-solid fa-plus"></i> Allocate Resource</button>
+        <button class="btn btn-primary" type="button" (click)="openResource()" *ngIf="!isReadOnly"><i class="fa-solid fa-plus"></i> Allocate Resource</button>
       </div>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Resource</th><th>Type</th><th>Qty</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>Resource</th><th>Type</th><th>Qty</th><th>Status</th><th *ngIf="!isReadOnly">Action</th></tr></thead>
           <tbody>
             <tr *ngFor="let resource of projectResources">
               <td class="cell-title">{{ resource.name }}</td>
               <td>{{ resource.type }}</td>
               <td>{{ resource.quantity }} {{ resource.unit }}</td>
               <td><span class="badge badge-blue">{{ resource.status }}</span></td>
-              <td><button class="icon-action danger" type="button" (click)="removeResource(resource)"><i class="fa-solid fa-link-slash"></i></button></td>
+              <td *ngIf="!isReadOnly"><button class="icon-action danger" type="button" (click)="removeResource(resource)"><i class="fa-solid fa-link-slash"></i></button></td>
             </tr>
-            <tr *ngIf="projectResources.length === 0"><td colspan="5" class="empty-cell">No resources allocated to this project.</td></tr>
+            <tr *ngIf="projectResources.length === 0"><td [attr.colspan]="isReadOnly ? 4 : 5" class="empty-cell">No resources allocated to this project.</td></tr>
           </tbody>
         </table>
       </div>
@@ -164,13 +169,13 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Project Documents</h3>
-        <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)"><i class="fa-solid fa-upload"></i> Upload File</button>
+        <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)" *ngIf="!isReadOnly"><i class="fa-solid fa-upload"></i> Upload File</button>
       </div>
       <div class="document-grid">
         <div class="document-card" *ngFor="let doc of documents">
           <i class="fa-regular fa-file-lines"></i>
           <div><p class="cell-title">{{ doc.name }}</p><p class="cell-sub">{{ doc.type }} - {{ doc.uploadedAt }}</p></div>
-          <button class="icon-btn danger" type="button" (click)="deleteDocument(doc)" aria-label="Delete document">
+          <button class="icon-btn danger" type="button" (click)="deleteDocument(doc)" aria-label="Delete document" *ngIf="!isReadOnly">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
@@ -238,8 +243,41 @@
     <form [formGroup]="taskForm" (ngSubmit)="submitTask()">
       <div class="modal-body">
         <div class="modal-field"><label>Task</label><input type="text" formControlName="title" placeholder="e.g. Complete excavation checklist" /><p class="modal-error" *ngIf="taskForm.get('title')?.touched && taskForm.get('title')?.invalid">Required.</p></div>
-        <div class="modal-field"><label>Owner</label><input type="text" formControlName="owner" /></div>
+        <div class="modal-field" *ngIf="!editingTask()">
+          <label>Assign To</label>
+          <select formControlName="assignMode">
+            <option value="single">A single worker</option>
+            <option value="category">A whole workforce category</option>
+          </select>
+        </div>
+
+        <div class="modal-field" *ngIf="taskForm.get('assignMode')?.value === 'single'">
+          <label *ngIf="editingTask()">Assign To</label>
+          <select formControlName="assignedWorkerId">
+            <option value="">Unassigned</option>
+            <option *ngFor="let worker of assignableWorkers" [value]="worker.id">{{ worker.name }}</option>
+          </select>
+        </div>
+
+        <ng-container *ngIf="taskForm.get('assignMode')?.value === 'category' && !editingTask()">
+          <div class="modal-field">
+            <label>Category</label>
+            <select formControlName="category">
+              <option value="">Select a category</option>
+              <option *ngFor="let cat of assignableCategories" [value]="cat">{{ cat.replace('_', ' ') }}</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>How should this be assigned?</label>
+            <select formControlName="groupMode">
+              <option value="individual">One task per worker (each completes independently)</option>
+              <option value="shared">One shared task for the whole group</option>
+            </select>
+          </div>
+        </ng-container>
+
         <div class="modal-field"><label>Status</label><select formControlName="status"><option value="Pending">Pending</option><option value="Completed">Completed</option></select></div>
+        <p class="modal-error" *ngIf="errorMessageTask">{{ errorMessageTask }}</p>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showTaskModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
     </form>

@@ -1,19 +1,63 @@
 <div class="page">
-  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Attendance</p>
+  <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; {{ isWorkerView ? 'My Attendance' : 'Attendance' }}</p>
   <div class="page-header">
-    <h1>Attendance</h1>
+    <h1>{{ isWorkerView ? 'My Attendance' : 'Attendance' }}</h1>
     <div class="toolbar">
-      <div class="search-box">
+      <div class="search-box" *ngIf="!isWorkerView">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search workers..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
       <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ today() }}</button>
-      <button class="btn btn-primary" type="button" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Entry</button>
+      <button class="btn btn-primary" type="button" (click)="openAdd()" *ngIf="!isWorkerView"><i class="fa-solid fa-plus"></i> Add Entry</button>
     </div>
   </div>
 
   <div class="alert alert-danger" *ngIf="errorMessage()">
     {{ errorMessage() }}
+  </div>
+
+  <div class="panel" *ngIf="!isWorkerView" style="margin-bottom: 20px;">
+    <div class="panel-header" style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0;">Low Attendance <span style="font-weight: 400; color: var(--muted);">(last 30 days, below 75%)</span></h3>
+    </div>
+
+    <div class="loading" *ngIf="loadingLowAttendance()" style="padding: 20px; text-align: center;">
+      Checking attendance...
+    </div>
+
+    <div class="table-wrap" *ngIf="!loadingLowAttendance()">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Present / Total Days</th>
+            <th>Attendance %</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let w of lowAttendanceWorkers()">
+            <td class="cell-title">{{ w.worker_name }}</td>
+            <td>{{ w.present_days }} / {{ w.total_days }}</td>
+            <td><span class="badge badge-red">{{ w.attendance_percentage }}%</span></td>
+            <td>
+              <button
+                class="btn btn-outline"
+                type="button"
+                [disabled]="notifyingWorkerId() === w.worker_id || isNotified(w.worker_id)"
+                (click)="notifyWorker(w)">
+                {{ isNotified(w.worker_id) ? 'Notified' : (notifyingWorkerId() === w.worker_id ? 'Sending...' : 'Notify') }}
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="lowAttendanceWorkers().length === 0">
+            <td colspan="4" style="text-align: center; padding: 20px; color: var(--muted);">
+              No workers currently below the attendance threshold.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -31,7 +75,7 @@
             <th>Check In</th>
             <th>Check Out</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th *ngIf="!isWorkerView">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -42,7 +86,7 @@
             <td>{{ a.checkIn || '—' }}</td>
             <td>{{ a.checkOut || '—' }}</td>
             <td><span class="badge" [ngClass]="statusClass(a.status)">{{ statusLabel(a.status) }}</span></td>
-            <td>
+            <td *ngIf="!isWorkerView">
               <div class="action-row">
                 <button class="icon-action" type="button" title="Edit attendance" (click)="openEdit(a)">
                   <i class="fa-solid fa-pen"></i>
@@ -54,7 +98,7 @@
             </td>
           </tr>
           <tr *ngIf="filteredAttendance.length === 0">
-            <td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">
+            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 30px; color: var(--muted);">
               No attendance entries found.
             </td>
           </tr>

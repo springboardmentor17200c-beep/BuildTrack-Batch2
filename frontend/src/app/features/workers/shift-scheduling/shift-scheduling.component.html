@@ -3,10 +3,10 @@
   <div class="page-header">
     <div>
       <p class="crumb">Workforce / Shifts</p>
-      <h1>Shift Scheduling</h1>
+      <h1>{{ isWorkerView ? 'My Schedule' : 'Shift Scheduling' }}</h1>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" *ngIf="!isWorkerView">
       <button class="btn btn-outline" type="button" (click)="openShiftModal()">
         <i class="fa-solid fa-plus"></i> New Shift
       </button>
@@ -26,23 +26,23 @@
   <div class="panel">
     <div class="panel-header">
       <h3>Shift Assignments</h3>
-      <a routerLink="/workers">Worker management</a>
+      <a routerLink="/workers" *ngIf="!isWorkerView">Worker management</a>
     </div>
 
     <div class="loading" *ngIf="loading()">Loading shifts...</div>
 
     <div class="shift-grid" *ngIf="!loading()">
-      <div class="shift-card" *ngFor="let assignment of assignments()">
+      <div class="shift-card" *ngFor="let assignment of myAssignments">
         <span class="badge badge-blue">{{ assignment.shiftName || 'Shift' }}</span>
         <h3>{{ assignment.workerName || assignment.worker_id }}</h3>
         <p>{{ assignment.startTime || '-' }} - {{ assignment.endTime || '-' }}</p>
         <div class="cell-sub">{{ assignment.date || '-' }}</div>
-        <button class="icon-action danger" type="button" title="Remove assignment" (click)="deleteAssignment(assignment)">
+        <button class="icon-action danger" type="button" title="Remove assignment" (click)="deleteAssignment(assignment)" *ngIf="!isWorkerView">
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>
 
-      <p class="empty" *ngIf="assignments().length === 0">No shift assignments found.</p>
+      <p class="empty" *ngIf="myAssignments.length === 0">No shift assignments found.</p>
     </div>
   </div>
 </div>

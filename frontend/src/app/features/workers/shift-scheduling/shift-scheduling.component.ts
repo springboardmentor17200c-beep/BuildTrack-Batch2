@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { WorkforceService } from '../../../core/services/workforce.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-shift-scheduling',
@@ -45,6 +46,17 @@ import { WorkforceService } from '../../../core/services/workforce.service';
 export class ShiftSchedulingComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly workforceService = inject(WorkforceService);
+  readonly auth = inject(AuthService);
+
+  get isWorkerView(): boolean {
+    return this.auth.currentUser()?.role === 'Worker';
+  }
+
+  get myAssignments(): any[] {
+    if (!this.isWorkerView) return this.assignments();
+    const workerId = this.auth.currentUser()?.workerId;
+    return this.assignments().filter((a) => a.worker_id === workerId);
+  }
 
   shifts = signal<any[]>([]);
   assignments = signal<any[]>([]);

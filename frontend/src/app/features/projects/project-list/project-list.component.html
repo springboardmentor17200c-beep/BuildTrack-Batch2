@@ -1,13 +1,13 @@
 <div class="page">
   <div class="page-header">
-    <h1>Projects</h1>
+    <h1>{{ isWorkerView ? 'My Projects' : 'Projects' }}</h1>
     <div class="toolbar">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search projects..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
       <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
-      <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> New Project</button>
+      <button class="btn btn-primary" (click)="openAdd()" *ngIf="!isWorkerView"><i class="fa-solid fa-plus"></i> New Project</button>
     </div>
   </div>
 
@@ -21,7 +21,7 @@
             <th>Status</th>
             <th>Progress</th>
             <th>Start Date</th>
-            <th>Actions</th>
+            <th *ngIf="!isWorkerView">Actions</th>
             <th></th>
           </tr>
         </thead>
@@ -39,7 +39,7 @@
               </div>
             </td>
             <td>{{ p.startDate }}</td>
-            <td>
+            <td *ngIf="!isWorkerView">
               <div class="action-row">
                 <button class="icon-action" type="button" title="Edit project" (click)="openEdit(p)">
                   <i class="fa-solid fa-pen"></i>
@@ -52,7 +52,7 @@
             <td><a [routerLink]="['/projects', p.id]" class="link">View →</a></td>
           </tr>
           <tr *ngIf="filteredProjects.length === 0">
-            <td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">
+            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 30px; color: var(--muted);">
               No projects match "{{ searchTerm() }}".
             </td>
           </tr>

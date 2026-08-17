@@ -12,6 +12,7 @@ from app.modules.projects.router import router as projects_router
 from app.modules.reports.router import router as reports_router
 from app.modules.resources.router import router as resources_router
 from app.modules.workforce.router import router as workforce_router
+from app.modules.tasks.router import router as tasks_router
 
 api_router = APIRouter()
 
@@ -29,6 +30,8 @@ api_router.include_router(projects_router, prefix="/projects", tags=["Projects"]
 
 # Workforce
 api_router.include_router(workforce_router, prefix="/workforce", tags=["Workforce"])
+# Tasks
+api_router.include_router(tasks_router, prefix="/tasks", tags=["Tasks"])
 
 # Inventory
 api_router.include_router(inventory_router, prefix="/inventory", tags=["Inventory"])

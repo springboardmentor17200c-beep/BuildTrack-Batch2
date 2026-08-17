@@ -1,0 +1,63 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Worker Dashboard</h1>
+  </div>
+
+  <div class="loading" *ngIf="loading()">Loading your dashboard...</div>
+
+  <ng-container *ngIf="!loading()">
+    <p class="empty" *ngIf="!workerId()">
+      Your account isn't linked to a worker profile yet. Contact your administrator.
+    </p>
+
+    <ng-container *ngIf="workerId()">
+      <div class="stat-row">
+        <div class="stat-card" [ngClass]="{ present: todaysAttendanceStatus() === 'present', absent: todaysAttendanceStatus() === 'absent' }">
+          <p>Today's Attendance</p>
+          <strong>{{ attendanceLabel() }}</strong>
+        </div>
+        <div class="stat-card">
+          <p>Assigned Tasks</p>
+          <strong>{{ assignedCount() }}</strong>
+        </div>
+        <div class="stat-card">
+          <p>Completed Tasks</p>
+          <strong>{{ completedCount() }}</strong>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Today's Tasks</h3>
+          <a routerLink="/my-tasks">View all →</a>
+        </div>
+        <div class="task-row" *ngFor="let task of todaysTasks()">
+          <span>{{ task.title }}</span>
+          <span class="due" [class.today]="task.isToday">{{ task.dueLabel }}</span>
+        </div>
+        <p class="empty" *ngIf="todaysTasks().length === 0">No pending tasks right now.</p>
+      </div>
+
+      <div class="panel" *ngIf="currentProjectName()">
+        <div class="panel-header"><h3>Current Project</h3></div>
+        <div class="project-card">
+          <h4>{{ currentProjectName() }}</h4>
+          <span class="due">Progress: {{ currentProjectProgress() }}%</span>
+          <div class="progress-bar"><span [style.width.%]="currentProjectProgress()"></span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Notifications</h3>
+          <a routerLink="/notifications">View all →</a>
+        </div>
+        <div class="notif-row" *ngFor="let n of notificationService.notifications().slice(0, 5)">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>{{ n.title }}</span>
+        </div>
+        <p class="empty" *ngIf="notificationService.notifications().length === 0">No recent notifications.</p>
+      </div>
+    </ng-container>
+  </ng-container>
+</div>

@@ -28,6 +28,7 @@ export interface User {
   status?: UserStatus;
   avatarUrl?: string;
   vendorId?: string;
+  workerId?: string;
 }
 
 export type ProjectStatus = 'In Progress' | 'On Hold' | 'Not Started' | 'Completed';

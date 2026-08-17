@@ -87,6 +87,7 @@ export const routes: Routes = [
             "Site Engineer",
             "Contractor",
             "Client",
+            "Worker",
           ] as UserRole[],
         },
       },
@@ -138,6 +139,7 @@ export const routes: Routes = [
             "Site Engineer",
             "Contractor",
             "Client",
+            "Worker",
           ] as UserRole[],
         },
       },
@@ -243,7 +245,30 @@ export const routes: Routes = [
             "Administrator",
             "Project Manager",
             "Site Engineer",
+            "Worker",
           ] as UserRole[],
+        },
+      },
+      {
+        path: "my-tasks",
+        loadComponent: () =>
+          import("./features/my-tasks/my-tasks.component").then(
+            (m) => m.MyTasksComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Worker"] as UserRole[],
+        },
+      },
+      {
+        path: "worker-dashboard",
+        loadComponent: () =>
+          import("./features/worker-dashboard/worker-dashboard.component").then(
+            (m) => m.WorkerDashboardComponent,
+          ),
+        canActivate: [roleGuard],
+        data: {
+          roles: ["Worker"] as UserRole[],
         },
       },
       {

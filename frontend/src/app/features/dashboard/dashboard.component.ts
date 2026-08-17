@@ -44,8 +44,15 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    if (this.auth.currentUser()?.role === 'Vendor') {
+    const role = this.auth.currentUser()?.role;
+
+    if (role === 'Vendor') {
       this.router.navigate(['/procurement/vendor-dashboard']);
+      return;
+    }
+
+    if (role === 'Worker') {
+      this.router.navigate(['/worker-dashboard']);
       return;
     }
 

@@ -5,6 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { WorkforceService } from '../../core/services/workforce.service';
 import { MockDataService } from '../../core/services/mock-data.service';
+import { AuthService } from '../../core/services/auth.service';
 
 // Backend accepts only these three (see AttendanceBase.status in models.py)
 type BackendAttendanceStatus = 'present' | 'absent' | 'leave';
@@ -22,6 +23,11 @@ export class AttendanceComponent implements OnInit {
   // Projects are still sourced from MockDataService — same pattern
   // WorkersComponent already uses for its project dropdown.
   private readonly mockData = inject(MockDataService);
+  readonly auth = inject(AuthService);
+
+  get isWorkerView(): boolean {
+    return this.auth.currentUser()?.role === 'Worker';
+  }
 
   workers = signal<any[]>([]);
   projects = signal<any[]>([]);
@@ -55,6 +61,10 @@ export class AttendanceComponent implements OnInit {
     this.loadProjects();
     this.loadWorkers();
     this.loadAttendance();
+
+    if (!this.isWorkerView) {
+      this.loadLowAttendance();
+    }
   }
 
   // =========================
@@ -101,6 +111,57 @@ export class AttendanceComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  // =========================
+  // LOW ATTENDANCE
+  // =========================
+
+  lowAttendanceWorkers = signal<any[]>([]);
+  loadingLowAttendance = signal(false);
+  notifyingWorkerId = signal<string | null>(null);
+  notifiedWorkerIds = signal<Set<string>>(new Set());
+
+  loadLowAttendance(): void {
+    this.loadingLowAttendance.set(true);
+
+    this.workforceService
+      .getLowAttendanceWorkers({ days: 30, threshold: 75 })
+      .subscribe({
+        next: (response: any) => {
+          const list = Array.isArray(response)
+            ? response
+            : response?.items || response?.data || [];
+          this.lowAttendanceWorkers.set(list);
+          this.loadingLowAttendance.set(false);
+        },
+        error: (error) => {
+          console.error('Failed to load low-attendance workers', error);
+          this.loadingLowAttendance.set(false);
+        },
+      });
+  }
+
+  notifyWorker(worker: any): void {
+    if (this.notifyingWorkerId()) return;
+
+    this.notifyingWorkerId.set(worker.worker_id);
+
+    this.workforceService.notifyLowAttendance(worker.worker_id, 30).subscribe({
+      next: () => {
+        this.notifyingWorkerId.set(null);
+        this.notifiedWorkerIds.update((set) => new Set(set).add(worker.worker_id));
+      },
+      error: (error) => {
+        console.error('Notify low attendance error:', error);
+        this.notifyingWorkerId.set(null);
+        alert(this.formatError(error));
+      },
+    });
+  }
+
+  isNotified(workerId: string): boolean {
+    return this.notifiedWorkerIds().has(workerId);
   }
 
   // =========================
@@ -156,8 +217,15 @@ export class AttendanceComponent implements OnInit {
 
   get filteredAttendance(): any[] {
     const term = this.searchTerm().trim().toLowerCase();
-    if (!term) return this.attendance();
-    return this.attendance().filter(
+    let list = this.attendance();
+
+    if (this.isWorkerView) {
+      const workerId = this.auth.currentUser()?.workerId;
+      list = list.filter((a) => a.workerId === workerId);
+    }
+
+    if (!term) return list;
+    return list.filter(
       (a) =>
         String(a.workerName || '').toLowerCase().includes(term) ||
         String(a.role || '').toLowerCase().includes(term),
@@ -273,6 +341,9 @@ export class AttendanceComponent implements OnInit {
         this.saving.set(false);
         this.closeAdd();
         this.loadAttendance();
+        if (!this.isWorkerView) {
+          this.loadLowAttendance();
+        }
       },
       error: (error) => {
         console.error('Attendance save error:', error);
@@ -289,6 +360,9 @@ export class AttendanceComponent implements OnInit {
     this.workforceService.deleteAttendance(record.id).subscribe({
       next: () => {
         this.attendance.update((list) => list.filter((a) => a.id !== record.id));
+        if (!this.isWorkerView) {
+          this.loadLowAttendance();
+        }
       },
       error: (error) => {
         console.error('Delete attendance error:', error);

@@ -43,6 +43,18 @@ export class SidebarComponent {
 
   private allNavItems: NavGroup[] = [
     { label: 'Dashboard', icon: 'fa-table-columns', route: '/dashboard', roles: INTERNAL_ROLES },
+
+    // -----------------------------------------------------------
+    // WORKER-ONLY flat nav (the "Projects"/"Workers" groups below
+    // are gated away from Worker at the parent-item level, so a
+    // Worker needs its own top-level entries even where the
+    // underlying route is shared, e.g. /attendance).
+    // -----------------------------------------------------------
+    { label: 'My Tasks', icon: 'fa-list-check', route: '/my-tasks', roles: ['Worker'] },
+    { label: 'My Attendance', icon: 'fa-clock', route: '/attendance', roles: ['Worker'] },
+    { label: 'My Schedule', icon: 'fa-calendar-days', route: '/workers/shift-scheduling', roles: ['Worker'] },
+    { label: 'My Projects', icon: 'fa-building', route: '/projects', roles: ['Worker'] },
+
     {
       label: 'Projects',
       icon: 'fa-building',

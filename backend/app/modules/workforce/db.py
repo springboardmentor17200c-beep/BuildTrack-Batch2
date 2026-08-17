@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from bson import ObjectId
@@ -46,6 +46,19 @@ async def get_worker(db: AsyncIOMotorDatabase, worker_id: str):
         return None
 
     return await db.workers.find_one({"_id": oid})
+
+
+async def get_worker_by_email(db: AsyncIOMotorDatabase, email: str):
+    """
+    Find a Worker document by email (case-insensitive exact match).
+
+    Used at login time (app/modules/auth/router.py) to link a
+    logged-in user with role="worker" to their existing Worker
+    record, the same way vendor logins are linked via vendor_id.
+    """
+    return await db.workers.find_one(
+        {"email": {"$regex": f"^{email}$", "$options": "i"}}
+    )
 
 
 async def update_worker(
@@ -421,6 +434,69 @@ async def get_project_attendance(
         .sort("date", -1)
         .to_list(None)
     )
+
+
+async def get_low_attendance_workers(
+    db: AsyncIOMotorDatabase,
+    project_id: str = None,
+    days: int = 30,
+    threshold: float = 75.0,
+):
+    """
+    Computes each worker's attendance percentage over the last `days`
+    days and returns those below `threshold`, worst-first.
+    """
+    since = datetime.utcnow() - timedelta(days=days)
+
+    query = {
+        "date": {"$gte": since}
+    }
+
+    if project_id:
+        query["project_id"] = project_id
+
+    records = await db.attendance.find(query).to_list(None)
+
+    stats: dict = {}
+
+    for r in records:
+        wid = str(r.get("worker_id") or "")
+
+        if not wid:
+            continue
+
+        s = stats.setdefault(wid, {"total": 0, "present": 0})
+        s["total"] += 1
+
+        if str(r.get("status", "")).lower() == "present":
+            s["present"] += 1
+
+    results = []
+
+    for wid, s in stats.items():
+        if s["total"] == 0:
+            continue
+
+        pct = round((s["present"] / s["total"]) * 100, 1)
+
+        if pct < threshold:
+            worker = await get_worker(db, wid)
+
+            if not worker:
+                continue
+
+            results.append({
+                "worker_id": wid,
+                "worker_name": f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip(),
+                "project_id": worker.get("project_id"),
+                "total_days": s["total"],
+                "present_days": s["present"],
+                "attendance_percentage": pct,
+            })
+
+    results.sort(key=lambda x: x["attendance_percentage"])
+
+    return results
 
 
 # ============================================================

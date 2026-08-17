@@ -2,8 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { MockDataService } from '../../../core/services/mock-data.service';
 import { WorkforceService } from '../../../core/services/workforce.service';
+import { TasksService } from '../../../core/services/tasks.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem } from '../../../core/models/models';
 
 interface TeamMember {
@@ -31,6 +34,10 @@ export class ProjectDetailsComponent {
 
   activeTab = 'Overview';
   tabs = ['Overview', 'Milestones', 'Tasks', 'Resources', 'Documents', 'Reports'];
+
+  get isReadOnly(): boolean {
+    return this.auth.currentUser()?.role === 'Worker';
+  }
   project: Project = {
     id: '',
     name: 'Untitled Project',
@@ -53,7 +60,7 @@ export class ProjectDetailsComponent {
   selectedDocumentType = signal('');
 
   editingMilestone = signal<Milestone | null>(null);
-  editingTask = signal<ProjectTask | null>(null);
+  editingTask = signal<any | null>(null);
 
   // =========================
   // TEAM MEMBERS & WORKERS (real data — allocations + workers, grouped by role)
@@ -119,7 +126,10 @@ export class ProjectDetailsComponent {
 
   taskForm = this.fb.group({
     title: ['', Validators.required],
-    owner: [''],
+    assignMode: ['single' as 'single' | 'category', Validators.required],
+    assignedWorkerId: [''],
+    category: [''],
+    groupMode: ['individual' as 'individual' | 'shared'],
     status: ['Pending' as ProjectTask['status'], Validators.required],
   });
 
@@ -131,10 +141,100 @@ export class ProjectDetailsComponent {
     private route: ActivatedRoute,
     public data: MockDataService,
     private workforceService: WorkforceService,
+    private tasksService: TasksService,
+    public auth: AuthService,
   ) {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.project = this.data.getProjectById(id) ?? this.data.projects[0] ?? this.project;
     this.loadTeamMembers();
+    this.loadTasks();
+  }
+
+  // =========================
+  // TASKS (real data — backed by /tasks, assigned to a real Worker
+  // instead of the old free-text "owner")
+  // =========================
+  private rawTasks = signal<any[]>([]);
+  loadingTasks = signal(false);
+  tasksError = signal('');
+
+  tasks = computed(() => {
+    const workers = this.allWorkers();
+    return this.rawTasks().map((task) => {
+      const worker = workers.find((w: any) => (w.id || w._id) === task.assigned_worker_id);
+      let owner: string;
+      if (task.assigned_category) {
+        owner = `All ${task.assigned_category.replace(/_/g, ' ')}`;
+      } else if (worker) {
+        owner = `${worker.first_name || ''} ${worker.last_name || ''}`.trim();
+      } else if (task.assigned_worker_id) {
+        owner = 'Unknown worker';
+      } else {
+        owner = 'Unassigned';
+      }
+      return {
+        id: task._id || task.id,
+        title: task.title,
+        assignedWorkerId: task.assigned_worker_id || '',
+        assignedCategory: task.assigned_category || '',
+        owner,
+        status: task.status === 'completed' ? 'Completed' : 'Pending',
+      } as ProjectTask & { assignedWorkerId: string; assignedCategory: string };
+    });
+  });
+
+  // Flat list for the single-worker assignment dropdown — sourced
+  // from the same allocation-derived worker list the Team panel
+  // already loads.
+  get assignableWorkers(): any[] {
+    return this.groupedTeam().flatMap((group) =>
+      group.members.map((member) => ({ id: member.id, name: member.name })),
+    );
+  }
+
+  // Distinct workforce categories (ENGINEER, SKILLED_WORKER, etc.)
+  // present among this project's allocated team — for the "whole
+  // category" bulk-assign option.
+  get assignableCategories(): string[] {
+    const workers = this.allWorkers();
+    const teamWorkerIds = new Set(this.assignableWorkers.map((w) => w.id));
+    const categories = new Set<string>();
+    for (const worker of workers) {
+      const id = worker.id || worker._id;
+      if (teamWorkerIds.has(id) && worker.category) {
+        categories.add(worker.category);
+      }
+    }
+    return Array.from(categories);
+  }
+
+  // Worker IDs on this project belonging to a given category.
+  private workerIdsInCategory(category: string): string[] {
+    const workers = this.allWorkers();
+    const teamWorkerIds = new Set(this.assignableWorkers.map((w) => w.id));
+    return workers
+      .filter((w: any) => teamWorkerIds.has(w.id || w._id) && w.category === category)
+      .map((w: any) => w.id || w._id);
+  }
+
+  private loadTasks(): void {
+    if (!this.project.id) return;
+
+    this.loadingTasks.set(true);
+    this.tasksError.set('');
+
+    this.tasksService.getTasksForProject(this.project.id).subscribe({
+      next: (response: any) => {
+        const list = Array.isArray(response) ? response : response?.items || response?.data || [];
+        this.rawTasks.set(list);
+        this.loadingTasks.set(false);
+      },
+      error: (error) => {
+        console.error('Failed to load project tasks', error);
+        this.tasksError.set('Failed to load tasks for this project.');
+        this.loadingTasks.set(false);
+      },
+    });
   }
 
   private loadTeamMembers(): void {
@@ -173,10 +273,6 @@ export class ProjectDetailsComponent {
 
   get projectResources(): ResourceItem[] {
     return this.data.resources.filter((resource) => resource.allocatedProjectId === this.project.id);
-  }
-
-  get tasks(): ProjectTask[] {
-    return this.data.getTasksForProject(this.project.id);
   }
 
   get documents(): ProjectDocument[] {
@@ -293,15 +389,21 @@ export class ProjectDetailsComponent {
     this.updateProjectProgressFromMilestones();
   }
 
-  openTask(task?: ProjectTask): void {
+  openTask(task?: any): void {
     this.editingTask.set(task ?? null);
     this.taskForm.reset({
       title: task?.title ?? '',
-      owner: task?.owner ?? '',
+      assignMode: task?.assignedCategory ? 'category' : 'single',
+      assignedWorkerId: task?.assignedWorkerId ?? '',
+      category: task?.assignedCategory ?? '',
+      groupMode: 'individual',
       status: task?.status ?? 'Pending',
     });
+    this.errorMessageTask = '';
     this.showTaskModal.set(true);
   }
+
+  errorMessageTask = '';
 
   submitTask(): void {
     if (this.taskForm.invalid) {
@@ -310,17 +412,116 @@ export class ProjectDetailsComponent {
     }
     const v = this.taskForm.getRawValue();
     const editing = this.editingTask();
-    if (editing) {
-      this.data.updateProjectTask({ ...editing, title: v.title!, owner: v.owner ?? '', status: v.status! });
-    } else {
-      this.data.addProjectTask({ projectId: this.project.id, title: v.title!, owner: v.owner ?? '', status: v.status! });
+    const backendStatus = v.status === 'Completed' ? 'completed' : 'pending';
+
+    // -----------------------------------------------------
+    // EDIT — single-worker reassignment only (editing a shared
+    // category task keeps its original category unless you switch
+    // this task to a single worker instead).
+    // -----------------------------------------------------
+    if (editing?.id) {
+      const payload: any = { title: v.title!, status: backendStatus };
+      if (v.assignMode === 'single') {
+        payload.assigned_worker_id = v.assignedWorkerId || undefined;
+        payload.assigned_category = undefined;
+      }
+      this.tasksService.updateTask(editing.id, payload).subscribe({
+        next: () => {
+          this.showTaskModal.set(false);
+          this.loadTasks();
+        },
+        error: (error: any) => {
+          console.error('Failed to update task', error);
+          this.errorMessageTask = 'Failed to update task.';
+        },
+      });
+      return;
     }
-    this.showTaskModal.set(false);
+
+    // -----------------------------------------------------
+    // CREATE — single worker
+    // -----------------------------------------------------
+    if (v.assignMode === 'single') {
+      const payload = {
+        title: v.title!,
+        project_id: this.project.id,
+        assigned_worker_id: v.assignedWorkerId || undefined,
+        status: backendStatus,
+      };
+      this.tasksService.createTask(payload).subscribe({
+        next: () => {
+          this.showTaskModal.set(false);
+          this.loadTasks();
+        },
+        error: (error: any) => {
+          console.error('Failed to create task', error);
+          this.errorMessageTask = 'Failed to create task.';
+        },
+      });
+      return;
+    }
+
+    // -----------------------------------------------------
+    // CREATE — whole category
+    // -----------------------------------------------------
+    const category = v.category || '';
+    const workerIds = this.workerIdsInCategory(category);
+
+    if (!category || workerIds.length === 0) {
+      this.errorMessageTask = 'No workers found in that category on this project.';
+      return;
+    }
+
+    if (v.groupMode === 'shared') {
+      // One task, shared by the whole category.
+      const payload = {
+        title: v.title!,
+        project_id: this.project.id,
+        assigned_category: category,
+        notify_worker_ids: workerIds,
+        status: backendStatus,
+      };
+      this.tasksService.createTask(payload).subscribe({
+        next: () => {
+          this.showTaskModal.set(false);
+          this.loadTasks();
+        },
+        error: (error: any) => {
+          console.error('Failed to create group task', error);
+          this.errorMessageTask = 'Failed to create task.';
+        },
+      });
+    } else {
+      // One independent task per worker in the category.
+      const creates = workerIds.map((workerId) =>
+        this.tasksService.createTask({
+          title: v.title!,
+          project_id: this.project.id,
+          assigned_worker_id: workerId,
+          status: backendStatus,
+        }),
+      );
+      forkJoin(creates).subscribe({
+        next: () => {
+          this.showTaskModal.set(false);
+          this.loadTasks();
+        },
+        error: (error: any) => {
+          console.error('Failed to create tasks for category', error);
+          this.errorMessageTask = 'Failed to create tasks for one or more workers.';
+        },
+      });
+    }
   }
 
-  deleteTask(task: ProjectTask): void {
+  deleteTask(task: any): void {
+    if (!task?.id) return;
     if (!confirm(`Delete ${task.title}?`)) return;
-    this.data.deleteProjectTask(task);
+
+    this.tasksService.deleteTask(task.id).subscribe({
+      next: () => this.loadTasks(),
+      error: (error: any) => console.error('Failed to delete task', error),
+    });
   }
 
   openResource(): void {

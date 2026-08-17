@@ -34,6 +34,7 @@ from app.modules.workforce.db import (
     list_attendance,
     get_worker_attendance,
     get_project_attendance,
+    get_low_attendance_workers,
 
     # Shifts
     create_shift,
@@ -971,6 +972,103 @@ async def get_worker_attendance_endpoint(
         )
         for record in records
     ]
+
+
+@router.get(
+    "/attendance/low-attendance"
+)
+async def get_low_attendance_workers_endpoint(
+    project_id: Optional[str] = None,
+    days: int = 30,
+    threshold: float = 75.0,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Flags workers whose attendance percentage over the last `days`
+    days is below `threshold`. Manager/admin only.
+    """
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can view low-attendance workers",
+        )
+
+    return await get_low_attendance_workers(
+        db,
+        project_id,
+        days,
+        threshold,
+    )
+
+
+@router.post(
+    "/attendance/notify-low-attendance/{worker_id}"
+)
+async def notify_low_attendance_endpoint(
+    worker_id: str,
+    days: int = 30,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database),
+):
+    """
+    Manually sends a low-attendance warning notification to the
+    worker's linked user account (found via User.worker_id).
+    """
+    if not is_manager_or_admin(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin or manager can send attendance notifications",
+        )
+
+    worker = await get_worker(
+        db,
+        worker_id,
+    )
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Worker not found",
+        )
+
+    linked_user = await db.users.find_one(
+        {"worker_id": worker_id}
+    )
+
+    if not linked_user:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "No linked user account for this worker — "
+                "they haven't logged in yet, so they can't "
+                "receive an in-app notification"
+            ),
+        )
+
+    worker_name = f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip()
+
+    notif = await create_notification(
+        db,
+        {
+            "user_id": str(linked_user["_id"]),
+            "title": "Low Attendance Warning",
+            "message": (
+                f"Your attendance over the last {days} days is "
+                f"below the required threshold. Please speak "
+                f"with your project manager."
+            ),
+            "type": "warning",
+            "category": "attendance_alert",
+            "entity_type": "worker",
+            "entity_id": worker_id,
+        },
+    )
+
+    return {
+        "message": f"Notification sent to {worker_name}",
+        "notification_id": str(notif["_id"]),
+    }
 
 
 @router.put(
