@@ -19,6 +19,10 @@ WORKFORCE_CATEGORIES = [
 
 
 class WorkerBase(BaseModel):
+    worker_code: Optional[str] = Field(
+        default=None,
+        description="Unique worker ID/code e.g. WRK-1001",
+    )
     first_name: str
     last_name: str
     email: str
@@ -66,12 +70,18 @@ class WorkerBase(BaseModel):
         description="available, assigned, unavailable",
     )
 
+    attendance_pct: Optional[float] = Field(
+        default=0,
+        description="Attendance percentage in the last 30 days",
+    )
+
 
 class WorkerCreate(WorkerBase):
     pass
 
 
 class WorkerUpdate(BaseModel):
+    worker_code: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None

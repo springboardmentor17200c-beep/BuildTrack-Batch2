@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -13,7 +13,16 @@ router = APIRouter()
 
 
 class FrontendRecord(BaseModel):
-    data: dict[str, Any]
+    data: Optional[dict[str, Any]] = None
+
+    class Config:
+        extra = "allow"
+
+    def get_data(self) -> dict[str, Any]:
+        if self.data is not None and isinstance(self.data, dict):
+            return self.data
+        d = self.model_dump(exclude={"data"})
+        return d or {}
 
 
 def serialize(value: Any) -> Any:
@@ -76,12 +85,12 @@ async def projects(current_user=Depends(get_current_user), db=Depends(get_databa
 
 @router.post("/projects")
 async def create_project(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "projects", record.data)
+    return await create_record(db, "projects", record.get_data())
 
 
 @router.put("/projects/{record_id}")
 async def update_project(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "projects", record_id, record.data)
+    return await update_record(db, "projects", record_id, record.get_data())
 
 
 @router.delete("/projects/{record_id}")
@@ -96,12 +105,12 @@ async def milestones(current_user=Depends(get_current_user), db=Depends(get_data
 
 @router.post("/milestones")
 async def create_milestone(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "project_milestones", record.data)
+    return await create_record(db, "project_milestones", record.get_data())
 
 
 @router.put("/milestones/{record_id}")
 async def update_milestone(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "project_milestones", record_id, record.data)
+    return await update_record(db, "project_milestones", record_id, record.get_data())
 
 
 @router.delete("/milestones/{record_id}")
@@ -116,12 +125,12 @@ async def tasks(current_user=Depends(get_current_user), db=Depends(get_database)
 
 @router.post("/tasks")
 async def create_task(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "project_tasks", record.data)
+    return await create_record(db, "project_tasks", record.get_data())
 
 
 @router.put("/tasks/{record_id}")
 async def update_task(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "project_tasks", record_id, record.data)
+    return await update_record(db, "project_tasks", record_id, record.get_data())
 
 
 @router.delete("/tasks/{record_id}")
@@ -136,7 +145,7 @@ async def documents(current_user=Depends(get_current_user), db=Depends(get_datab
 
 @router.post("/documents")
 async def create_document(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "project_documents", record.data)
+    return await create_record(db, "project_documents", record.get_data())
 
 
 @router.delete("/documents/{record_id}")
@@ -151,12 +160,12 @@ async def inventory(current_user=Depends(get_current_user), db=Depends(get_datab
 
 @router.post("/inventory")
 async def create_inventory(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "inventory", record.data)
+    return await create_record(db, "inventory", record.get_data())
 
 
 @router.put("/inventory/{record_id}")
 async def update_inventory(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "inventory", record_id, record.data)
+    return await update_record(db, "inventory", record_id, record.get_data())
 
 
 @router.delete("/inventory/{record_id}")
@@ -171,12 +180,12 @@ async def workers(current_user=Depends(get_current_user), db=Depends(get_databas
 
 @router.post("/workers")
 async def create_worker(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "workers", record.data)
+    return await create_record(db, "workers", record.get_data())
 
 
 @router.put("/workers/{record_id}")
 async def update_worker(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "workers", record_id, record.data)
+    return await update_record(db, "workers", record_id, record.get_data())
 
 
 @router.delete("/workers/{record_id}")
@@ -191,12 +200,12 @@ async def resources(current_user=Depends(get_current_user), db=Depends(get_datab
 
 @router.post("/resources")
 async def create_resource(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "resources", record.data)
+    return await create_record(db, "resources", record.get_data())
 
 
 @router.put("/resources/{record_id}")
 async def update_resource(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "resources", record_id, record.data)
+    return await update_record(db, "resources", record_id, record.get_data())
 
 
 @router.delete("/resources/{record_id}")
@@ -211,12 +220,12 @@ async def procurement(current_user=Depends(get_current_user), db=Depends(get_dat
 
 @router.post("/procurement")
 async def create_procurement(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "procurements", record.data)
+    return await create_record(db, "procurements", record.get_data())
 
 
 @router.put("/procurement/{record_id}")
 async def update_procurement(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "procurements", record_id, record.data)
+    return await update_record(db, "procurements", record_id, record.get_data())
 
 
 @router.delete("/procurement/{record_id}")
@@ -231,12 +240,12 @@ async def attendance(current_user=Depends(get_current_user), db=Depends(get_data
 
 @router.post("/attendance")
 async def create_attendance(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "attendance", record.data)
+    return await create_record(db, "attendance", record.get_data())
 
 
 @router.put("/attendance/{record_id}")
 async def update_attendance(record_id: str, record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await update_record(db, "attendance", record_id, record.data)
+    return await update_record(db, "attendance", record_id, record.get_data())
 
 
 @router.delete("/attendance/{record_id}")
@@ -251,4 +260,4 @@ async def reports(current_user=Depends(get_current_user), db=Depends(get_databas
 
 @router.post("/reports")
 async def create_report(record: FrontendRecord, current_user=Depends(require_admin_or_manager), db=Depends(get_database)):
-    return await create_record(db, "reports", record.data)
+    return await create_record(db, "reports", record.get_data())

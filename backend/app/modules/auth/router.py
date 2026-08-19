@@ -626,8 +626,7 @@ async def list_managers_endpoint(
     db=Depends(get_database),
 ):
     """
-    Return all registered users who have a manager or admin role,
-    for project manager assignment dropdowns.
+    Return all registered users who have a manager / Project Manager role.
     """
     cursor = db.users.find({
         "role": {
@@ -635,9 +634,6 @@ async def list_managers_endpoint(
                 "manager",
                 "Project Manager",
                 "project_manager",
-                "admin",
-                "Administrator",
-                "superadmin",
             ]
         }
     })

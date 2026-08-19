@@ -106,6 +106,34 @@ export class PayrollComponent implements OnInit {
     };
   }
 
+  readonly pageSize = 10;
+  currentPage = signal(1);
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.payroll().length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedPayroll(): any[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.payroll().slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.payroll().length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.payroll().length);
+  }
+
   statusClass(status: string): string {
     switch (status) {
       case 'PAID':

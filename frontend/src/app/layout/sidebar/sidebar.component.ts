@@ -218,10 +218,28 @@ export class SidebarComponent {
       roles: ['Administrator', 'Project Manager', 'Client'],
       children: [
         {
-          label: 'Analytics',
+          label: 'Budget Analytics',
           icon: 'fa-chart-pie',
           route: '/analytics/budget',
           roles: ['Administrator', 'Project Manager', 'Client'],
+        },
+        {
+          label: 'Progress Analytics',
+          icon: 'fa-chart-line',
+          route: '/analytics/progress',
+          roles: ['Administrator', 'Project Manager', 'Client'],
+        },
+        {
+          label: 'Resource Analytics',
+          icon: 'fa-chart-bar',
+          route: '/analytics/resource',
+          roles: ['Administrator', 'Project Manager'],
+        },
+        {
+          label: 'Procurement Analytics',
+          icon: 'fa-chart-simple',
+          route: '/analytics/procurement',
+          roles: ['Administrator', 'Project Manager'],
         },
       ],
     },

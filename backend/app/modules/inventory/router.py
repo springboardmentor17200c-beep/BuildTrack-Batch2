@@ -69,6 +69,7 @@ def serialize_doc(doc: dict) -> dict:
 # Inventory Item Endpoints
 # -----------------------------
 
+@router.post("", response_model=InventoryItem)
 @router.post("/", response_model=InventoryItem)
 async def create_item_endpoint(
     item: InventoryItemCreate,
@@ -85,6 +86,7 @@ async def create_item_endpoint(
     return InventoryItem(**serialize_doc(result))
 
 
+@router.get("", response_model=list[InventoryItem])
 @router.get("/", response_model=list[InventoryItem])
 async def list_inventory_endpoint(
     skip: int = 0,

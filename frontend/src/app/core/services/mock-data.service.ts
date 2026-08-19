@@ -310,9 +310,12 @@ export class MockDataService {
 
   private get(path: string, onSuccess: (records: AnyRecord[]) => void): void {
     this.http
-      .get<AnyRecord[]>(this.collectionUrl(path))
+      .get<any>(this.collectionUrl(path))
       .pipe(catchError(() => of([])))
-      .subscribe((records) => onSuccess(records));
+      .subscribe((res) => {
+        const records = Array.isArray(res) ? res : res?.items || res?.data || [];
+        onSuccess(records);
+      });
   }
 
   private post(path: string, data: AnyRecord, onSuccess: (record: AnyRecord) => void): void {
@@ -344,12 +347,11 @@ export class MockDataService {
 
   private collectionUrl(path: string): string {
     const modulePaths: Record<string, string> = {
-      projects: `${this.apiBase}/projects`,
-      resources: `${this.apiBase}/resources`,
-      inventory: `${this.apiBase}/inventory`,
-      workers: `${this.apiBase}/workforce/workers`,
-      attendance: `${this.apiBase}/workforce/attendance`,
-      procurement: `${this.apiBase}/procurement`,
+      projects: `${this.apiBase}/projects/`,
+      resources: `${this.apiBase}/resources/`,
+      inventory: `${this.apiBase}/inventory/`,
+      workers: `${this.apiBase}/workforce/workers/`,
+      attendance: `${this.apiBase}/workforce/attendance/`,
     };
 
     return modulePaths[path] ?? `${this.frontendDataBase}/${path}`;
@@ -389,29 +391,37 @@ export class MockDataService {
       const project = data as Project;
       const mapped: AnyRecord = {
         name: project.name,
-        description: project.category,
-        project_manager_id: project.managerId || project.manager || 'unassigned',
+        category: project.category || 'Commercial',
+        client: project.client || '',
+        description: project.category || 'Commercial',
+        project_manager_id: project.manager || project.managerId || 'unassigned',
         start_date: this.toIsoDate(project.startDate),
         end_date: this.toIsoDate(project.endDate || project.startDate),
         budget: project.budget ?? 0,
         status: this.toBackendProjectStatus(project.status),
         location: project.location ?? '',
       };
-      return partial ? this.pick(mapped, ['name', 'description', 'status', 'budget', 'end_date']) : mapped;
+      return partial ? this.pick(mapped, ['name', 'category', 'client', 'description', 'project_manager_id', 'start_date', 'status', 'budget', 'end_date', 'location']) : mapped;
     }
 
     if (path === 'resources') {
       const resource = data as ResourceItem;
       const mapped: AnyRecord = {
         resource_name: resource.name,
+        name: resource.name,
         resource_type: this.toBackendResourceType(resource.type),
+        type: resource.type,
+        quantity: resource.quantity,
+        unit: resource.unit,
         description: resource.unit,
         acquisition_cost: 0,
         acquisition_date: new Date().toISOString(),
         status: this.toBackendResourceStatus(resource.status),
         assigned_project: resource.allocatedProjectId,
+        allocatedProjectId: resource.allocatedProjectId,
+        project_id: resource.allocatedProjectId,
       };
-      return partial ? this.pick(mapped, ['resource_name', 'status', 'assigned_project']) : mapped;
+      return partial ? this.pick(mapped, ['resource_name', 'name', 'status', 'assigned_project', 'allocatedProjectId', 'quantity', 'unit', 'type']) : mapped;
     }
 
     if (path === 'inventory') {
@@ -474,7 +484,45 @@ export class MockDataService {
       return partial ? this.pick(mapped, ['status', 'notes']) : mapped;
     }
 
-    return { data: payload };
+    if (path === 'milestones') {
+      const m = data as Milestone;
+      return {
+        projectId: m.projectId,
+        project_id: m.projectId,
+        title: m.title,
+        dueDate: this.toIsoDate(m.dueDate),
+        due_date: this.toIsoDate(m.dueDate),
+        status: m.status,
+        progress: m.progress ?? 0,
+      };
+    }
+
+    if (path === 'tasks') {
+      const t = data as ProjectTask;
+      return {
+        projectId: t.projectId,
+        project_id: t.projectId,
+        title: t.title,
+        owner: t.owner,
+        status: t.status,
+      };
+    }
+
+    if (path === 'documents') {
+      const d = data as ProjectDocument;
+      return {
+        projectId: d.projectId,
+        project_id: d.projectId,
+        name: d.name,
+        file_name: d.name,
+        type: d.type,
+        file_type: d.type,
+        uploadedAt: d.uploadedAt,
+        uploaded_at: d.uploadedAt,
+      };
+    }
+
+    return payload;
   }
 
   private pick(data: AnyRecord, keys: string[]): AnyRecord {
@@ -487,19 +535,25 @@ export class MockDataService {
   }
 
   private toProject(item: AnyRecord): Project {
+    const rawMgr = (item.project_manager_id && String(item.project_manager_id).toLowerCase() !== 'unassigned')
+      ? item.project_manager_id
+      : (item.manager && String(item.manager).toLowerCase() !== 'unassigned'
+        ? item.manager
+        : item.project_manager_id || item.manager || item.managerId);
+    const mgr = (!rawMgr || String(rawMgr).toLowerCase() === 'unassigned') ? 'Unassigned' : rawMgr;
     return {
       id: this.idOf(item),
       name: item.name ?? 'Untitled Project',
-      category: item.category ?? 'Commercial',
-      managerId: item.managerId ?? item.project_manager_id ?? '',
-      manager: item.manager ?? 'Unassigned',
+      category: item.category ?? (item.description as any) ?? 'Commercial',
+      managerId: item.project_manager_id ?? item.managerId ?? '',
+      manager: mgr,
       status: this.toProjectStatus(item.status),
       progress: item.progress ?? this.progressFromStatus(item.status),
       startDate: this.formatDate(item.startDate ?? item.start_date),
       endDate: item.endDate ?? this.formatDate(item.end_date),
-      budget: item.budget,
-      client: item.client,
-      location: item.location,
+      budget: item.budget ?? 0,
+      client: item.client ?? '',
+      location: item.location ?? '',
     };
   }
 
@@ -538,9 +592,9 @@ export class MockDataService {
       name: item.name ?? item.resource_name ?? 'Unnamed Resource',
       type: item.type ?? this.toResourceType(item.resource_type),
       quantity: item.quantity ?? 1,
-      unit: item.unit ?? 'Nos',
+      unit: item.unit ?? item.description ?? 'Nos',
       status: this.toResourceStatus(item.status),
-      allocatedProjectId: item.allocatedProjectId ?? item.assigned_project,
+      allocatedProjectId: item.allocatedProjectId ?? item.assigned_project ?? item.project_id,
     };
   }
 

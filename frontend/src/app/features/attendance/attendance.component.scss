@@ -1,0 +1,240 @@
+.date-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  padding: 3px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.date-arrow-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--slate, #475569);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: var(--blue, #2563eb);
+    border-color: #cbd5e1;
+  }
+}
+
+.date-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+
+  .calendar-icon {
+    position: absolute;
+    left: 8px;
+    color: var(--blue, #2563eb);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  .attendance-date-input {
+    height: 32px;
+    padding: 0 8px 0 28px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--navy, #0f172a);
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    &:focus {
+      background: #f8fafc;
+      border-color: var(--blue, #2563eb);
+    }
+  }
+}
+
+.btn-today-pill {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #2563eb;
+    color: #ffffff;
+  }
+}
+
+.btn-all-dates {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #cbd5e1;
+  }
+}
+
+.badge-interactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+
+  i {
+    font-size: 10px;
+  }
+
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    filter: brightness(0.95);
+  }
+
+  &:not(:disabled):active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.85;
+  }
+}
+
+.btn-mark-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+
+  i {
+    font-size: 11px;
+  }
+
+  &.btn-mark-present {
+    background: #16a34a;
+    color: #ffffff;
+    border: 1px solid #15803d;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.25);
+
+    &:hover:not(:disabled) {
+      background: #15803d;
+      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
+      transform: translateY(-1px);
+    }
+  }
+
+  &.btn-mark-absent {
+    background: #dc2626;
+    color: #ffffff;
+    border: 1px solid #b91c1c;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+      box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
+      transform: translateY(-1px);
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.page-title-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.view-switch-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 4px;
+
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    &.btn-outline {
+      background: transparent;
+      color: #475569;
+      box-shadow: none;
+
+      &:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+    }
+
+    &.btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+    }
+  }
+}
+
+
+

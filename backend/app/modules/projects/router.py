@@ -40,6 +40,7 @@ def serialize_project(doc: dict) -> dict:
     return project
 
 
+@router.post("", response_model=Project)
 @router.post("/", response_model=Project)
 async def create_project_endpoint(
     project: ProjectCreate,
@@ -85,10 +86,11 @@ async def get_manager_projects(
     return [Project(**serialize_project(project)) for project in projects]
 
 
+@router.get("", response_model=list[Project])
 @router.get("/", response_model=list[Project])
 async def list_projects_endpoint(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 500,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):

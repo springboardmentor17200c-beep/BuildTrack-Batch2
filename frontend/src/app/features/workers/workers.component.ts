@@ -51,6 +51,7 @@ export class WorkersComponent implements OnInit {
     private readonly projectsService: ProjectsService
   ) {
     this.form = this.fb.group({
+      workerCode: [''],
 
       firstName: [
         '',
@@ -247,6 +248,11 @@ export class WorkersComponent implements OnInit {
         worker._id ||
         worker.id,
 
+      workerCode:
+        worker.worker_code ||
+        worker.workerCode ||
+        `WRK-${String(worker._id || worker.id || '').slice(-4).toUpperCase()}`,
+
       firstName,
       lastName,
 
@@ -302,9 +308,9 @@ export class WorkersComponent implements OnInit {
         worker.project_id || '',
 
       status:
-        worker.status === 'available'
-          ? 'Active'
-          : 'Inactive',
+        (String(worker.status || '').toLowerCase() === 'inactive' || String(worker.status || '').toLowerCase() === 'unavailable')
+          ? 'Inactive'
+          : 'Active',
 
       attendancePct:
         worker.attendance_pct ??
@@ -317,64 +323,69 @@ export class WorkersComponent implements OnInit {
     };
   }
 
-  // =========================
-  // SEARCH
-  // =========================
+  formatText(val: string): string {
+    if (!val || val === '-') return '-';
+    return val.replace(/_/g, ' ');
+  }
+
+  readonly pageSize = 10;
+  currentPage = signal(1);
 
   onSearch(event: Event): void {
-    const input =
-      event.target as HTMLInputElement;
-
-    this.searchTerm.set(
-      input.value
-    );
+    const input = event.target as HTMLInputElement;
+    this.searchTerm.set(input.value);
+    this.currentPage.set(1);
   }
 
   get filteredWorkers(): any[] {
-
-    const search =
-      this.searchTerm()
-        .trim()
-        .toLowerCase();
-
+    const search = this.searchTerm().trim().toLowerCase();
     if (!search) {
       return this.workers();
     }
 
     return this.workers().filter(
       worker =>
-        String(worker.name || '')
-          .toLowerCase()
-          .includes(search) ||
-
-        String(worker.email || '')
-          .toLowerCase()
-          .includes(search) ||
-
-        String(worker.phone || '')
-          .toLowerCase()
-          .includes(search) ||
-
-        String(worker.category || '')
-          .toLowerCase()
-          .includes(search) ||
-
-        String(worker.designation || '')
-          .toLowerCase()
-          .includes(search)
+        String(worker.workerCode || '').toLowerCase().includes(search) ||
+        String(worker.name || '').toLowerCase().includes(search) ||
+        String(worker.email || '').toLowerCase().includes(search) ||
+        String(worker.phone || '').toLowerCase().includes(search) ||
+        String(worker.category || '').toLowerCase().includes(search) ||
+        String(worker.designation || '').toLowerCase().includes(search) ||
+        String(worker.skillType || '').toLowerCase().includes(search)
     );
   }
 
-  // =========================
-  // ADD
-  // =========================
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredWorkers.length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedWorkers(): any[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.filteredWorkers.slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.filteredWorkers.length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.filteredWorkers.length);
+  }// =========================
 
   openAdd(): void {
 
     this.editingWorker.set(null);
 
     this.form.reset({
-
+      workerCode: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -421,6 +432,8 @@ export class WorkersComponent implements OnInit {
     );
 
     this.form.patchValue({
+      workerCode:
+        worker.workerCode || '',
 
       firstName:
         worker.firstName || '',
@@ -530,6 +543,10 @@ export class WorkersComponent implements OnInit {
      */
 
     const worker = {
+      workerCode:
+        String(
+          value.workerCode || ''
+        ).trim() || undefined,
 
       firstName:
         String(

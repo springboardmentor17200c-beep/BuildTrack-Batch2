@@ -196,10 +196,18 @@ export class AuthService {
     this.currentUser.set(user);
   }
 
-  private toFrontendUser(user: BackendUser, workerId?: string): User {
+  private toFrontendUser(user: BackendUser | any, workerId?: string): User {
+    let name = user.full_name || user.name || '';
+    if (!name || name === 'string' || name === 'None') {
+      if (user.first_name) {
+        name = `${user.first_name} ${user.last_name || ''}`.trim();
+      } else if (user.email) {
+        name = user.email.split('@')[0];
+      }
+    }
     return {
       id: user.id ?? user._id ?? user.email,
-      name: user.full_name,
+      name: name,
       email: user.email,
       role: this.toFrontendRole(user.role),
       status: this.toFrontendStatus(user.status),

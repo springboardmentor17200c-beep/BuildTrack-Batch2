@@ -445,6 +445,9 @@ export class WorkforceService {
 
   private toBackendWorker(worker: any): any {
     return {
+      worker_code:
+        worker.workerCode?.trim() || worker.worker_code?.trim() || undefined,
+
       first_name:
         worker.firstName?.trim() || '',
 

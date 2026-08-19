@@ -7,8 +7,42 @@
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search resources..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
-      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+      <button class="btn-filter" [class.active]="hasActiveFilters" (click)="toggleFilter()">
+        <i class="fa-solid fa-filter"></i> Filter
+        <span class="badge badge-blue" *ngIf="hasActiveFilters" style="margin-left: 4px; padding: 2px 6px; font-size: 11px;">
+          {{ activeFilterCount }}
+        </span>
+      </button>
       <button class="btn btn-primary" (click)="openAdd()"><i class="fa-solid fa-plus"></i> Add Resource</button>
+    </div>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="panel filter-panel" *ngIf="showFilter()" style="margin-bottom: 18px; padding: 16px 20px;">
+    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12.5px; font-weight: 600; color: var(--muted);"><i class="fa-solid fa-layer-group"></i> Resource Type</label>
+        <select class="form-control select-control" [value]="filterType()" (change)="onFilterTypeChange($event)" style="min-width: 170px; height: 38px; border-radius: 8px; border: 1px solid var(--border); padding: 0 12px; font-size: 13px;">
+          <option value="ALL">All Types</option>
+          <option value="Equipment">Equipment</option>
+          <option value="Material">Material</option>
+          <option value="Vehicle">Vehicle</option>
+        </select>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12.5px; font-weight: 600; color: var(--muted);"><i class="fa-solid fa-circle-check"></i> Status</label>
+        <select class="form-control select-control" [value]="filterStatus()" (change)="onFilterStatusChange($event)" style="min-width: 170px; height: 38px; border-radius: 8px; border: 1px solid var(--border); padding: 0 12px; font-size: 13px;">
+          <option value="ALL">All Statuses</option>
+          <option value="Available">Available</option>
+          <option value="In Use">In Use</option>
+          <option value="Under Maintenance">Under Maintenance</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn btn-outline" (click)="resetFilters()" *ngIf="hasActiveFilters" style="height: 38px; padding: 0 14px;">
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
     </div>
   </div>
 
@@ -26,10 +60,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let r of filteredResources">
+          <tr *ngFor="let r of paginatedResources">
             <td class="cell-title">{{ r.name }}</td>
             <td>{{ r.type }}</td>
-            <td>{{ r.quantity }}</td>
+            <td><strong>{{ r.quantity }} {{ r.unit }}</strong></td>
             <td>{{ r.unit }}</td>
             <td><span class="badge" [ngClass]="statusClass(r.status)">{{ r.status }}</span></td>
             <td>
@@ -52,14 +86,22 @@
       </table>
     </div>
 
-    <div class="pagination-bar">
-      <span>Showing {{ filteredResources.length }} of {{ data.resources.length }} resources</span>
-      <div class="pagination">
-        <button><i class="fa-solid fa-chevron-left"></i></button>
-        <button class="active">1</button>
-        <button>2</button>
-        <button>3</button>
-        <button><i class="fa-solid fa-chevron-right"></i></button>
+    <div class="pagination-bar" *ngIf="filteredResources.length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ filteredResources.length }} resources</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   </div>

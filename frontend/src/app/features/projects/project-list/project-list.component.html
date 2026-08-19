@@ -6,9 +6,82 @@
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search projects..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
-      <button class="btn-filter"><i class="fa-solid fa-filter"></i> Filter</button>
+
+      <div class="filter-dropdown-container">
+        <button class="btn-filter" [class.active]="hasActiveFilters()" (click)="toggleFilter()">
+          <i class="fa-solid fa-filter"></i> Filter
+          <span class="filter-badge" *ngIf="activeFilterCount() > 0">{{ activeFilterCount() }}</span>
+        </button>
+
+        <div class="filter-popover" *ngIf="showFilter()">
+          <div class="filter-popover-header">
+            <h4>Filter Projects</h4>
+            <button type="button" class="filter-close-btn" (click)="showFilter.set(false)"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="filter-popover-body">
+            <!-- Start Date Filter -->
+            <div class="filter-group">
+              <label><i class="fa-regular fa-calendar"></i> Start Date (From)</label>
+              <input type="date" class="form-control" [value]="filterStartDate()" (input)="onFilterStartDateChange($event)" />
+            </div>
+
+            <!-- Status Filter -->
+            <div class="filter-group">
+              <label><i class="fa-solid fa-circle-dot"></i> Status</label>
+              <select class="form-control" [value]="filterStatus()" (change)="onFilterStatusChange($event)">
+                <option value="ALL">All Statuses</option>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            <!-- Progress Bar Filter -->
+            <div class="filter-group">
+              <div class="progress-filter-header">
+                <label><i class="fa-solid fa-bars-progress"></i> Minimum Progress</label>
+                <span class="progress-val">{{ filterProgressMin() }}%</span>
+              </div>
+              <input type="range" min="0" max="100" step="5" [value]="filterProgressMin()" (input)="onFilterProgressChange($event)" class="range-slider" />
+              <div class="progress-presets">
+                <button type="button" class="preset-btn" [class.active]="filterProgressMin() === 0" (click)="setProgressMin(0)">All</button>
+                <button type="button" class="preset-btn" [class.active]="filterProgressMin() === 25" (click)="setProgressMin(25)">25%+</button>
+                <button type="button" class="preset-btn" [class.active]="filterProgressMin() === 50" (click)="setProgressMin(50)">50%+</button>
+                <button type="button" class="preset-btn" [class.active]="filterProgressMin() === 75" (click)="setProgressMin(75)">75%+</button>
+                <button type="button" class="preset-btn" [class.active]="filterProgressMin() === 100" (click)="setProgressMin(100)">100%</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-popover-footer">
+            <button type="button" class="btn btn-sm btn-outline" (click)="resetFilters()">Reset</button>
+            <button type="button" class="btn btn-sm btn-primary" (click)="showFilter.set(false)">Apply</button>
+          </div>
+        </div>
+      </div>
+
       <button class="btn btn-primary" (click)="openAdd()" *ngIf="!isWorkerView"><i class="fa-solid fa-plus"></i> New Project</button>
     </div>
+  </div>
+
+  <!-- Active filter pills bar -->
+  <div class="active-filters-bar" *ngIf="hasActiveFilters()">
+    <span class="active-filter-label"><i class="fa-solid fa-filter"></i> Filters:</span>
+    <span class="filter-pill" *ngIf="filterStartDate()">
+      From {{ filterStartDate() }}
+      <i class="fa-solid fa-xmark" (click)="filterStartDate.set('')"></i>
+    </span>
+    <span class="filter-pill" *ngIf="filterStatus() !== 'ALL'">
+      Status: {{ filterStatus() }}
+      <i class="fa-solid fa-xmark" (click)="filterStatus.set('ALL')"></i>
+    </span>
+    <span class="filter-pill" *ngIf="filterProgressMin() > 0">
+      Progress &ge; {{ filterProgressMin() }}%
+      <i class="fa-solid fa-xmark" (click)="filterProgressMin.set(0)"></i>
+    </span>
+    <button type="button" class="clear-all-link" (click)="resetFilters()">Clear all</button>
   </div>
 
   <div class="panel">
@@ -26,7 +99,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of filteredProjects">
+          <tr *ngFor="let p of paginatedProjects">
             <td>
               <a [routerLink]="['/projects', p.id]" class="cell-title" style="color:inherit">{{ p.name }}</a>
             </td>
@@ -53,22 +126,29 @@
           </tr>
           <tr *ngIf="filteredProjects.length === 0">
             <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 30px; color: var(--muted);">
-              No projects match "{{ searchTerm() }}".
+              No projects found matching the criteria.
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="pagination-bar">
-      <span>Showing {{ filteredProjects.length }} of {{ data.projects.length }} projects</span>
+    <div class="pagination-bar" *ngIf="filteredProjects.length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ filteredProjects.length }} projects</span>
       <div class="pagination">
-        <button><i class="fa-solid fa-chevron-left"></i></button>
-        <button class="active">1</button>
-        <button>2</button>
-        <button>3</button>
-        <button>4</button>
-        <button><i class="fa-solid fa-chevron-right"></i></button>
+        <button [disabled]="currentPage() === 1" (click)="prevPage()" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="nextPage()" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -90,19 +170,12 @@
         <div class="modal-field">
           <label for="pmanager">Manager</label>
           <select id="pmanager" formControlName="manager">
-            <option value="" disabled>-- Select a Manager --</option>
+            <option value="" disabled selected>Select Manager</option>
             <option value="Unassigned">Unassigned</option>
-            <optgroup label="Project Managers" *ngIf="projectManagers().length">
-              <option *ngFor="let m of projectManagers()" [value]="getManagerName(m)">
-                {{ getManagerName(m) }} ({{ m.email }})
-              </option>
-            </optgroup>
-            <optgroup label="Administrators" *ngIf="administrators().length">
-              <option *ngFor="let m of administrators()" [value]="getManagerName(m)">
-                {{ getManagerName(m) }} ({{ m.email }})
-              </option>
-            </optgroup>
-            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !managers().length" [value]="form.get('manager')?.value">
+            <option *ngFor="let m of managers()" [value]="getManagerName(m)">
+              {{ getManagerName(m) }} ({{ m.email }})
+            </option>
+            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !isManagerInList(form.get('manager')?.value)" [value]="form.get('manager')?.value">
               {{ form.get('manager')?.value }}
             </option>
           </select>

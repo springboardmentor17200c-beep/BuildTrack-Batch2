@@ -89,7 +89,7 @@
         <tbody>
 
           <tr
-            *ngFor="let w of filteredWorkers"
+            *ngFor="let w of paginatedWorkers"
           >
 
             <!-- NAME -->
@@ -114,9 +114,14 @@
                   }}
                 </div>
 
-                <span class="cell-title">
-                  {{ w.name || '-' }}
-                </span>
+                <div class="worker-name-col">
+                  <span class="cell-title">
+                    {{ w.name || '-' }}
+                  </span>
+                  <span class="worker-code-badge" *ngIf="w.workerCode">
+                    {{ w.workerCode }}
+                  </span>
+                </div>
 
               </div>
 
@@ -129,7 +134,7 @@
                 class="badge badge-blue"
                 *ngIf="w.category"
               >
-                {{ w.category }}
+                {{ formatText(w.category) }}
               </span>
 
               <span
@@ -143,7 +148,7 @@
 
             <!-- ROLE -->
             <td>
-              {{ w.role || '-' }}
+              {{ formatText(w.role) }}
             </td>
 
             <!-- CONTACT -->
@@ -158,16 +163,21 @@
 
             <!-- EMPLOYMENT -->
             <td>
-              {{ w.employmentType || '-' }}
+              {{ formatText(w.employmentType) }}
             </td>
 
             <!-- ATTENDANCE -->
             <td>
-              {{
-                w.attendancePct !== undefined
-                  ? w.attendancePct + '%'
-                  : '-'
-              }}
+              <span
+                *ngIf="w.attendancePct !== undefined"
+                class="badge"
+                [ngClass]="w.attendancePct >= 75 ? 'badge-green' : 'badge-red'"
+                [title]="w.attendancePct < 75 ? 'Low Attendance (< 75% in last 30 days)' : 'Healthy Attendance (>= 75% in last 30 days)'"
+              >
+                <i class="fa-solid" [ngClass]="w.attendancePct >= 75 ? 'fa-check' : 'fa-triangle-exclamation'"></i>
+                {{ w.attendancePct }}%
+              </span>
+              <span *ngIf="w.attendancePct === undefined" class="cell-muted">-</span>
             </td>
 
             <!-- STATUS -->
@@ -251,16 +261,23 @@
 
     </div>
 
-    <div class="pagination-bar">
-
-      <span>
-        Showing
-        {{ filteredWorkers.length }}
-        of
-        {{ workers().length }}
-        workers
-      </span>
-
+    <div class="pagination-bar" *ngIf="filteredWorkers.length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ filteredWorkers.length }} workers</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
 
   </div>
@@ -331,6 +348,15 @@
           Basic Information
         </div>
 
+        <!-- WORKER UNIQUE NO / ID -->
+        <div class="modal-field">
+          <label>Worker ID / Unique No. <span style="font-weight: 400; color: var(--muted); font-size: 11.5px;">(Optional, auto-generated if left blank)</span></label>
+          <input
+            type="text"
+            formControlName="workerCode"
+            placeholder="e.g. WRK-1001"
+          />
+        </div>
 
         <!-- FIRST + LAST NAME -->
         <div class="modal-field-row">
@@ -459,7 +485,7 @@
                 *ngFor="let category of categories"
                 [value]="category"
               >
-                {{ category }}
+                {{ formatText(category) }}
               </option>
 
             </select>

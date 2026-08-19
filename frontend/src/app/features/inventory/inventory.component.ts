@@ -43,6 +43,34 @@ export class InventoryComponent implements OnInit {
     status: ['in_stock', Validators.required],
   });
 
+  readonly pageSize = 10;
+  currentPage = signal(1);
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredInventory().length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedInventory(): LiveInventoryItem[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.filteredInventory().slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.filteredInventory().length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.filteredInventory().length);
+  }
+
   ngOnInit(): void {
     this.loadInventory();
   }
@@ -62,6 +90,7 @@ export class InventoryComponent implements OnInit {
 
   onSearch(event: Event): void {
     this.searchTerm.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(1);
   }
 
   statusClass(status: string): string {

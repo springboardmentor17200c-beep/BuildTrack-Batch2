@@ -1,14 +1,80 @@
 <div class="page">
   <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; {{ isWorkerView ? 'My Attendance' : 'Attendance' }}</p>
   <div class="page-header">
-    <h1>{{ isWorkerView ? 'My Attendance' : 'Attendance' }}</h1>
-    <div class="toolbar">
+    <div class="page-title-group">
+      <h1>{{ isWorkerView ? 'My Attendance' : (currentView() === 'low_attendance' ? 'Low Attendance Report' : 'Attendance Management') }}</h1>
+      <div class="view-switch-tabs" *ngIf="!isWorkerView">
+        <button 
+          type="button" 
+          class="btn btn-sm" 
+          [ngClass]="currentView() === 'roster' ? 'btn-primary' : 'btn-outline'"
+          (click)="switchView('roster')"
+        >
+          <i class="fa-regular fa-calendar-check"></i> Daily Sheet
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-sm" 
+          [ngClass]="currentView() === 'low_attendance' ? 'btn-primary' : 'btn-outline'"
+          (click)="switchView('low_attendance')"
+        >
+          <i class="fa-solid fa-triangle-exclamation"></i> Low Attendance (< 75%)
+          <span class="badge badge-red" *ngIf="lowAttendanceWorkers().length > 0" style="margin-left: 4px; padding: 2px 6px; font-size: 11px;">
+            {{ lowAttendanceWorkers().length }}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar" *ngIf="currentView() === 'roster'">
       <div class="search-box" *ngIf="!isWorkerView">
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="text" placeholder="Search workers..." [value]="searchTerm()" (input)="onSearch($event)" />
       </div>
-      <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ today() }}</button>
-      <button class="btn btn-primary" type="button" (click)="openAdd()" *ngIf="!isWorkerView"><i class="fa-solid fa-plus"></i> Add Entry</button>
+      <div class="date-filter-group">
+        <button class="date-arrow-btn" (click)="previousDay()" title="Previous Day">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="date-input-wrapper">
+          <i class="fa-regular fa-calendar calendar-icon"></i>
+          <input
+            type="date"
+            class="attendance-date-input"
+            [value]="selectedDate()"
+            (change)="onDateChange($event)"
+            title="Select date"
+          />
+        </div>
+        <button class="date-arrow-btn" (click)="nextDay()" title="Next Day">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <button
+          class="btn-today-pill"
+          *ngIf="selectedDate() !== today()"
+          (click)="setToday()"
+          title="Return to Today"
+        >
+          Today
+        </button>
+        <button
+          class="btn-all-dates"
+          *ngIf="selectedDate()"
+          (click)="clearDateFilter()"
+          title="View all dates"
+        >
+          All Dates
+        </button>
+      </div>
+      <button
+        class="btn btn-primary"
+        type="button"
+        (click)="openAdd()"
+        *ngIf="!isWorkerView"
+        [disabled]="isFutureDate"
+        [title]="isFutureDate ? 'Day not start yet' : 'Add Entry'"
+      >
+        <i class="fa-solid fa-plus"></i> Add Entry
+      </button>
     </div>
   </div>
 
@@ -16,20 +82,25 @@
     {{ errorMessage() }}
   </div>
 
-  <div class="panel" *ngIf="!isWorkerView" style="margin-bottom: 20px;">
-    <div class="panel-header" style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0;">Low Attendance <span style="font-weight: 400; color: var(--muted);">(last 30 days, below 75%)</span></h3>
+  <!-- DEDICATED LOW ATTENDANCE VIEW -->
+  <div class="panel" *ngIf="currentView() === 'low_attendance' && !isWorkerView">
+    <div class="panel-header" style="padding: 18px 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="margin: 0 0 4px 0;"><i class="fa-solid fa-triangle-exclamation text-amber" style="margin-right: 8px;"></i> Low Attendance Workers</h3>
+        <p class="subtitle" style="margin: 0; color: var(--muted); font-size: 13px;">Workers whose attendance is below 75% over the last 30 days (since 1 August 2026).</p>
+      </div>
+      <span class="badge badge-red" *ngIf="lowAttendanceWorkers().length > 0">{{ lowAttendanceWorkers().length }} Workers Below Threshold</span>
     </div>
 
-    <div class="loading" *ngIf="loadingLowAttendance()" style="padding: 20px; text-align: center;">
-      Checking attendance...
+    <div class="loading" *ngIf="loadingLowAttendance()" style="padding: 30px; text-align: center;">
+      Checking attendance records...
     </div>
 
     <div class="table-wrap" *ngIf="!loadingLowAttendance()">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Worker</th>
+            <th>Worker Name</th>
             <th>Present / Total Days</th>
             <th>Attendance %</th>
             <th>Action</th>
@@ -38,21 +109,24 @@
         <tbody>
           <tr *ngFor="let w of lowAttendanceWorkers()">
             <td class="cell-title">{{ w.worker_name }}</td>
-            <td>{{ w.present_days }} / {{ w.total_days }}</td>
-            <td><span class="badge badge-red">{{ w.attendance_percentage }}%</span></td>
+            <td><strong>{{ w.present_days }}</strong> / {{ w.total_days }} days</td>
+            <td><span class="badge badge-red"><i class="fa-solid fa-triangle-exclamation"></i> {{ w.attendance_percentage }}%</span></td>
             <td>
               <button
-                class="btn btn-outline"
+                class="btn btn-outline btn-sm"
                 type="button"
                 [disabled]="notifyingWorkerId() === w.worker_id || isNotified(w.worker_id)"
                 (click)="notifyWorker(w)">
-                {{ isNotified(w.worker_id) ? 'Notified' : (notifyingWorkerId() === w.worker_id ? 'Sending...' : 'Notify') }}
+                <i class="fa-regular fa-bell"></i>
+                {{ isNotified(w.worker_id) ? 'Notified' : (notifyingWorkerId() === w.worker_id ? 'Sending...' : 'Notify Worker') }}
               </button>
             </td>
           </tr>
           <tr *ngIf="lowAttendanceWorkers().length === 0">
-            <td colspan="4" style="text-align: center; padding: 20px; color: var(--muted);">
-              No workers currently below the attendance threshold.
+            <td colspan="4" style="text-align: center; padding: 40px 20px; color: var(--muted);">
+              <i class="fa-regular fa-circle-check" style="font-size: 32px; color: #16a34a; margin-bottom: 10px; display: block;"></i>
+              <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 15px;">All Workers Healthy</h4>
+              <p style="margin: 0; font-size: 13px;">No workers are currently below the 75% attendance threshold.</p>
             </td>
           </tr>
         </tbody>
@@ -60,9 +134,17 @@
     </div>
   </div>
 
-  <div class="panel">
+  <!-- DAILY ATTENDANCE ROSTER VIEW -->
+  <div class="panel" *ngIf="currentView() === 'roster'">
+    <div class="panel-header">
+      <h3>
+        {{ isWorkerView ? 'Attendance History' : 'Daily Attendance Sheet' }}
+        <span *ngIf="selectedDate()" style="font-weight: 500; font-size: 13.5px; color: var(--muted); margin-left: 8px;">({{ selectedDate() }})</span>
+      </h3>
+    </div>
+
     <div class="loading" *ngIf="loading()" style="padding: 30px; text-align: center;">
-      Loading attendance...
+      Loading attendance records...
     </div>
 
     <div class="table-wrap" *ngIf="!loading()">
@@ -79,35 +161,75 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let a of filteredAttendance">
+          <tr *ngFor="let a of paginatedAttendance">
             <td class="cell-title">{{ a.workerName }}</td>
             <td>{{ a.role }}</td>
             <td>{{ a.date || '—' }}</td>
             <td>{{ a.checkIn || '—' }}</td>
             <td>{{ a.checkOut || '—' }}</td>
-            <td><span class="badge" [ngClass]="statusClass(a.status)">{{ statusLabel(a.status) }}</span></td>
+            <td>
+              <span class="badge" [ngClass]="statusClass(a.status, a.isTemporary)">
+                <i class="fa-solid" [ngClass]="a.isTemporary || !a.status ? 'fa-minus' : (a.status === 'present' ? 'fa-check' : (a.status === 'leave' ? 'fa-clock' : 'fa-xmark'))"></i>
+                {{ statusLabel(a.status, a.isTemporary) }}
+              </span>
+            </td>
             <td *ngIf="!isWorkerView">
               <div class="action-row">
-                <button class="icon-action" type="button" title="Edit attendance" (click)="openEdit(a)">
+                <button
+                  class="icon-action"
+                  type="button"
+                  title="Edit attendance (Check In, Check Out, Status)"
+                  [disabled]="isFutureDate"
+                  (click)="openEdit(a)"
+                >
                   <i class="fa-solid fa-pen"></i>
                 </button>
-                <button class="icon-action danger" type="button" title="Delete attendance" (click)="deleteAttendance(a)">
+                <button
+                  class="icon-action danger"
+                  type="button"
+                  title="Delete attendance"
+                  *ngIf="a.id"
+                  (click)="deleteAttendance(a)"
+                >
                   <i class="fa-solid fa-trash"></i>
                 </button>
               </div>
             </td>
           </tr>
-          <tr *ngIf="filteredAttendance.length === 0">
-            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 30px; color: var(--muted);">
-              No attendance entries found.
+          <tr *ngIf="isFutureDate">
+            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 45px 20px; color: var(--muted);">
+              <i class="fa-regular fa-clock" style="font-size: 32px; margin-bottom: 12px; display: block; color: #f59e0b;"></i>
+              <h4 style="margin: 0 0 6px 0; color: var(--navy); font-size: 16px; font-weight: 700;">Day not start yet</h4>
+              <p style="margin: 0; font-size: 13px; color: var(--muted);">Attendance cannot be recorded or viewed for future dates.</p>
+            </td>
+          </tr>
+          <tr *ngIf="!isFutureDate && filteredAttendance.length === 0">
+            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 35px 20px; color: var(--muted);">
+              <i class="fa-regular fa-calendar-xmark" style="font-size: 24px; margin-bottom: 8px; display: block; color: #94a3b8;"></i>
+              No attendance entries found {{ selectedDate() ? 'for ' + selectedDate() : '' }}.
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="pagination-bar" *ngIf="!loading()">
-      <span>Showing {{ filteredAttendance.length }} of {{ attendance().length }} entries</span>
+    <div class="pagination-bar" *ngIf="!loading() && filteredAttendance.length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ filteredAttendance.length }} entries</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>

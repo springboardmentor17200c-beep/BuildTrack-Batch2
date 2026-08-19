@@ -52,10 +52,38 @@ export class ShiftSchedulingComponent implements OnInit {
     return this.auth.currentUser()?.role === 'Worker';
   }
 
+  readonly pageSize = 9;
+  currentPage = signal(1);
+
   get myAssignments(): any[] {
     if (!this.isWorkerView) return this.assignments();
     const workerId = this.auth.currentUser()?.workerId;
     return this.assignments().filter((a) => a.worker_id === workerId);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.myAssignments.length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedAssignments(): any[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.myAssignments.slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.myAssignments.length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.myAssignments.length);
   }
 
   shifts = signal<any[]>([]);

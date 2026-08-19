@@ -1226,29 +1226,22 @@ export class ProcurementComponent implements OnInit {
   }
 
   deleteItem(tab: ProcurementTab, id: string, label: string): void {
-    this.confirmService
-      .confirm(
-        'Are you sure you want to delete this record? This action cannot be undone.',
-        `Delete ${label}?`,
-        'Delete',
-        'Cancel'
-      )
-      .then((confirmed) => {
-        if (!confirmed) return;
+    if (!window.confirm(`Are you sure you want to delete ${label}? This action cannot be undone.`)) {
+      return;
+    }
 
-        let deleteObs: ReturnType<typeof this.procurementService.deleteMaterialRequest> | undefined;
-        if (tab === 'requests') deleteObs = this.procurementService.deleteMaterialRequest(id);
-        else if (tab === 'vendors') deleteObs = this.procurementService.deleteVendor(id);
-        else if (tab === 'purchase-orders') deleteObs = this.procurementService.deletePurchaseOrder(id);
-        else if (tab === 'invoices') deleteObs = this.procurementService.deleteInvoice(id);
+    let deleteObs: ReturnType<typeof this.procurementService.deleteMaterialRequest> | undefined;
+    if (tab === 'requests') deleteObs = this.procurementService.deleteMaterialRequest(id);
+    else if (tab === 'vendors') deleteObs = this.procurementService.deleteVendor(id);
+    else if (tab === 'purchase-orders') deleteObs = this.procurementService.deletePurchaseOrder(id);
+    else if (tab === 'invoices') deleteObs = this.procurementService.deleteInvoice(id);
 
-        if (deleteObs) {
-          deleteObs.subscribe({
-            next: () => this.handleSuccess(`${label} deleted successfully`),
-            error: (err: any) => this.handleError(`Failed to delete ${label}`, err),
-          });
-        }
+    if (deleteObs) {
+      deleteObs.subscribe({
+        next: () => this.handleSuccess(`${label} deleted successfully`),
+        error: (err: any) => this.handleError(`Failed to delete ${label}`, err),
       });
+    }
   }
 
   // --- Display & Helper Functions ---
@@ -1309,7 +1302,7 @@ export class ProcurementComponent implements OnInit {
    * Returns the identifier of a record regardless of whether the backend
    * returned it as `_id` (MongoDB) or `id`.
    */
-  private getId(obj: any): string {
+  getId(obj: any): string {
     if (!obj) return '';
     return obj._id || obj.id || '';
   }

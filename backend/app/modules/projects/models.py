@@ -23,10 +23,12 @@ class Milestone(MilestoneBase):
 class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = None
-    project_manager_id: str
-    start_date: datetime
-    end_date: datetime
-    budget: float
+    category: Optional[str] = "Commercial"
+    client: Optional[str] = None
+    project_manager_id: Optional[str] = "unassigned"
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    budget: Optional[float] = 0.0
     status: str = Field(default="planning", description="planning, active, on_hold, completed")
     location: Optional[str] = None
 
@@ -38,9 +40,14 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = None
-    budget: Optional[float] = None
+    category: Optional[str] = None
+    client: Optional[str] = None
+    project_manager_id: Optional[str] = None
+    start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    budget: Optional[float] = None
+    status: Optional[str] = None
+    location: Optional[str] = None
 
 
 class Project(ProjectBase):

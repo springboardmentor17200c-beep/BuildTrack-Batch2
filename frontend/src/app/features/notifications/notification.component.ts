@@ -69,13 +69,43 @@ export class NotificationComponent implements OnInit {
     this.notificationService.getUnreadCount().subscribe();
   }
 
+  readonly pageSize = 10;
+  currentPage = signal(1);
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.notifications().length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedNotifications(): NotificationItem[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.notifications().slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.notifications().length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.notifications().length);
+  }
+
   setCategory(category: string): void {
     this.selectedCategory.set(category);
+    this.currentPage.set(1);
     this.loadNotifications();
   }
 
   setReadStatus(status: 'all' | 'unread' | 'read'): void {
     this.readStatusFilter.set(status);
+    this.currentPage.set(1);
     this.loadNotifications();
   }
 
@@ -140,9 +170,19 @@ export class NotificationComponent implements OnInit {
     return found ? found.label : 'Notification';
   }
 
+  private parseDate(dateStr: string): Date {
+    if (!dateStr) return new Date();
+    let str = String(dateStr).trim();
+    if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+      str = str + 'Z';
+    }
+    const d = new Date(str);
+    return Number.isNaN(d.getTime()) ? new Date(dateStr) : d;
+  }
+
   formatTime(dateStr: string): string {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = this.parseDate(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -154,6 +194,20 @@ export class NotificationComponent implements OnInit {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  }
+
+  formatFullDateTime(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = this.parseDate(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return date.toLocaleString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   }
 }
 

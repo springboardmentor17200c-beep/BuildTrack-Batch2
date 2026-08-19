@@ -1,200 +1,166 @@
 <div class="page">
-
-  <div *ngIf="loading" class="loading">
-    Loading Dashboard...
+  <!-- ── Stat cards ── -->
+  <div class="stat-grid">
+    <div class="stat-card" *ngFor="let s of stats">
+      <div class="stat-card__top">
+        <span class="stat-card__icon" [style.background]="s.bg" [style.color]="s.color">
+          <i class="fa-solid" [ngClass]="s.icon"></i>
+        </span>
+      </div>
+      <p class="stat-card__label">{{ s.label }}</p>
+      <p class="stat-card__value">{{ s.value }}</p>
+      <p class="stat-card__delta" [ngClass]="s.trend">
+        <i class="fa-solid"
+           [class.fa-arrow-up]="s.trend === 'up'"
+           [class.fa-arrow-down]="s.trend === 'down'"></i>
+        {{ s.delta }}
+      </p>
+    </div>
   </div>
 
-  <ng-container *ngIf="!loading && metrics">
+  <!-- ── Charts row ── -->
+  <div class="grid-2">
 
-    <!-- ===================== Stat Cards ===================== -->
-
-    <div class="stat-grid">
-
-      <div class="stat-card" *ngFor="let s of stats">
-
-        <div class="stat-card__top">
-          <span
-            class="stat-card__icon"
-            [style.background]="s.bg"
-            [style.color]="s.color">
-
-            <i class="fa-solid" [ngClass]="s.icon"></i>
-
-          </span>
+    <!-- Donut -->
+    <div class="panel">
+      <div class="panel-header"><h3>Project Overview</h3></div>
+      <div class="donut-section">
+        <div class="donut-chart" [style.background]="donutStyle"></div>
+        <div class="legend">
+          <div class="legend__item" *ngFor="let item of statusLegend">
+            <span class="dot" [style.background]="item.color"></span>
+            {{ item.label }}
+            <b>{{ item.count }} ({{ item.percent }}%)</b>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <p class="stat-card__label">
-          {{ s.label }}
+    <!-- Line chart (rolling 6-month, anchored to today) -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Project Status</h3>
+        <span class="chart-period">Last 6 months · as of {{ statusTrend.currentMonth }}</span>
+      </div>
+
+      <div class="line-legend">
+        <span *ngFor="let item of statusTrend.series" [style.color]="item.color">
+          <i [style.background]="item.color"></i>{{ item.label }}
+        </span>
+      </div>
+
+      <div class="line-chart">
+        <ng-container *ngIf="data.projects.length; else noData">
+          <!-- Y-axis labels -->
+          <div class="y-labels">
+            <span>{{ statusTrend.max }}</span>
+            <span>{{ (statusTrend.max / 2) | number:'1.0-0' }}</span>
+            <span>0</span>
+          </div>
+
+          <svg viewBox="0 0 500 200" preserveAspectRatio="none" aria-label="Project status trend by month">
+            <!-- horizontal grid lines -->
+            <g class="grid-lines">
+              <line x1="20" y1="40"  x2="470" y2="40"></line>
+              <line x1="20" y1="75"  x2="470" y2="75"></line>
+              <line x1="20" y1="110" x2="470" y2="110"></line>
+              <line x1="20" y1="145" x2="470" y2="145"></line>
+              <line x1="20" y1="180" x2="470" y2="180"></line>
+            </g>
+
+            <!-- trend lines per status -->
+            <polyline
+              *ngFor="let item of statusTrend.series"
+              class="trend"
+              [class]="item.className"
+              [attr.stroke]="item.color"
+              [attr.points]="item.points"
+            ></polyline>
+
+            <!-- data point dots -->
+            <ng-container *ngFor="let item of statusTrend.series">
+              <ng-container *ngFor="let pt of item.points.split(' '); let pi = index">
+                <circle
+                  [attr.cx]="pt.split(',')[0]"
+                  [attr.cy]="pt.split(',')[1]"
+                  r="4"
+                  [attr.fill]="item.color"
+                  [attr.stroke]="'white'"
+                  stroke-width="1.5"
+                ></circle>
+              </ng-container>
+            </ng-container>
+
+            <!-- X-axis month labels -->
+            <g class="axis-labels">
+              <text
+                *ngFor="let label of statusTrend.labels; let i = index"
+                [attr.x]="20 + (statusTrend.labels.length > 1 ? i * (450 / (statusTrend.labels.length - 1)) : 225)"
+                y="198"
+                text-anchor="middle"
+              >{{ label }}</text>
+            </g>
+          </svg>
+        </ng-container>
+
+        <ng-template #noData>
+          <div class="line-empty">No project data yet</div>
+        </ng-template>
+      </div>
+
+      <!-- Counts below the chart -->
+      <div class="legend slim">
+        <div class="legend__item" *ngFor="let item of statusTrend.series">
+          <span class="dot" [style.background]="item.color"></span>
+          {{ item.label }}
+          <b>{{ item.count }}</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recent Projects + Upcoming Milestones ── -->
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Recent Projects</h3>
+        <a routerLink="/projects" style="text-decoration: none; color: var(--blue); font-size: 13px; font-weight: 600;">View all projects →</a>
+      </div>
+      <div class="proj-list">
+        <div class="proj-row" *ngFor="let p of data.projects | slice:0:5">
+          <span class="thumb"><i class="fa-solid fa-building"></i></span>
+          <div class="proj-row__text">
+            <p class="cell-title">{{ p.name }}</p>
+            <p class="cell-sub">{{ p.category || 'Project' }}</p>
+          </div>
+          <span class="badge" [ngClass]="statusBadgeClass(p.status)">{{ p.status }}</span>
+          <span class="proj-row__pct">{{ p.progress || 0 }}%</span>
+        </div>
+        <p *ngIf="!data.projects.length" style="padding: 24px; color: var(--muted);">
+          No projects yet.
         </p>
+      </div>
+    </div>
 
-        <p class="stat-card__value">
-          {{ s.value }}
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Upcoming Milestones</h3>
+        <a routerLink="/projects/milestones" style="text-decoration: none; color: var(--blue); font-size: 13px; font-weight: 600;">View all milestones →</a>
+      </div>
+      <div class="milestone-list">
+        <div class="milestone-row" *ngFor="let m of data.upcomingMilestones">
+          <span class="thumb"><i class="fa-regular fa-flag"></i></span>
+          <div class="milestone-row__text">
+            <p class="cell-title">{{ m.title }}</p>
+            <p class="cell-sub">{{ m.project }}</p>
+          </div>
+          <span class="milestone-date">{{ m.date }}</span>
+        </div>
+        <p *ngIf="!data.upcomingMilestones.length" style="padding: 24px; color: var(--muted);">
+          No milestones yet.
         </p>
-
       </div>
-
     </div>
-
-
-
-    <!-- ===================== Charts ===================== -->
-
-    <div class="grid-2">
-
-      <!-- Resource Availability -->
-
-      <div class="panel">
-
-        <div class="panel-header">
-          <h3>Resource Availability</h3>
-        </div>
-
-        <div class="donut-section">
-
-          <div
-            class="donut-chart"
-            [style.background]="donutStyle">
-          </div>
-
-          <div class="legend">
-
-            <div
-              class="legend__item"
-              *ngFor="let item of resourceLegend">
-
-              <span
-                class="dot"
-                [style.background]="item.color">
-              </span>
-
-              {{ item.label }}
-
-              <b>{{ item.count }}</b>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- Overview -->
-
-      <div class="panel">
-
-        <div class="panel-header">
-          <h3>System Overview</h3>
-        </div>
-
-        <div class="bar-chart">
-
-          <div
-            class="bar-item"
-            *ngFor="let item of overviewBars">
-
-            <div
-              class="bar"
-              [style.height.px]="barHeight(item.value)">
-            </div>
-
-            <span class="bar-value">
-              {{ item.value }}
-            </span>
-
-            <p>
-              {{ item.label }}
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-
-    <!-- ===================== Bottom Cards ===================== -->
-
-    <div class="grid-2">
-
-      <!-- Financial Summary -->
-
-      <div class="panel">
-
-        <div class="panel-header">
-          <h3>Financial Summary</h3>
-        </div>
-
-        <div class="summary">
-
-          <div class="summary-row">
-            <span>Total Inventory Value</span>
-            <b>₹{{ metrics.total_inventory_value }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Total Expenses</span>
-            <b>₹{{ metrics.total_expenses }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Pending Procurements</span>
-            <b>{{ metrics.pending_procurements }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Low Stock Items</span>
-            <b>{{ metrics.low_stock_items }}</b>
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- Quick Statistics -->
-
-      <div class="panel">
-
-        <div class="panel-header">
-          <h3>Quick Statistics</h3>
-        </div>
-
-        <div class="summary">
-
-          <div class="summary-row">
-            <span>Total Projects</span>
-            <b>{{ metrics.total_projects }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Active Projects</span>
-            <b>{{ metrics.active_projects }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Total Workers</span>
-            <b>{{ metrics.total_workers }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Total Resources</span>
-            <b>{{ metrics.total_resources }}</b>
-          </div>
-
-          <div class="summary-row">
-            <span>Available Resources</span>
-            <b>{{ metrics.available_resources }}</b>
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </ng-container>
-
+  </div>
 </div>

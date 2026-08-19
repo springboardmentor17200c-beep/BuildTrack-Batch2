@@ -28,6 +28,11 @@ async def create_worker(db: AsyncIOMotorDatabase, worker_data: dict):
     worker_data["created_at"] = now
     worker_data["updated_at"] = now
 
+    # Unique worker code / ID
+    if not worker_data.get("worker_code"):
+        count = await db.workers.count_documents({}) + 1
+        worker_data["worker_code"] = f"WRK-{1000 + count}"
+
     # Defaults
     worker_data.setdefault("status", "available")
     worker_data.setdefault("category", "SKILLED_WORKER")
@@ -436,6 +441,84 @@ async def get_project_attendance(
     )
 
 
+async def get_workers_attendance_stats(
+    db: AsyncIOMotorDatabase,
+    days: int = 30,
+    start_from_august: bool = True,
+    max_unattended_days_for_inactive: int = 10,
+) -> dict:
+    """
+    Computes attendance percentage based on daily recorded attendance since 1 August 2026,
+    deduplicating multiple entries per day to take the latest status.
+    """
+    anchor_date = datetime(2026, 8, 1, 0, 0, 0)
+    anchor_str = "2026-08-01"
+
+    records = await db.attendance.find().sort("created_at", 1).to_list(None)
+    worker_daily_status: dict[str, dict[str, str]] = {}
+    distinct_recorded_dates = set()
+
+    for r in records:
+        wid = str(r.get("worker_id") or "")
+        if not wid:
+            continue
+
+        raw_date = r.get("date")
+        date_key = ""
+        if raw_date:
+            if isinstance(raw_date, datetime):
+                if raw_date < anchor_date:
+                    continue
+                date_key = raw_date.strftime("%Y-%m-%d")
+            elif isinstance(raw_date, str):
+                if raw_date[:10] < anchor_str:
+                    continue
+                date_key = raw_date[:10]
+
+        if date_key:
+            distinct_recorded_dates.add(date_key)
+            st = str(r.get("status", "")).lower()
+            if st in ["present", "absent", "leave"]:
+                worker_daily_status.setdefault(wid, {})[date_key] = st
+
+    total_system_recorded_days = len(distinct_recorded_dates)
+
+    all_workers = await list_workers(db, limit=1000)
+    stats: dict = {}
+
+    for w in all_workers:
+        wid = str(w.get("_id") or "")
+        days_dict = worker_daily_status.get(wid, {})
+
+        present_days = sum(1 for st in days_dict.values() if st == "present")
+        absent_days = sum(1 for st in days_dict.values() if st == "absent")
+        leave_days = sum(1 for st in days_dict.values() if st == "leave")
+        worker_recorded_days = len(days_dict)
+
+        effective_total = total_system_recorded_days if total_system_recorded_days > 0 else (worker_recorded_days if worker_recorded_days > 0 else 1)
+
+        if effective_total > 0 and (worker_recorded_days > 0 or total_system_recorded_days > 0):
+            pct = round((present_days / effective_total) * 100, 1)
+        else:
+            pct = 0.0
+
+        unattended = max(0, effective_total - present_days)
+        is_inactive = unattended > max_unattended_days_for_inactive or absent_days > max_unattended_days_for_inactive
+
+        stats[wid] = {
+            "total": worker_recorded_days,
+            "present": present_days,
+            "absent": absent_days,
+            "leave": leave_days,
+            "percentage": min(100.0, max(0.0, pct)),
+            "unattended": unattended,
+            "is_inactive": is_inactive,
+            "total_system_days": effective_total,
+        }
+
+    return stats
+
+
 async def get_low_attendance_workers(
     db: AsyncIOMotorDatabase,
     project_id: str = None,
@@ -446,48 +529,26 @@ async def get_low_attendance_workers(
     Computes each worker's attendance percentage over the last `days`
     days and returns those below `threshold`, worst-first.
     """
-    since = datetime.utcnow() - timedelta(days=days)
-
-    query = {
-        "date": {"$gte": since}
-    }
-
-    if project_id:
-        query["project_id"] = project_id
-
-    records = await db.attendance.find(query).to_list(None)
-
-    stats: dict = {}
-
-    for r in records:
-        wid = str(r.get("worker_id") or "")
-
-        if not wid:
-            continue
-
-        s = stats.setdefault(wid, {"total": 0, "present": 0})
-        s["total"] += 1
-
-        if str(r.get("status", "")).lower() == "present":
-            s["present"] += 1
-
+    stats = await get_workers_attendance_stats(db, days=days)
     results = []
 
     for wid, s in stats.items():
         if s["total"] == 0:
             continue
 
-        pct = round((s["present"] / s["total"]) * 100, 1)
+        pct = s.get("percentage", 0.0)
 
         if pct < threshold:
             worker = await get_worker(db, wid)
-
             if not worker:
+                continue
+
+            if project_id and str(worker.get("project_id", "")) != str(project_id):
                 continue
 
             results.append({
                 "worker_id": wid,
-                "worker_name": f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip(),
+                "worker_name": f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip() or worker.get("name") or "Worker",
                 "project_id": worker.get("project_id"),
                 "total_days": s["total"],
                 "present_days": s["present"],
@@ -495,7 +556,6 @@ async def get_low_attendance_workers(
             })
 
     results.sort(key=lambda x: x["attendance_percentage"])
-
     return results
 
 

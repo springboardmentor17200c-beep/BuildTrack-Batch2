@@ -50,47 +50,52 @@
 }
 
 .milestone-progress {
-  padding: 12px 20px 20px;
+  padding: 18px 20px 22px;
 }
 
 .big-progress {
-  display: grid;
-  gap: 3px;
-  margin-bottom: 12px;
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #f8fafc;
 
-  strong {
-    font-size: 26px;
+  .big-progress-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    strong {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--slate);
+      line-height: 1.1;
+    }
+
+    span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
   }
 
-  span {
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
+  .progress-bar-large {
+    width: 100%;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--blue, #2563eb);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
   }
-}
-
-.mp-row {
-  display: flex;
-  align-items: center;
-  padding: 9px 0;
-}
-
-.mp-label {
-  width: 90px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--slate);
-}
-
-.mp-pct {
-  width: 36px;
-  text-align: right;
-  font-size: 12.5px;
-  font-weight: 700;
 }
 
 .team-grid {
@@ -194,97 +199,144 @@
   }
 }
 // ==========================================================
-// TEAM MEMBERS & WORKERS — role-grouped section
-// Add this block to project-details.component.scss
-// (keeps using the existing .team-grid / .team-card / .empty
-// rules already in the file — these are the new additions)
+// TEAM MEMBERS & WORKERS — horizontal layout & See More
 // ==========================================================
 
-.team-role-group {
-  padding: 0 20px;
-  margin-bottom: 22px;
+.team-panel {
+  .panel-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 
-  &:first-of-type {
-    margin-top: 14px;
+    h3 {
+      margin: 0;
+    }
   }
 
-  &:last-of-type {
-    margin-bottom: 20px;
+  .manage-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: color 0.15s ease;
+
+    &:hover {
+      text-decoration: underline;
+      color: #1d4ed8;
+    }
   }
 }
 
-.role-header {
+.team-horizontal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+  padding: 16px 20px 22px;
+}
+
+.team-card-horizontal {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card, #ffffff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
-  h4 {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--slate);
-    text-transform: capitalize;
-    letter-spacing: 0.01em;
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
   }
-}
-
-.role-count {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--blue);
-  background: var(--blue-light);
-  padding: 2px 9px;
-  border-radius: 999px;
-  line-height: 1.5;
-}
-
-// Team section now lives inside .team-role-group, so drop the
-// standalone padding the old flat .team-grid used and let the
-// parent group control spacing instead.
-.team-role-group .team-grid {
-  padding: 0;
-}
-
-.team-card {
-  position: relative;
 
   img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
     flex: none;
   }
-}
 
-.team-card__initials {
-  flex: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--blue-light);
-  color: var(--blue);
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.team-card__info {
-  min-width: 0;
-
-  .cell-title {
-    margin: 0;
-    font-size: 13.5px;
+  .team-card__initials {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--blue-light);
+    color: var(--blue);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
     font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: none;
   }
 
-  .cell-sub {
-    margin: 2px 0 0;
-    font-size: 12px;
-    color: var(--muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .team-card__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+
+    .cell-title {
+      margin: 0;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--slate);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .role-pill {
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--blue);
+      background: var(--blue-light);
+      padding: 1px 8px;
+      border-radius: 6px;
+      text-transform: capitalize;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
+}
+
+.panel-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.badge-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge-red {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-blue {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.badge-amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-secondary {
+  background: #f1f5f9;
+  color: #64748b;
 }

@@ -7,7 +7,7 @@ import { MockDataService } from '../../../core/services/mock-data.service';
 import { WorkforceService } from '../../../core/services/workforce.service';
 import { TasksService } from '../../../core/services/tasks.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem, User } from '../../../core/models/models';
+import { InventoryItem, Milestone, Project, ProjectDocument, ProjectStatus, ProjectTask, ResourceItem, User } from '../../../core/models/models';
 
 interface TeamMember {
   id: string;
@@ -54,8 +54,16 @@ export class ProjectDetailsComponent {
   showMilestoneModal = signal(false);
   showTaskModal = signal(false);
   showResourceModal = signal(false);
+  showMaterialModal = signal(false);
+  showReturnMaterialModal = signal(false);
+  showReturnEquipmentModal = signal(false);
   showDocumentModal = signal(false);
   resourceMessage = signal('');
+  materialMessage = signal('');
+  returnMaterialMessage = signal('');
+  returnEquipmentMessage = signal('');
+  returningMaterial = signal<ResourceItem | null>(null);
+  returningEquipment = signal<ResourceItem | null>(null);
   selectedDocumentName = signal('');
   selectedDocumentType = signal('');
 
@@ -101,8 +109,17 @@ export class ProjectDetailsComponent {
       .sort((a, b) => a.role.localeCompare(b.role));
   });
 
+  allTeamMembers = computed(() => {
+    return this.groupedTeam().flatMap((g) =>
+      g.members.map((m) => ({
+        ...m,
+        category: g.role,
+      }))
+    );
+  });
+
   get teamMemberCount(): number {
-    return this.groupedTeam().reduce((sum, group) => sum + group.members.length, 0);
+    return this.allTeamMembers().length;
   }
 
   form = this.fb.group({
@@ -135,6 +152,20 @@ export class ProjectDetailsComponent {
 
   resourceForm = this.fb.group({
     resourceId: ['', Validators.required],
+    quantity: [1, [Validators.required, Validators.min(1)]],
+  });
+
+  materialForm = this.fb.group({
+    inventoryItemId: ['', Validators.required],
+    quantity: [1, [Validators.required, Validators.min(1)]],
+  });
+
+  returnMaterialForm = this.fb.group({
+    returnQuantity: [1, [Validators.required, Validators.min(1)]],
+  });
+
+  returnEquipmentForm = this.fb.group({
+    returnQuantity: [1, [Validators.required, Validators.min(1)]],
   });
 
   managers = signal<User[]>([]);
@@ -151,6 +182,34 @@ export class ProjectDetailsComponent {
     return (m.name && m.name !== 'string' && m.name !== 'None') ? m.name : m.email.split('@')[0];
   }
 
+  isManagerInList(name?: string | null): boolean {
+    if (!name || name.toLowerCase() === 'unassigned') return true;
+    return this.managers().some((m) =>
+      this.getManagerName(m).toLowerCase() === name.toLowerCase() ||
+      m.email.toLowerCase() === name.toLowerCase() ||
+      m.name?.toLowerCase() === name.toLowerCase()
+    );
+  }
+
+  loadManagers(selectedManager?: string): void {
+    this.auth.getManagers().subscribe({
+      next: (list) => {
+        this.managers.set(list || []);
+        if (selectedManager && selectedManager !== 'Unassigned') {
+          const match = (list || []).find((m) =>
+            this.getManagerName(m).toLowerCase() === selectedManager.toLowerCase() ||
+            m.email.toLowerCase() === selectedManager.toLowerCase() ||
+            m.name?.toLowerCase() === selectedManager.toLowerCase()
+          );
+          if (match) {
+            this.form.get('manager')?.setValue(this.getManagerName(match), { emitEvent: false });
+          }
+        }
+      },
+      error: () => {},
+    });
+  }
+
   constructor(
     private route: ActivatedRoute,
     public data: MockDataService,
@@ -162,10 +221,7 @@ export class ProjectDetailsComponent {
     this.project = this.data.getProjectById(id) ?? this.data.projects[0] ?? this.project;
     this.loadTeamMembers();
     this.loadTasks();
-    this.auth.getManagers().subscribe({
-      next: (list) => this.managers.set(list || []),
-      error: () => {},
-    });
+    this.loadManagers();
   }
 
   // =========================
@@ -299,18 +355,186 @@ export class ProjectDetailsComponent {
     return this.data.resources.filter((resource) => resource.allocatedProjectId === this.project.id);
   }
 
+  get projectMaterials(): ResourceItem[] {
+    return this.data.resources.filter(
+      (resource) => resource.allocatedProjectId === this.project.id && resource.type === 'Material'
+    );
+  }
+
+  get projectEquipment(): ResourceItem[] {
+    return this.data.resources.filter(
+      (resource) => resource.allocatedProjectId === this.project.id && resource.type !== 'Material'
+    );
+  }
+
+  get availableInventory(): InventoryItem[] {
+    return this.data.inventory.filter((item) => (item.stock ?? 0) > 0);
+  }
+
+  get selectedInventoryItem(): InventoryItem | undefined {
+    const id = this.materialForm.get('inventoryItemId')?.value;
+    return this.data.inventory.find((item) => item.id === id);
+  }
+
+  getInventoryStock(name: string): InventoryItem | undefined {
+    return this.data.inventory.find((item) => item.itemName.toLowerCase() === (name || '').toLowerCase());
+  }
+
+  getEquipmentStock(name: string): ResourceItem | undefined {
+    return this.data.resources.find(
+      (r) =>
+        r.type !== 'Material' &&
+        (!r.allocatedProjectId || r.status === 'Available') &&
+        r.name.toLowerCase() === (name || '').toLowerCase()
+    );
+  }
+
   get documents(): ProjectDocument[] {
     return this.data.getDocumentsForProject(this.project.id);
   }
 
   get availableResources(): ResourceItem[] {
-    return this.data.resources.filter((resource) => !resource.allocatedProjectId || resource.allocatedProjectId === this.project.id);
+    return this.data.resources.filter(
+      (resource) => !resource.allocatedProjectId || resource.allocatedProjectId === this.project.id
+    );
+  }
+
+  get availableEquipmentResources(): ResourceItem[] {
+    return this.data.resources.filter(
+      (resource) =>
+        resource.type !== 'Material' &&
+        (!resource.allocatedProjectId || resource.status === 'Available') &&
+        (resource.quantity ?? 0) > 0
+    );
+  }
+
+  get selectedEquipmentResource(): ResourceItem | undefined {
+    const id = this.resourceForm.get('resourceId')?.value;
+    return this.data.resources.find((item) => item.id === id);
   }
 
   get averageMilestoneProgress(): number {
     if (!this.projectMilestones.length) return 0;
     const total = this.projectMilestones.reduce((sum, milestone) => sum + milestone.progress, 0);
     return Math.round(total / this.projectMilestones.length);
+  }
+
+  readonly pageSize = 10;
+  milestonePage = signal(1);
+  taskPage = signal(1);
+  materialPage = signal(1);
+  equipmentPage = signal(1);
+  documentPage = signal(1);
+
+  // Milestone pagination
+  get totalMilestonePages(): number {
+    return Math.max(1, Math.ceil(this.projectMilestones.length / this.pageSize));
+  }
+  get milestonePagesList(): number[] {
+    return Array.from({ length: this.totalMilestonePages }, (_, i) => i + 1);
+  }
+  get paginatedMilestones(): Milestone[] {
+    const page = Math.min(this.milestonePage(), this.totalMilestonePages);
+    const start = (page - 1) * this.pageSize;
+    return this.projectMilestones.slice(start, start + this.pageSize);
+  }
+  get startMilestoneIndex(): number {
+    if (this.projectMilestones.length === 0) return 0;
+    const page = Math.min(this.milestonePage(), this.totalMilestonePages);
+    return (page - 1) * this.pageSize + 1;
+  }
+  get endMilestoneIndex(): number {
+    const page = Math.min(this.milestonePage(), this.totalMilestonePages);
+    return Math.min(page * this.pageSize, this.projectMilestones.length);
+  }
+
+  // Tasks pagination
+  get totalTaskPages(): number {
+    return Math.max(1, Math.ceil(this.tasks().length / this.pageSize));
+  }
+  get taskPagesList(): number[] {
+    return Array.from({ length: this.totalTaskPages }, (_, i) => i + 1);
+  }
+  get paginatedTasks(): (ProjectTask & { assignedWorkerId: string; assignedCategory: string })[] {
+    const list = this.tasks();
+    const page = Math.min(this.taskPage(), this.totalTaskPages);
+    const start = (page - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  }
+  get startTaskIndex(): number {
+    if (this.tasks().length === 0) return 0;
+    const page = Math.min(this.taskPage(), this.totalTaskPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+  get endTaskIndex(): number {
+    const page = Math.min(this.taskPage(), this.totalTaskPages);
+    return Math.min(page * this.pageSize, this.tasks().length);
+  }
+
+  // Materials pagination
+  get totalMaterialPages(): number {
+    return Math.max(1, Math.ceil(this.projectMaterials.length / this.pageSize));
+  }
+  get materialPagesList(): number[] {
+    return Array.from({ length: this.totalMaterialPages }, (_, i) => i + 1);
+  }
+  get paginatedMaterials(): ResourceItem[] {
+    const page = Math.min(this.materialPage(), this.totalMaterialPages);
+    const start = (page - 1) * this.pageSize;
+    return this.projectMaterials.slice(start, start + this.pageSize);
+  }
+  get startMaterialIndex(): number {
+    if (this.projectMaterials.length === 0) return 0;
+    const page = Math.min(this.materialPage(), this.totalMaterialPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+  get endMaterialIndex(): number {
+    const page = Math.min(this.materialPage(), this.totalMaterialPages);
+    return Math.min(page * this.pageSize, this.projectMaterials.length);
+  }
+
+  // Equipment pagination
+  get totalEquipmentPages(): number {
+    return Math.max(1, Math.ceil(this.projectEquipment.length / this.pageSize));
+  }
+  get equipmentPagesList(): number[] {
+    return Array.from({ length: this.totalEquipmentPages }, (_, i) => i + 1);
+  }
+  get paginatedEquipment(): ResourceItem[] {
+    const page = Math.min(this.equipmentPage(), this.totalEquipmentPages);
+    const start = (page - 1) * this.pageSize;
+    return this.projectEquipment.slice(start, start + this.pageSize);
+  }
+  get startEquipmentIndex(): number {
+    if (this.projectEquipment.length === 0) return 0;
+    const page = Math.min(this.equipmentPage(), this.totalEquipmentPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+  get endEquipmentIndex(): number {
+    const page = Math.min(this.equipmentPage(), this.totalEquipmentPages);
+    return Math.min(page * this.pageSize, this.projectEquipment.length);
+  }
+
+  // Documents pagination
+  get totalDocumentPages(): number {
+    return Math.max(1, Math.ceil(this.documents.length / this.pageSize));
+  }
+  get documentPagesList(): number[] {
+    return Array.from({ length: this.totalDocumentPages }, (_, i) => i + 1);
+  }
+  get paginatedDocuments(): ProjectDocument[] {
+    const page = Math.min(this.documentPage(), this.totalDocumentPages);
+    const start = (page - 1) * this.pageSize;
+    return this.documents.slice(start, start + this.pageSize);
+  }
+  get startDocumentIndex(): number {
+    if (this.documents.length === 0) return 0;
+    const page = Math.min(this.documentPage(), this.totalDocumentPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+  get endDocumentIndex(): number {
+    const page = Math.min(this.documentPage(), this.totalDocumentPages);
+    return Math.min(page * this.pageSize, this.documents.length);
   }
 
   get reportStats() {
@@ -326,9 +550,11 @@ export class ProjectDetailsComponent {
   }
 
   openEdit(): void {
+    const mgr = this.project.manager && this.project.manager.toLowerCase() === 'unassigned' ? 'Unassigned' : this.project.manager;
+    this.loadManagers(mgr);
     this.form.reset({
       name: this.project.name,
-      manager: this.project.manager,
+      manager: mgr,
       category: this.project.category,
       status: this.project.status,
       startDate: this.toInputDate(this.project.startDate),
@@ -556,8 +782,9 @@ export class ProjectDetailsComponent {
   }
 
   openResource(): void {
-    this.resourceMessage.set(this.availableResources.length ? '' : 'No resource is available in BuildTrack resources.');
-    this.resourceForm.reset({ resourceId: this.availableResources[0]?.id ?? '' });
+    const list = this.availableEquipmentResources;
+    this.resourceMessage.set(list.length ? '' : 'No equipment is currently available in BuildTrack resources.');
+    this.resourceForm.reset({ resourceId: list[0]?.id ?? '', quantity: 1 });
     this.showResourceModal.set(true);
   }
 
@@ -566,21 +793,219 @@ export class ProjectDetailsComponent {
       this.resourceForm.markAllAsTouched();
       return;
     }
-    const resource = this.data.resources.find((item) => item.id === this.resourceForm.value.resourceId);
+    const val = this.resourceForm.getRawValue();
+    const resource = this.data.resources.find((item) => item.id === val.resourceId);
     if (!resource) {
-      this.resourceMessage.set('Selected resource is not available.');
+      this.resourceMessage.set('Selected equipment is not available.');
       return;
     }
-    resource.allocatedProjectId = this.project.id;
-    resource.status = 'In Use';
-    this.data.updateResource(resource);
+    const qty = Number(val.quantity || 1);
+    if (qty <= 0) {
+      this.resourceMessage.set('Quantity must be greater than 0.');
+      return;
+    }
+    if (qty > resource.quantity) {
+      this.resourceMessage.set(
+        `Insufficient resource available. Only ${resource.quantity} ${resource.unit} of ${resource.name} available in BuildTrack resources.`
+      );
+      return;
+    }
+
+    if (resource.quantity === qty) {
+      // Allocate the entire item
+      resource.allocatedProjectId = this.project.id;
+      resource.status = 'In Use';
+      this.data.updateResource(resource);
+    } else {
+      // Partial allocation
+      resource.quantity -= qty;
+      this.data.updateResource(resource);
+
+      const existing = this.projectEquipment.find(
+        (e) => e.name.toLowerCase() === resource.name.toLowerCase()
+      );
+      if (existing) {
+        existing.quantity += qty;
+        existing.status = 'In Use';
+        this.data.updateResource(existing);
+      } else {
+        this.data.addResource({
+          name: resource.name,
+          type: resource.type,
+          quantity: qty,
+          unit: resource.unit,
+          status: 'In Use',
+          allocatedProjectId: this.project.id,
+        });
+      }
+    }
+
     this.showResourceModal.set(false);
   }
 
+  openReturnEquipment(resource: ResourceItem): void {
+    this.returningEquipment.set(resource);
+    this.returnEquipmentMessage.set('');
+    this.returnEquipmentForm.reset({ returnQuantity: resource.quantity });
+    this.showReturnEquipmentModal.set(true);
+  }
+
+  submitReturnEquipment(): void {
+    if (this.returnEquipmentForm.invalid) {
+      this.returnEquipmentForm.markAllAsTouched();
+      return;
+    }
+    const resource = this.returningEquipment();
+    if (!resource) return;
+
+    const returnQty = Number(this.returnEquipmentForm.get('returnQuantity')?.value || 0);
+    if (returnQty <= 0) {
+      this.returnEquipmentMessage.set('Return quantity must be greater than 0.');
+      return;
+    }
+    if (returnQty > resource.quantity) {
+      this.returnEquipmentMessage.set(
+        `Cannot return more than allocated (${resource.quantity} ${resource.unit}).`
+      );
+      return;
+    }
+
+    // Restore to available equipment pool
+    const pool = this.data.resources.find(
+      (r) => r.type !== 'Material' && (!r.allocatedProjectId || r.status === 'Available') && r.name.toLowerCase() === resource.name.toLowerCase()
+    );
+    if (pool) {
+      pool.quantity += returnQty;
+      pool.status = 'Available';
+      this.data.updateResource(pool);
+    } else {
+      this.data.addResource({
+        name: resource.name,
+        type: resource.type,
+        quantity: returnQty,
+        unit: resource.unit,
+        status: 'Available',
+      });
+    }
+
+    // Deduct or remove allocated resource
+    if (returnQty === resource.quantity) {
+      this.data.deleteResource(resource);
+    } else {
+      resource.quantity -= returnQty;
+      this.data.updateResource(resource);
+    }
+
+    this.showReturnEquipmentModal.set(false);
+  }
+
   removeResource(resource: ResourceItem): void {
-    resource.allocatedProjectId = undefined;
-    resource.status = 'Available';
-    this.data.updateResource(resource);
+    this.openReturnEquipment(resource);
+  }
+
+  openMaterial(): void {
+    const list = this.availableInventory;
+    this.materialMessage.set(list.length ? '' : 'No inventory materials are currently in stock.');
+    this.materialForm.reset({ inventoryItemId: list[0]?.id ?? '', quantity: 1 });
+    this.showMaterialModal.set(true);
+  }
+
+  submitMaterial(): void {
+    if (this.materialForm.invalid) {
+      this.materialForm.markAllAsTouched();
+      return;
+    }
+    const val = this.materialForm.getRawValue();
+    const item = this.data.inventory.find((i) => i.id === val.inventoryItemId);
+    if (!item) {
+      this.materialMessage.set('Selected inventory item is not found.');
+      return;
+    }
+    const qty = Number(val.quantity || 1);
+    if (qty <= 0) {
+      this.materialMessage.set('Quantity must be greater than 0.');
+      return;
+    }
+    if (qty > item.stock) {
+      this.materialMessage.set(`Insufficient stock. Only ${item.stock} ${item.unit} available in inventory.`);
+      return;
+    }
+
+    // Deduct quantity from BuildTrack inventory stock
+    item.stock -= qty;
+    item.status = item.stock <= 0 ? 'Out of Stock' : (item.stock <= 10 ? 'Low Stock' : 'In Stock');
+    this.data.updateInventoryItem(item);
+
+    // Check if material already allocated to this project
+    const existing = this.projectMaterials.find(
+      (m) => m.name.toLowerCase() === item.itemName.toLowerCase()
+    );
+    if (existing) {
+      existing.quantity += qty;
+      existing.status = 'In Use';
+      this.data.updateResource(existing);
+    } else {
+      this.data.addResource({
+        name: item.itemName,
+        type: 'Material',
+        quantity: qty,
+        unit: item.unit,
+        status: 'In Use',
+        allocatedProjectId: this.project.id,
+      });
+    }
+
+    this.showMaterialModal.set(false);
+  }
+
+  openReturnMaterial(material: ResourceItem): void {
+    this.returningMaterial.set(material);
+    this.returnMaterialMessage.set('');
+    this.returnMaterialForm.reset({ returnQuantity: material.quantity });
+    this.showReturnMaterialModal.set(true);
+  }
+
+  submitReturnMaterial(): void {
+    if (this.returnMaterialForm.invalid) {
+      this.returnMaterialForm.markAllAsTouched();
+      return;
+    }
+    const material = this.returningMaterial();
+    if (!material) return;
+
+    const returnQty = Number(this.returnMaterialForm.get('returnQuantity')?.value || 0);
+    if (returnQty <= 0) {
+      this.returnMaterialMessage.set('Return quantity must be greater than 0.');
+      return;
+    }
+    if (returnQty > material.quantity) {
+      this.returnMaterialMessage.set(
+        `Cannot return more than allocated (${material.quantity} ${material.unit}).`
+      );
+      return;
+    }
+
+    // Restore stock back to BuildTrack inventory
+    const item = this.getInventoryStock(material.name);
+    if (item) {
+      item.stock += returnQty;
+      item.status = item.stock > 10 ? 'In Stock' : 'Low Stock';
+      this.data.updateInventoryItem(item);
+    }
+
+    // Deduct or remove allocated material
+    if (returnQty === material.quantity) {
+      this.data.deleteResource(material);
+    } else {
+      material.quantity -= returnQty;
+      this.data.updateResource(material);
+    }
+
+    this.showReturnMaterialModal.set(false);
+  }
+
+  removeMaterial(material: ResourceItem): void {
+    this.openReturnMaterial(material);
   }
 
   onDocumentSelected(event: Event): void {
@@ -625,9 +1050,25 @@ export class ProjectDetailsComponent {
     this.data.updateProject(this.project);
   }
 
+  private parseDate(d?: string): Date | null {
+    if (!d) return null;
+    if (d.includes('/')) {
+      const parts = d.split('/');
+      if (parts.length === 3) {
+        return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+      }
+    }
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   private toInputDate(value: string): string {
     if (!value) return '';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10);
+    const date = this.parseDate(value);
+    if (!date) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 }

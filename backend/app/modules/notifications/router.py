@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -39,9 +39,15 @@ def serialize_doc(doc: dict) -> dict:
     doc.setdefault("category", "system")
     doc.setdefault("is_read", False)
 
-    created = doc.get("created_at") or datetime.utcnow()
+    created = doc.get("created_at") or datetime.now(timezone.utc)
+    if isinstance(created, datetime) and created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
     doc["created_at"] = created
-    doc.setdefault("updated_at", doc.get("updated_at") or created)
+
+    updated = doc.get("updated_at") or created
+    if isinstance(updated, datetime) and updated.tzinfo is None:
+        updated = updated.replace(tzinfo=timezone.utc)
+    doc["updated_at"] = updated
 
     return doc
 

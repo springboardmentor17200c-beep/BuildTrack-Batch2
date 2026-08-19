@@ -36,7 +36,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of payroll()">
+          <tr *ngFor="let p of paginatedPayroll">
             <td class="cell-title">{{ p.workerName }}</td>
             <td>{{ p.periodStart }} – {{ p.periodEnd }}</td>
             <td>{{ p.basicAmount }}</td>
@@ -63,6 +63,25 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="pagination-bar" *ngIf="payroll().length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ payroll().length }} records</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>

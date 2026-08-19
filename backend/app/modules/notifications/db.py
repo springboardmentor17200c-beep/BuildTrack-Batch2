@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from bson import ObjectId
@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 async def create_notification(db: AsyncIOMotorDatabase, notification_data: dict):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     notification_data.setdefault("created_at", now)
     notification_data.setdefault("updated_at", now)
     notification_data.setdefault("is_read", False)

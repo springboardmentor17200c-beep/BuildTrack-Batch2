@@ -35,6 +35,7 @@ from app.modules.workforce.db import (
     get_worker_attendance,
     get_project_attendance,
     get_low_attendance_workers,
+    get_workers_attendance_stats,
 
     # Shifts
     create_shift,
@@ -120,11 +121,16 @@ def serialize_doc(doc: dict) -> dict:
     return doc
 
 
-def serialize_worker_doc(doc: dict) -> dict:
+def serialize_worker_doc(doc: dict, attendance_stats: dict = None) -> dict:
     """
     Convert old/legacy worker documents into the current Worker model.
     """
     doc = serialize_doc(doc)
+
+    doc.setdefault(
+        "worker_code",
+        doc.get("worker_code") or f"WRK-{str(doc.get('_id', ''))[-4:].upper()}",
+    )
 
     # Legacy name support
     name_parts = str(
@@ -216,6 +222,18 @@ def serialize_worker_doc(doc: dict) -> dict:
         "status",
         doc.get("status") or "available",
     )
+
+    if attendance_stats is not None:
+        wid = str(doc.get("_id", ""))
+        stat = attendance_stats.get(wid)
+        if stat:
+            doc["attendance_pct"] = float(stat.get("percentage", 0.0))
+            if stat.get("is_inactive"):
+                doc["status"] = "inactive"
+        else:
+            doc.setdefault("attendance_pct", 0.0)
+    else:
+        doc.setdefault("attendance_pct", float(doc.get("attendance_pct") or 0.0))
 
     return doc
 
@@ -441,8 +459,10 @@ async def list_workers_endpoint(
             if worker.get("status") == status_filter
         ]
 
+    stats = await get_workers_attendance_stats(db, days=30)
+
     return [
-        Worker(**serialize_worker_doc(worker))
+        Worker(**serialize_worker_doc(worker, stats))
         for worker in workers
     ]
 
@@ -459,9 +479,10 @@ async def get_available_workers_endpoint(
     Get all currently available workers.
     """
     workers = await get_available_workers(db)
+    stats = await get_workers_attendance_stats(db, days=30)
 
     return [
-        Worker(**serialize_worker_doc(worker))
+        Worker(**serialize_worker_doc(worker, stats))
         for worker in workers
     ]
 
@@ -482,9 +503,10 @@ async def get_project_workers(
         db,
         project_id,
     )
+    stats = await get_workers_attendance_stats(db, days=30)
 
     return [
-        Worker(**serialize_worker_doc(worker))
+        Worker(**serialize_worker_doc(worker, stats))
         for worker in workers
     ]
 
@@ -505,9 +527,10 @@ async def get_workers_by_category_endpoint(
         db,
         category,
     )
+    stats = await get_workers_attendance_stats(db, days=30)
 
     return [
-        Worker(**serialize_worker_doc(worker))
+        Worker(**serialize_worker_doc(worker, stats))
         for worker in workers
     ]
 
@@ -528,9 +551,10 @@ async def get_workers_by_skill_type(
         db,
         skill_type,
     )
+    stats = await get_workers_attendance_stats(db, days=30)
 
     return [
-        Worker(**serialize_worker_doc(worker))
+        Worker(**serialize_worker_doc(worker, stats))
         for worker in workers
     ]
 
@@ -555,8 +579,10 @@ async def get_worker_endpoint(
             detail="Worker not found",
         )
 
+    stats = await get_workers_attendance_stats(db, days=30)
+
     return Worker(
-        **serialize_worker_doc(worker)
+        **serialize_worker_doc(worker, stats)
     )
 
 
@@ -873,24 +899,17 @@ async def record_attendance_endpoint(
         attendance.model_dump(),
     )
 
-    status_value = str(
-        result.get("status") or "absent"
-    ).lower()
+    worker_name = f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip() or worker.get("name") or "Worker"
+    status_label = "Present" if str(result.get("status") or "").lower() == "present" else "Absent"
+    is_present = status_label == "Present"
 
     await create_notification(
         db,
         {
             "user_id": str(current_user["_id"]),
-            "title": "Attendance Alert",
-            "message": (
-                f"Worker attendance recorded: "
-                f"Status '{status_value}'."
-            ),
-            "type": (
-                "alert"
-                if status_value in ["absent", "late"]
-                else "info"
-            ),
+            "title": f"Attendance Marked: {worker_name}",
+            "message": f"Worker {worker_name} has been marked {status_label}.",
+            "type": "success" if is_present else "warning",
             "category": "attendance_alert",
             "entity_type": "attendance",
             "entity_id": str(result["_id"]),
@@ -1104,6 +1123,27 @@ async def update_attendance_endpoint(
         attendance.model_dump(
             exclude_unset=True
         ),
+    )
+
+    worker = await get_worker(db, str(existing.get("worker_id", "")))
+    worker_name = (
+        f"{worker.get('first_name', '')} {worker.get('last_name', '')}".strip()
+        if worker else "Worker"
+    ) or "Worker"
+    status_label = "Present" if str(result.get("status") or "").lower() == "present" else "Absent"
+    is_present = status_label == "Present"
+
+    await create_notification(
+        db,
+        {
+            "user_id": str(current_user["_id"]),
+            "title": f"Attendance Update: {worker_name}",
+            "message": f"Worker {worker_name} has been marked {status_label}.",
+            "type": "success" if is_present else "warning",
+            "category": "attendance_alert",
+            "entity_type": "attendance",
+            "entity_id": str(result["_id"]),
+        },
     )
 
     return Attendance(

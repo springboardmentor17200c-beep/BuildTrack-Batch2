@@ -33,7 +33,7 @@
     </div>
 
     <div class="topbar__notification-wrapper">
-      <button class="topbar__icon-btn" (click)="toggleNotifications()" title="Notifications">
+      <button class="topbar__icon-btn" (click)="toggleNotifications($event)" title="Notifications">
         <i class="fa-regular fa-bell"></i>
         <span class="badge-count" *ngIf="notificationService.unreadCount() > 0">
           {{ notificationService.unreadCount() }}
@@ -56,7 +56,7 @@
           </div>
 
           <div
-            *ngFor="let item of notificationService.notifications().slice(0, 5)"
+            *ngFor="let item of notificationService.notifications().slice(0, 3)"
             class="dropdown-item"
             [class.unread]="!item.is_read"
             (click)="onNotificationClick(item)"
@@ -64,7 +64,7 @@
             <div class="dropdown-item__dot" *ngIf="!item.is_read"></div>
             <div class="dropdown-item__content">
               <div class="dropdown-item__title">{{ item.title }}</div>
-              <div class="dropdown-item__msg">{{ item.message }}</div>
+              <div class="dropdown-item__time">{{ formatTime(item.created_at) }}</div>
             </div>
           </div>
         </div>

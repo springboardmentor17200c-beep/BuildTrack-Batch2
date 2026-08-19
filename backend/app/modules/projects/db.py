@@ -31,7 +31,7 @@ async def delete_project(db: AsyncIOMotorDatabase, project_id: str):
     return result.deleted_count > 0
 
 
-async def list_projects(db: AsyncIOMotorDatabase, skip: int = 0, limit: int = 10):
+async def list_projects(db: AsyncIOMotorDatabase, skip: int = 0, limit: int = 100):
     return await db.projects.find().skip(skip).limit(limit).to_list(limit)
 
 

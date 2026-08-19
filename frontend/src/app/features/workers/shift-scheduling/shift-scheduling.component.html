@@ -32,7 +32,7 @@
     <div class="loading" *ngIf="loading()">Loading shifts...</div>
 
     <div class="shift-grid" *ngIf="!loading()">
-      <div class="shift-card" *ngFor="let assignment of myAssignments">
+      <div class="shift-card" *ngFor="let assignment of paginatedAssignments">
         <span class="badge badge-blue">{{ assignment.shiftName || 'Shift' }}</span>
         <h3>{{ assignment.workerName || assignment.worker_id }}</h3>
         <p>{{ assignment.startTime || '-' }} - {{ assignment.endTime || '-' }}</p>
@@ -43,6 +43,25 @@
       </div>
 
       <p class="empty" *ngIf="myAssignments.length === 0">No shift assignments found.</p>
+    </div>
+
+    <div class="pagination-bar" *ngIf="myAssignments.length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ myAssignments.length }} shifts</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>

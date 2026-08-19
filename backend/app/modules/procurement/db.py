@@ -52,26 +52,23 @@ async def create_doc(db: AsyncIOMotorDatabase, collection: str, data: dict, user
 
 async def get_doc(db: AsyncIOMotorDatabase, collection: str, doc_id: str):
     object_id = oid(doc_id)
-    if not object_id:
-        return None
-    return await db[collection].find_one({"_id": object_id})
+    query = {"_id": object_id} if object_id else {"$or": [{"_id": doc_id}, {"id": doc_id}, {"po_number": doc_id}]}
+    return await db[collection].find_one(query)
 
 
 async def update_doc(db: AsyncIOMotorDatabase, collection: str, doc_id: str, data: dict, user: dict | None = None):
     object_id = oid(doc_id)
-    if not object_id:
-        return None
+    query = {"_id": object_id} if object_id else {"$or": [{"_id": doc_id}, {"id": doc_id}, {"po_number": doc_id}]}
     data["updated_at"] = now()
-    await db[collection].update_one({"_id": object_id}, {"$set": data})
+    await db[collection].update_one(query, {"$set": data})
     await log_activity(db, "updated", collection, doc_id, user, data)
-    return await db[collection].find_one({"_id": object_id})
+    return await db[collection].find_one(query)
 
 
 async def delete_doc(db: AsyncIOMotorDatabase, collection: str, doc_id: str, user: dict | None = None) -> bool:
     object_id = oid(doc_id)
-    if not object_id:
-        return False
-    result = await db[collection].delete_one({"_id": object_id})
+    query = {"_id": object_id} if object_id else {"$or": [{"_id": doc_id}, {"id": doc_id}, {"po_number": doc_id}]}
+    result = await db[collection].delete_one(query)
     if result.deleted_count:
         await log_activity(db, "deleted", collection, doc_id, user)
     return result.deleted_count > 0

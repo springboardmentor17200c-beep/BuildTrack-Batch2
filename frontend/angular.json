@@ -33,10 +33,21 @@
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "src/styles.scss"
             ],
-            "scripts": []
+            "scripts": [],
+            "optimization": {
+              "fonts": false
+            }
           },
           "configurations": {
             "production": {
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": false
+              },
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",

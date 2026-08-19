@@ -49,7 +49,7 @@ import { InventoryService, LiveInventoryItem } from '../../../core/services/inve
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of sortedInventory()">
+              <tr *ngFor="let item of paginatedStock">
                 <td>
                   <div class="cell-title">
                     <strong>{{ item.material_name || item.itemName || item.material }}</strong>
@@ -76,6 +76,15 @@ import { InventoryService, LiveInventoryItem } from '../../../core/services/inve
             </tbody>
           </table>
         </div>
+
+        <div class="pagination-bar" *ngIf="sortedInventory().length > 0">
+          <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ sortedInventory().length }} items</span>
+          <div class="pagination" *ngIf="totalPages > 1">
+            <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+            <button *ngFor="let p of pagesList" [class.active]="currentPage() === p" (click)="currentPage.set(p)">{{ p }}</button>
+            <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -84,6 +93,8 @@ import { InventoryService, LiveInventoryItem } from '../../../core/services/inve
 export class StockMonitoringComponent implements OnInit {
   private invService = inject(InventoryService);
 
+  readonly pageSize = 10;
+  currentPage = signal(1);
   items = signal<LiveInventoryItem[]>([]);
   loading = signal(false);
 
@@ -114,6 +125,31 @@ export class StockMonitoringComponent implements OnInit {
     };
     return [...list].sort((a, b) => priority(a.status) - priority(b.status));
   });
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.sortedInventory().length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedStock() {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.sortedInventory().slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.sortedInventory().length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.sortedInventory().length);
+  }
 
   stockCards = computed(() => {
     const list = this.items();

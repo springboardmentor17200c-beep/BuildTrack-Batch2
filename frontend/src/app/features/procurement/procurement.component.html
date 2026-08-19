@@ -272,7 +272,7 @@
               <div class="action-row">
                 <button class="icon-action" title="View Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
                 <button *ngIf="isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('vendors', item)"><i class="fa-solid fa-pen"></i></button>
-                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('vendors', item._id!, item.vendor_name)"><i class="fa-solid fa-trash"></i></button>
+                <button *ngIf="isAdmin() || isProjectManager()" class="icon-action danger" title="Delete" (click)="deleteItem('vendors', getId(item), item.vendor_name)"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>
@@ -325,7 +325,7 @@
                 <button *ngIf="isProjectManager() && item.status === 'created'" class="icon-action success" title="Send PO" (click)="sendPO(item)"><i class="fa-solid fa-paper-plane"></i></button>
                 <button class="icon-action" title="Details" (click)="openDetailsModal(item)"><i class="fa-solid fa-eye"></i></button>
                 <button *ngIf="isProjectManager()" class="icon-action" title="Edit" (click)="openEditModal('purchase-orders', item)"><i class="fa-solid fa-pen"></i></button>
-                <button *ngIf="isAdmin()" class="icon-action danger" title="Delete" (click)="deleteItem('purchase-orders', item._id!, item.po_number || 'PO')"><i class="fa-solid fa-trash"></i></button>
+                <button *ngIf="isAdmin() || isProjectManager()" class="icon-action danger" title="Delete" (click)="deleteItem('purchase-orders', getId(item), item.po_number || 'PO')"><i class="fa-solid fa-trash"></i></button>
               </div>
             </td>
           </tr>

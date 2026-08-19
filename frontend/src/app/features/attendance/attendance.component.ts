@@ -37,9 +37,17 @@ export class AttendanceComponent implements OnInit {
   saving = signal(false);
   errorMessage = signal('');
   searchTerm = signal('');
+  currentView = signal<'roster' | 'low_attendance'>('roster');
 
   showAddModal = signal(false);
   editingAttendance = signal<any | null>(null);
+
+  switchView(view: 'roster' | 'low_attendance'): void {
+    this.currentView.set(view);
+    if (view === 'low_attendance') {
+      this.loadLowAttendance();
+    }
+  }
 
   statusOptions: { value: BackendAttendanceStatus; label: string }[] = [
     { value: 'present', label: 'Present' },
@@ -174,10 +182,16 @@ export class AttendanceComponent implements OnInit {
       (w) => w.id === record.worker_id || w._id === record.worker_id,
     );
 
+    const workerCode =
+      worker?.worker_code ||
+      worker?.workerCode ||
+      `WRK-${String(record.worker_id || '').slice(-4).toUpperCase()}`;
+
     return {
       ...record,
       id: record._id || record.id,
       workerId: record.worker_id,
+      workerCode: workerCode,
       workerName: worker
         ? `${worker.first_name || ''} ${worker.last_name || ''}`.trim()
         : record.worker_id,
@@ -208,44 +222,243 @@ export class AttendanceComponent implements OnInit {
     return Number.isNaN(iso.getTime()) ? null : iso.toISOString();
   }
 
-  // =========================
-  // SEARCH / FILTER
-  // =========================
+  readonly pageSize = 10;
+  currentPage = signal(1);
+  selectedDate = signal<string>(this.today());
+
+  onDateChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedDate.set(input.value);
+    this.currentPage.set(1);
+  }
+
+  previousDay(): void {
+    const current = this.selectedDate() || this.today();
+    const d = new Date(current + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    this.selectedDate.set(`${year}-${month}-${day}`);
+    this.currentPage.set(1);
+  }
+
+  nextDay(): void {
+    const current = this.selectedDate() || this.today();
+    const d = new Date(current + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    this.selectedDate.set(`${year}-${month}-${day}`);
+    this.currentPage.set(1);
+  }
+
+  get isFutureDate(): boolean {
+    const selected = this.selectedDate();
+    if (!selected) return false;
+    return selected > this.today();
+  }
+
+  setToday(): void {
+    this.selectedDate.set(this.today());
+    this.currentPage.set(1);
+  }
+
+  clearDateFilter(): void {
+    this.selectedDate.set('');
+    this.currentPage.set(1);
+  }
 
   onSearch(event: Event): void {
     this.searchTerm.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(1);
   }
 
   get filteredAttendance(): any[] {
-    const term = this.searchTerm().trim().toLowerCase();
-    let list = this.attendance();
+    if (this.isFutureDate) {
+      return [];
+    }
 
-    if (this.isWorkerView) {
-      const workerId = this.auth.currentUser()?.workerId;
-      list = list.filter((a) => a.workerId === workerId);
+    const term = this.searchTerm().trim().toLowerCase();
+    const dateFilter = this.selectedDate();
+    const allWorkers = this.workers();
+    const currentWorkerId = this.auth.currentUser()?.workerId;
+
+    let list: any[] = [];
+
+    if (dateFilter) {
+      // Build a complete attendance sheet with all registered workers for this date
+      const dateRecords = this.attendance().filter((a) => a.date === dateFilter);
+      const recordMap = new Map<string, any>();
+      for (const rec of dateRecords) {
+        if (rec.workerId) {
+          recordMap.set(String(rec.workerId), rec);
+        }
+      }
+
+      const activeWorkers = this.isWorkerView && currentWorkerId
+        ? allWorkers.filter((w) => String(w.id || w._id) === String(currentWorkerId))
+        : allWorkers;
+
+      list = activeWorkers.map((w) => {
+        const wid = String(w.id || w._id);
+        const existing = recordMap.get(wid);
+        if (existing) {
+          return existing;
+        }
+
+        const name = `${w.first_name || ''} ${w.last_name || ''}`.trim() || w.name || 'Worker';
+        const role = w.designation || w.category || w.trade || '-';
+        const workerCode = w.worker_code || w.workerCode || `WRK-${wid.slice(-4).toUpperCase()}`;
+
+        return {
+          id: null,
+          workerId: wid,
+          workerCode: workerCode,
+          workerName: name,
+          role: role,
+          projectId: w.project_id || '',
+          date: dateFilter,
+          checkIn: '',
+          checkOut: '',
+          status: '',
+          remarks: '',
+          isTemporary: true,
+        };
+      });
+    } else {
+      list = this.attendance();
+      if (this.isWorkerView && currentWorkerId) {
+        list = list.filter((a) => String(a.workerId) === String(currentWorkerId));
+      }
     }
 
     if (!term) return list;
     return list.filter(
       (a) =>
+        String(a.workerCode || '').toLowerCase().includes(term) ||
         String(a.workerName || '').toLowerCase().includes(term) ||
         String(a.role || '').toLowerCase().includes(term),
     );
   }
 
-  statusClass(status: string): string {
-    switch (status) {
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredAttendance.length / this.pageSize));
+  }
+
+  get pagesList(): number[] {
+    return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  get paginatedAttendance(): any[] {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    const start = (page - 1) * this.pageSize;
+    return this.filteredAttendance.slice(start, start + this.pageSize);
+  }
+
+  get startItemIndex(): number {
+    if (this.filteredAttendance.length === 0) return 0;
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return (page - 1) * this.pageSize + 1;
+  }
+
+  get endItemIndex(): number {
+    const page = Math.min(this.currentPage(), this.totalPages);
+    return Math.min(page * this.pageSize, this.filteredAttendance.length);
+  }
+
+  statusClass(status: string, isTemporary?: boolean): string {
+    if (isTemporary || !status) {
+      return 'badge-gray';
+    }
+    switch ((status || '').toLowerCase()) {
       case 'present':
         return 'badge-green';
       case 'leave':
         return 'badge-amber';
-      default:
+      case 'absent':
         return 'badge-red';
+      default:
+        return 'badge-gray';
     }
   }
 
-  statusLabel(status: string): string {
-    return this.statusOptions.find((s) => s.value === status)?.label || status;
+  statusLabel(status: string, isTemporary?: boolean): string {
+    if (isTemporary || !status) {
+      return 'Not Marked';
+    }
+    const found = this.statusOptions.find((s) => s.value === status);
+    return found ? found.label : (status === 'present' ? 'Present' : (status === 'absent' ? 'Absent' : status));
+  }
+
+  setStatus(record: any, newStatus: BackendAttendanceStatus): void {
+    if (this.isWorkerView) return;
+    if (this.isFutureDate) {
+      alert('Day not start yet. Attendance cannot be recorded for future dates.');
+      return;
+    }
+
+    const prevStatus = record.status;
+    record.status = newStatus;
+
+    if (record.id) {
+      this.workforceService.updateAttendance(record.id, { status: newStatus }).subscribe({
+        next: (res: any) => {
+          this.attendance.update((list) =>
+            list.map((item) => (item.id === record.id ? { ...item, status: newStatus } : item))
+          );
+          if (!this.isWorkerView) {
+            this.loadLowAttendance();
+          }
+        },
+        error: (error) => {
+          record.status = prevStatus;
+          console.error('Failed to update status', error);
+          alert(this.formatError(error));
+        },
+      });
+    } else {
+      const payload: any = {
+        worker_id: record.workerId,
+        project_id: record.projectId || undefined,
+        date: new Date(`${record.date || this.selectedDate() || this.today()}T00:00:00`).toISOString(),
+        status: newStatus,
+      };
+
+      this.workforceService.createAttendance(payload).subscribe({
+        next: (created: any) => {
+          const formatted = this.fromBackend(created);
+          record.id = formatted.id;
+          record.isTemporary = false;
+          this.attendance.update((list) => [...list, formatted]);
+          if (!this.isWorkerView) {
+            this.loadLowAttendance();
+          }
+        },
+        error: (error) => {
+          record.status = prevStatus;
+          console.error('Failed to create attendance status', error);
+          alert(this.formatError(error));
+        },
+      });
+    }
+  }
+
+  toggleStatus(record: any): void {
+    const current = (record.status || 'absent').toLowerCase();
+    const next: BackendAttendanceStatus = current === 'present' ? 'absent' : 'present';
+    this.setStatus(record, next);
+  }
+
+  markAll(status: BackendAttendanceStatus): void {
+    if (this.isWorkerView || this.isFutureDate) return;
+    const items = this.filteredAttendance;
+    for (const item of items) {
+      if (item.status !== status) {
+        this.setStatus(item, status);
+      }
+    }
   }
 
   // =========================
@@ -253,6 +466,11 @@ export class AttendanceComponent implements OnInit {
   // =========================
 
   openAdd(): void {
+    if (this.isFutureDate) {
+      alert('Day not start yet. Attendance cannot be recorded for future dates.');
+      return;
+    }
+
     if (!this.workers().length) {
       alert('No worker is available here. Add workers in Worker Management first.');
       return;
@@ -264,7 +482,7 @@ export class AttendanceComponent implements OnInit {
     this.form.reset({
       workerId: firstWorker.id || firstWorker._id,
       projectId: firstWorker.project_id || '',
-      date: this.today(),
+      date: this.selectedDate() || this.today(),
       checkIn: '',
       checkOut: '',
       status: 'present',
@@ -276,15 +494,20 @@ export class AttendanceComponent implements OnInit {
   }
 
   openEdit(record: any): void {
-    this.editingAttendance.set(record);
+    if (this.isFutureDate) {
+      alert('Day not start yet. Attendance cannot be recorded for future dates.');
+      return;
+    }
+
+    this.editingAttendance.set(record.id ? record : null);
 
     this.form.reset({
       workerId: record.workerId,
       projectId: record.projectId || '',
-      date: record.date,
+      date: record.date || this.selectedDate() || this.today(),
       checkIn: record.checkIn || '',
       checkOut: record.checkOut || '',
-      status: record.status || 'present',
+      status: (record.status && !record.isTemporary ? record.status : 'present') as BackendAttendanceStatus,
       remarks: record.remarks || '',
     });
 
@@ -317,9 +540,14 @@ export class AttendanceComponent implements OnInit {
       return;
     }
 
-    this.saving.set(true);
-
     const v = this.form.getRawValue();
+
+    if (v.date && v.date > this.today()) {
+      this.errorMessage.set('Day not start yet. Attendance cannot be recorded for future dates.');
+      return;
+    }
+
+    this.saving.set(true);
 
     const payload: any = {
       worker_id: v.workerId,
@@ -393,6 +621,10 @@ export class AttendanceComponent implements OnInit {
   }
 
   today(): string {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

@@ -12,21 +12,28 @@ async def create_resource(db: AsyncIOMotorDatabase, resource_data: dict):
     return await db.resources.find_one({"_id": result.inserted_id})
 
 
+def get_resource_query(resource_id: str) -> dict:
+    if ObjectId.is_valid(resource_id):
+        return {"$or": [{"_id": ObjectId(resource_id)}, {"_id": resource_id}, {"id": resource_id}]}
+    return {"$or": [{"_id": resource_id}, {"id": resource_id}]}
+
+
 async def get_resource(db: AsyncIOMotorDatabase, resource_id: str):
-    return await db.resources.find_one({"_id": ObjectId(resource_id)})
+    return await db.resources.find_one(get_resource_query(resource_id))
 
 
 async def update_resource(db: AsyncIOMotorDatabase, resource_id: str, update_data: dict):
     update_data["updated_at"] = datetime.utcnow()
+    query = get_resource_query(resource_id)
     await db.resources.update_one(
-        {"_id": ObjectId(resource_id)},
+        query,
         {"$set": update_data}
     )
-    return await db.resources.find_one({"_id": ObjectId(resource_id)})
+    return await db.resources.find_one(query)
 
 
 async def delete_resource(db: AsyncIOMotorDatabase, resource_id: str):
-    result = await db.resources.delete_one({"_id": ObjectId(resource_id)})
+    result = await db.resources.delete_one(get_resource_query(resource_id))
     return result.deleted_count > 0
 
 

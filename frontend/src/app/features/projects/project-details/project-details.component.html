@@ -33,50 +33,60 @@
       </div>
 
       <div class="panel">
-        <div class="panel-header"><h3>Milestone Progress</h3></div>
+        <div class="panel-header">
+          <div class="panel-title-row">
+            <h3>Milestone Progress</h3>
+            <span class="badge badge-blue" *ngIf="projectMilestones.length">{{ projectMilestones.length }} Milestones</span>
+          </div>
+        </div>
         <div class="milestone-progress">
           <div class="big-progress">
-            <strong>{{ averageMilestoneProgress }}%</strong>
-            <span>Average milestone progress</span>
-          </div>
-          <div class="mp-row" *ngFor="let m of projectMilestones | slice:0:4">
-            <span class="mp-label">{{ m.title }}</span>
-            <div class="progress-mini" style="flex:1; margin: 0 12px;"><span [style.width.%]="m.progress"></span></div>
-            <span class="mp-pct">{{ m.progress }}%</span>
+            <div class="big-progress-header">
+              <strong>{{ averageMilestoneProgress }}%</strong>
+              <span>Average milestone progress</span>
+            </div>
+            <div class="progress-bar-large">
+              <span [style.width.%]="averageMilestoneProgress"></span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel team-panel">
       <div class="panel-header">
-        <h3>Team Members & Workers</h3>
-        <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }" *ngIf="!isReadOnly">Manage workers -></a>
+        <div class="panel-title-row">
+          <h3>Team Members & Workers</h3>
+          <span class="badge badge-blue" *ngIf="allTeamMembers().length">{{ allTeamMembers().length }} Allocated</span>
+        </div>
+        <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }" *ngIf="!isReadOnly" class="manage-link">
+          <i class="fa-solid fa-users-gear"></i> See & Manage All in Allocations →
+        </a>
       </div>
 
       <p class="empty" *ngIf="loadingTeam()">Loading team...</p>
       <p class="modal-error" *ngIf="teamError()">{{ teamError() }}</p>
 
       <ng-container *ngIf="!loadingTeam()">
-        <div class="team-role-group" *ngFor="let group of groupedTeam()">
-          <div class="role-header">
-            <h4>{{ group.role }}</h4>
-            <span class="role-count">{{ group.members.length }}</span>
-          </div>
-          <div class="team-grid">
-            <div class="team-card" *ngFor="let member of group.members">
-              <img *ngIf="member.avatarUrl" [src]="member.avatarUrl" [alt]="member.name" />
-              <div *ngIf="!member.avatarUrl" class="team-card__initials">
-                {{ member.name ? member.name.charAt(0).toUpperCase() : '?' }}
-              </div>
-              <div class="team-card__info">
-                <p class="cell-title">{{ member.name }}</p>
-                <p class="cell-sub">{{ member.designation }}</p>
-              </div>
+        <div class="team-horizontal-grid" *ngIf="allTeamMembers().length > 0">
+          <div class="team-card-horizontal" *ngFor="let member of allTeamMembers()">
+            <img *ngIf="member.avatarUrl" [src]="member.avatarUrl" [alt]="member.name" />
+            <div *ngIf="!member.avatarUrl" class="team-card__initials">
+              {{ member.name ? member.name.charAt(0).toUpperCase() : '?' }}
+            </div>
+            <div class="team-card__info">
+              <p class="cell-title">{{ member.name }}</p>
+              <span class="role-pill">{{ member.designation || member.category }}</span>
             </div>
           </div>
         </div>
-        <p class="empty" *ngIf="groupedTeam().length === 0">No worker assigned to this project yet.</p>
+
+        <p class="empty" *ngIf="allTeamMembers().length === 0">
+          No workers allocated to this project yet.
+          <a [routerLink]="['/workers/allocation']" [queryParams]="{ projectId: project.id }" style="display:inline-block; margin-left:6px;" class="link">
+            Allocate Workers →
+          </a>
+        </p>
       </ng-container>
     </div>
   </ng-container>
@@ -91,7 +101,7 @@
         <table class="data-table">
           <thead><tr><th>Milestone</th><th>Due Date</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let m of projectMilestones">
+            <tr *ngFor="let m of paginatedMilestones">
               <td class="cell-title">{{ m.title }}</td>
               <td>{{ m.dueDate || '-' }}</td>
               <td><span class="badge" [ngClass]="milestoneStatusClass(m.status)">{{ m.status }}</span></td>
@@ -103,8 +113,20 @@
                 </div>
               </td>
             </tr>
+            <tr *ngIf="projectMilestones.length === 0">
+              <td colspan="5" class="empty-cell">No milestones added yet.</td>
+            </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="pagination-bar" *ngIf="projectMilestones.length > 0">
+        <span>Showing {{ startMilestoneIndex }}-{{ endMilestoneIndex }} of {{ projectMilestones.length }} milestones</span>
+        <div class="pagination" *ngIf="totalMilestonePages > 1">
+          <button [disabled]="milestonePage() === 1" (click)="milestonePage.set(milestonePage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button *ngFor="let p of milestonePagesList" [class.active]="milestonePage() === p" (click)="milestonePage.set(p)">{{ p }}</button>
+          <button [disabled]="milestonePage() === totalMilestonePages" (click)="milestonePage.set(milestonePage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </ng-container>
@@ -121,7 +143,7 @@
         <table class="data-table">
           <thead><tr><th>Task</th><th>Assigned To</th><th>Status</th><th *ngIf="!isReadOnly">Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let task of tasks()">
+            <tr *ngFor="let task of paginatedTasks">
               <td class="cell-title">{{ task.title }}</td>
               <td>{{ task.owner || 'Unassigned' }}</td>
               <td><span class="badge" [ngClass]="taskStatusClass(task.status)">{{ task.status }}</span></td>
@@ -138,29 +160,142 @@
           </tbody>
         </table>
       </div>
+
+      <div class="pagination-bar" *ngIf="tasks().length > 0">
+        <span>Showing {{ startTaskIndex }}-{{ endTaskIndex }} of {{ tasks().length }} tasks</span>
+        <div class="pagination" *ngIf="totalTaskPages > 1">
+          <button [disabled]="taskPage() === 1" (click)="taskPage.set(taskPage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button *ngFor="let p of taskPagesList" [class.active]="taskPage() === p" (click)="taskPage.set(p)">{{ p }}</button>
+          <button [disabled]="taskPage() === totalTaskPages" (click)="taskPage.set(taskPage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+      </div>
     </div>
   </ng-container>
 
   <ng-container *ngIf="activeTab === 'Resources'">
-    <div class="panel">
+    <!-- 1. MATERIALS FROM INVENTORY -->
+    <div class="panel" style="margin-bottom: 1.5rem;">
       <div class="panel-header">
-        <h3>Resources Used</h3>
-        <button class="btn btn-primary" type="button" (click)="openResource()" *ngIf="!isReadOnly"><i class="fa-solid fa-plus"></i> Allocate Resource</button>
+        <div>
+          <h3>Materials Used from Inventory</h3>
+          <p class="panel-subtitle">Track construction materials allocated & consumed from BuildTrack warehouse.</p>
+        </div>
+        <button class="btn btn-primary" type="button" (click)="openMaterial()" *ngIf="!isReadOnly">
+          <i class="fa-solid fa-boxes-stacked"></i> Allocate Material
+        </button>
       </div>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Resource</th><th>Type</th><th>Qty</th><th>Status</th><th *ngIf="!isReadOnly">Action</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let resource of projectResources">
-              <td class="cell-title">{{ resource.name }}</td>
-              <td>{{ resource.type }}</td>
-              <td>{{ resource.quantity }} {{ resource.unit }}</td>
-              <td><span class="badge badge-blue">{{ resource.status }}</span></td>
-              <td *ngIf="!isReadOnly"><button class="icon-action danger" type="button" (click)="removeResource(resource)"><i class="fa-solid fa-link-slash"></i></button></td>
+          <thead>
+            <tr>
+              <th>Material Name</th>
+              <th>Category</th>
+              <th>Quantity Used</th>
+              <th>Available Stock</th>
+              <th>Status</th>
+              <th *ngIf="!isReadOnly">Action</th>
             </tr>
-            <tr *ngIf="projectResources.length === 0"><td [attr.colspan]="isReadOnly ? 4 : 5" class="empty-cell">No resources allocated to this project.</td></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of paginatedMaterials">
+              <td class="cell-title">
+                <i class="fa-solid fa-cube" style="color: #6366f1; margin-right: 0.5rem;"></i>
+                {{ m.name }}
+              </td>
+              <td>{{ getInventoryStock(m.name)?.category || 'Construction' }}</td>
+              <td><strong>{{ m.quantity }} {{ m.unit }}</strong></td>
+              <td>
+                <span *ngIf="getInventoryStock(m.name) as inv" class="badge" [ngClass]="inv.stock <= 10 ? 'badge-red' : 'badge-green'">
+                  {{ inv.stock }} {{ inv.unit }} available
+                </span>
+                <span *ngIf="!getInventoryStock(m.name)" class="text-muted">-</span>
+              </td>
+              <td><span class="badge badge-blue">{{ m.status }}</span></td>
+              <td *ngIf="!isReadOnly">
+                <button class="icon-action danger" type="button" title="Return to Inventory" (click)="removeMaterial(m)">
+                  <i class="fa-solid fa-arrow-rotate-left"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="projectMaterials.length === 0">
+              <td [attr.colspan]="isReadOnly ? 5 : 6" class="empty-cell">
+                No materials allocated from inventory yet. Click "+ Allocate Material" to assign materials from warehouse.
+              </td>
+            </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="pagination-bar" *ngIf="projectMaterials.length > 0">
+        <span>Showing {{ startMaterialIndex }}-{{ endMaterialIndex }} of {{ projectMaterials.length }} materials</span>
+        <div class="pagination" *ngIf="totalMaterialPages > 1">
+          <button [disabled]="materialPage() === 1" (click)="materialPage.set(materialPage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button *ngFor="let p of materialPagesList" [class.active]="materialPage() === p" (click)="materialPage.set(p)">{{ p }}</button>
+          <button [disabled]="materialPage() === totalMaterialPages" (click)="materialPage.set(materialPage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. EQUIPMENT & MACHINERY -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>Equipment & Machinery</h3>
+          <p class="panel-subtitle">Vehicles, tools, and heavy machinery allocated to this project site.</p>
+        </div>
+        <button class="btn btn-primary" type="button" (click)="openResource()" *ngIf="!isReadOnly">
+          <i class="fa-solid fa-truck-monster"></i> Allocate Equipment
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Equipment Name</th>
+              <th>Type</th>
+              <th>Quantity Used</th>
+              <th>Available Stock</th>
+              <th>Status</th>
+              <th *ngIf="!isReadOnly">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let resource of paginatedEquipment">
+              <td class="cell-title">
+                <i class="fa-solid fa-truck-pickup" style="color: #0284c7; margin-right: 0.5rem;"></i>
+                {{ resource.name }}
+              </td>
+              <td>{{ resource.type }}</td>
+              <td><strong>{{ resource.quantity }} {{ resource.unit }}</strong></td>
+              <td>
+                <span *ngIf="getEquipmentStock(resource.name) as eq" class="badge" [ngClass]="eq.quantity <= 1 ? 'badge-amber' : 'badge-green'">
+                  {{ eq.quantity }} {{ eq.unit }} available
+                </span>
+                <span *ngIf="!getEquipmentStock(resource.name)" class="text-muted">0 available</span>
+              </td>
+              <td><span class="badge badge-blue">{{ resource.status }}</span></td>
+              <td *ngIf="!isReadOnly">
+                <button class="icon-action danger" type="button" title="Return Equipment" (click)="removeResource(resource)">
+                  <i class="fa-solid fa-arrow-rotate-left"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="projectEquipment.length === 0">
+              <td [attr.colspan]="isReadOnly ? 5 : 6" class="empty-cell">
+                No equipment or machinery allocated to this project. Click "+ Allocate Equipment" to assign equipment.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar" *ngIf="projectEquipment.length > 0">
+        <span>Showing {{ startEquipmentIndex }}-{{ endEquipmentIndex }} of {{ projectEquipment.length }} equipment</span>
+        <div class="pagination" *ngIf="totalEquipmentPages > 1">
+          <button [disabled]="equipmentPage() === 1" (click)="equipmentPage.set(equipmentPage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button *ngFor="let p of equipmentPagesList" [class.active]="equipmentPage() === p" (click)="equipmentPage.set(p)">{{ p }}</button>
+          <button [disabled]="equipmentPage() === totalEquipmentPages" (click)="equipmentPage.set(equipmentPage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </ng-container>
@@ -172,7 +307,7 @@
         <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)" *ngIf="!isReadOnly"><i class="fa-solid fa-upload"></i> Upload File</button>
       </div>
       <div class="document-grid">
-        <div class="document-card" *ngFor="let doc of documents">
+        <div class="document-card" *ngFor="let doc of paginatedDocuments">
           <i class="fa-regular fa-file-lines"></i>
           <div><p class="cell-title">{{ doc.name }}</p><p class="cell-sub">{{ doc.type }} - {{ doc.uploadedAt }}</p></div>
           <button class="icon-btn danger" type="button" (click)="deleteDocument(doc)" aria-label="Delete document" *ngIf="!isReadOnly">
@@ -180,6 +315,15 @@
           </button>
         </div>
         <p class="empty" *ngIf="documents.length === 0">No documents uploaded yet. Add PDF, DOCX, image, or PNG files.</p>
+      </div>
+
+      <div class="pagination-bar" *ngIf="documents.length > 0">
+        <span>Showing {{ startDocumentIndex }}-{{ endDocumentIndex }} of {{ documents.length }} documents</span>
+        <div class="pagination" *ngIf="totalDocumentPages > 1">
+          <button [disabled]="documentPage() === 1" (click)="documentPage.set(documentPage() - 1)"><i class="fa-solid fa-chevron-left"></i></button>
+          <button *ngFor="let p of documentPagesList" [class.active]="documentPage() === p" (click)="documentPage.set(p)">{{ p }}</button>
+          <button [disabled]="documentPage() === totalDocumentPages" (click)="documentPage.set(documentPage() + 1)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
       </div>
     </div>
   </ng-container>
@@ -206,19 +350,12 @@
         <div class="modal-field">
           <label for="detail-manager">Manager</label>
           <select id="detail-manager" formControlName="manager">
-            <option value="" disabled>-- Select a Manager --</option>
+            <option value="" disabled selected>Select Manager</option>
             <option value="Unassigned">Unassigned</option>
-            <optgroup label="Project Managers" *ngIf="projectManagers().length">
-              <option *ngFor="let m of projectManagers()" [value]="getManagerName(m)">
-                {{ getManagerName(m) }} ({{ m.email }})
-              </option>
-            </optgroup>
-            <optgroup label="Administrators" *ngIf="administrators().length">
-              <option *ngFor="let m of administrators()" [value]="getManagerName(m)">
-                {{ getManagerName(m) }} ({{ m.email }})
-              </option>
-            </optgroup>
-            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !managers().length" [value]="form.get('manager')?.value">
+            <option *ngFor="let m of managers()" [value]="getManagerName(m)">
+              {{ getManagerName(m) }} ({{ m.email }})
+            </option>
+            <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !isManagerInList(form.get('manager')?.value)" [value]="form.get('manager')?.value">
               {{ form.get('manager')?.value }}
             </option>
           </select>
@@ -305,13 +442,126 @@
 
 <div class="modal-backdrop" *ngIf="showResourceModal()" (click)="showResourceModal.set(false)">
   <div class="modal-card" (click)="$event.stopPropagation()">
-    <div class="modal-header"><h3>Allocate Resource</h3><button class="modal-close" type="button" (click)="showResourceModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-header"><h3>Allocate Equipment</h3><button class="modal-close" type="button" (click)="showResourceModal.set(false)"><i class="fa-solid fa-xmark"></i></button></div>
     <form [formGroup]="resourceForm" (ngSubmit)="submitResource()">
       <div class="modal-body">
         <p class="modal-error" *ngIf="resourceMessage()">{{ resourceMessage() }}</p>
-        <div class="modal-field"><label>Resource</label><select formControlName="resourceId"><option *ngFor="let resource of availableResources" [value]="resource.id">{{ resource.name }} · {{ resource.type }} · {{ resource.status }}</option></select></div>
+        <div class="modal-field">
+          <label>Select Equipment / Vehicle</label>
+          <select formControlName="resourceId">
+            <option *ngFor="let resource of availableEquipmentResources" [value]="resource.id">
+              {{ resource.name }} · {{ resource.type }} ({{ resource.quantity }} {{ resource.unit }} available)
+            </option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label>Quantity to Allocate</label>
+          <input type="number" min="1" [max]="selectedEquipmentResource?.quantity || 9999" formControlName="quantity" placeholder="e.g. 1" />
+          <span class="cell-sub" *ngIf="selectedEquipmentResource">
+            Available: <strong>{{ selectedEquipmentResource.quantity }} {{ selectedEquipmentResource.unit }}</strong>
+          </span>
+        </div>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showResourceModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary" [disabled]="availableResources.length === 0">Allocate</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline" (click)="showResourceModal.set(false)">Cancel</button><button type="submit" class="btn btn-primary" [disabled]="availableEquipmentResources.length === 0">Allocate</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showMaterialModal()" (click)="showMaterialModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Allocate Material from Inventory</h3>
+      <button class="modal-close" type="button" (click)="showMaterialModal.set(false)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="materialForm" (ngSubmit)="submitMaterial()">
+      <div class="modal-body">
+        <p class="modal-error" *ngIf="materialMessage()">{{ materialMessage() }}</p>
+        
+        <div class="modal-field">
+          <label>Select Material from BuildTrack Inventory</label>
+          <select formControlName="inventoryItemId">
+            <option *ngFor="let item of availableInventory" [value]="item.id">
+              {{ item.itemName }} ({{ item.category }}) — {{ item.stock }} {{ item.unit }} in stock
+            </option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label>Quantity to Use / Allocate</label>
+          <input type="number" min="1" [max]="selectedInventoryItem?.stock || 99999" formControlName="quantity" placeholder="e.g. 50" />
+          <span class="cell-sub" *ngIf="selectedInventoryItem">
+            Unit: <strong>{{ selectedInventoryItem.unit }}</strong> (Warehouse available: {{ selectedInventoryItem.stock }})
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="showMaterialModal.set(false)">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="availableInventory.length === 0">Allocate Material</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RETURN MATERIAL MODAL -->
+<div class="modal-backdrop" *ngIf="showReturnMaterialModal()" (click)="showReturnMaterialModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Return Material to Inventory</h3>
+      <button class="modal-close" type="button" (click)="showReturnMaterialModal.set(false)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="returnMaterialForm" (ngSubmit)="submitReturnMaterial()">
+      <div class="modal-body">
+        <p class="modal-error" *ngIf="returnMaterialMessage()">{{ returnMaterialMessage() }}</p>
+        
+        <div class="modal-field" *ngIf="returningMaterial() as m">
+          <label>Material</label>
+          <input type="text" [value]="m.name + ' (' + m.quantity + ' ' + m.unit + ' currently allocated)'" disabled />
+        </div>
+
+        <div class="modal-field" *ngIf="returningMaterial() as m">
+          <label>Quantity to Return back to Warehouse</label>
+          <input type="number" min="1" [max]="m.quantity" formControlName="returnQuantity" placeholder="e.g. 10" />
+          <span class="cell-sub">
+            Max returnable: <strong>{{ m.quantity }} {{ m.unit }}</strong>
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="showReturnMaterialModal.set(false)">Cancel</button>
+        <button type="submit" class="btn btn-primary">Return to Warehouse</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RETURN EQUIPMENT MODAL -->
+<div class="modal-backdrop" *ngIf="showReturnEquipmentModal()" (click)="showReturnEquipmentModal.set(false)">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Return / Unassign Equipment</h3>
+      <button class="modal-close" type="button" (click)="showReturnEquipmentModal.set(false)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form [formGroup]="returnEquipmentForm" (ngSubmit)="submitReturnEquipment()">
+      <div class="modal-body">
+        <p class="modal-error" *ngIf="returnEquipmentMessage()">{{ returnEquipmentMessage() }}</p>
+        
+        <div class="modal-field" *ngIf="returningEquipment() as r">
+          <label>Equipment / Vehicle</label>
+          <input type="text" [value]="r.name + ' (' + r.quantity + ' ' + r.unit + ' allocated)'" disabled />
+        </div>
+
+        <div class="modal-field" *ngIf="returningEquipment() as r">
+          <label>Quantity to Return to Pool</label>
+          <input type="number" min="1" [max]="r.quantity" formControlName="returnQuantity" placeholder="e.g. 1" />
+          <span class="cell-sub">
+            Max returnable: <strong>{{ r.quantity }} {{ r.unit }}</strong>
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="showReturnEquipmentModal.set(false)">Cancel</button>
+        <button type="submit" class="btn btn-primary">Return Equipment</button>
+      </div>
     </form>
   </div>
 </div>

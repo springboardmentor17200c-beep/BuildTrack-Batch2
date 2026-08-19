@@ -323,3 +323,77 @@
     font-size: 0.8rem;
   }
 }
+
+.time-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+
+  i {
+    color: #94a3b8;
+    font-size: 0.8rem;
+  }
+
+  .time-ago {
+    color: #94a3b8;
+    font-weight: 400;
+    margin-left: 2px;
+  }
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-top: 16px;
+  font-size: 13.5px;
+  color: #64748b;
+  font-weight: 500;
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    button {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover:not(:disabled) {
+        background: #f1f5f9;
+        color: #1e293b;
+        border-color: #cbd5e1;
+      }
+
+      &.active {
+        background: #3b82f6;
+        color: #ffffff;
+        border-color: #3b82f6;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+}

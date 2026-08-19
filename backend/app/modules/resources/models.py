@@ -6,10 +6,12 @@ from pydantic import BaseModel, Field
 
 class ResourceBase(BaseModel):
     resource_name: str
-    resource_type: str = Field(..., description="equipment, tool, vehicle, etc.")
+    resource_type: str = Field(default="equipment", description="equipment, tool, vehicle, material, etc.")
     description: Optional[str] = None
-    acquisition_cost: float
-    acquisition_date: datetime
+    quantity: float = 1.0
+    unit: Optional[str] = "Nos"
+    acquisition_cost: float = 0.0
+    acquisition_date: Optional[datetime] = None
     status: str = Field(default="available", description="available, in_use, maintenance, retired")
     assigned_to: Optional[str] = None
     assigned_project: Optional[str] = None
@@ -22,6 +24,10 @@ class ResourceCreate(ResourceBase):
 
 class ResourceUpdate(BaseModel):
     resource_name: Optional[str] = None
+    resource_type: Optional[str] = None
+    description: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
     status: Optional[str] = None
     assigned_to: Optional[str] = None
     assigned_project: Optional[str] = None

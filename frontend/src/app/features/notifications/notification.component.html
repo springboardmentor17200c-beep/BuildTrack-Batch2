@@ -73,7 +73,7 @@
 
     <div *ngIf="!loading() && !error() && notifications().length > 0" class="notification-list">
       <div
-        *ngFor="let item of notifications()"
+        *ngFor="let item of paginatedNotifications"
         class="notification-card"
         [class.unread]="!item.is_read"
         (click)="onNotificationClick(item)"
@@ -85,7 +85,10 @@
         <div class="notification-card__content">
           <div class="notification-card__header">
             <span class="category-badge">{{ getCategoryLabel(item.category) }}</span>
-            <span class="time-stamp">{{ formatTime(item.created_at) }}</span>
+            <span class="time-stamp" [title]="item.created_at">
+              <i class="fa-regular fa-clock"></i> {{ formatFullDateTime(item.created_at) }}
+              <span class="time-ago">({{ formatTime(item.created_at) }})</span>
+            </span>
           </div>
           <h4 class="notification-card__title">{{ item.title }}</h4>
           <p class="notification-card__message">{{ item.message }}</p>
@@ -108,6 +111,26 @@
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Dynamic Pagination -->
+    <div class="pagination-bar" *ngIf="!loading() && !error() && notifications().length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ notifications().length }} notifications</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   </div>

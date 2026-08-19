@@ -34,18 +34,24 @@ def serialize_doc(doc: dict) -> dict:
         doc["_id"] = str(doc["_id"])
     doc.setdefault("resource_name", doc.get("name") or "Unnamed Resource")
     doc.setdefault("resource_type", doc.get("type") or "equipment")
-    doc.setdefault("description", doc.get("location") or "")
+    doc.setdefault("description", doc.get("unit") or doc.get("location") or "")
+    try:
+        doc["quantity"] = float(doc.get("quantity") if doc.get("quantity") is not None else 1.0)
+    except (TypeError, ValueError):
+        doc["quantity"] = 1.0
+    doc.setdefault("unit", doc.get("unit") or "Nos")
     doc.setdefault("acquisition_cost", doc.get("cost") or 0)
     doc.setdefault("acquisition_date", doc.get("created_at") or datetime.utcnow())
     doc.setdefault("status", doc.get("status") or "available")
     doc.setdefault("assigned_to", doc.get("assignedTo"))
-    doc.setdefault("assigned_project", doc.get("allocatedProjectId") or doc.get("projectId"))
+    doc.setdefault("assigned_project", doc.get("allocatedProjectId") or doc.get("projectId") or doc.get("assigned_project"))
     doc.setdefault("maintenance_schedule", doc.get("maintenanceSchedule"))
     doc.setdefault("created_at", datetime.utcnow())
     doc.setdefault("updated_at", datetime.utcnow())
     return doc
 
 
+@router.post("", response_model=Resource)
 @router.post("/", response_model=Resource)
 async def create_resource_endpoint(
     resource: ResourceCreate,
@@ -64,10 +70,11 @@ async def create_resource_endpoint(
     return Resource(**serialize_doc(result))
 
 
+@router.get("", response_model=list[Resource])
 @router.get("/", response_model=list[Resource])
 async def list_resources_endpoint(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 500,
     current_user=Depends(get_current_user),
     db=Depends(get_database),
 ):

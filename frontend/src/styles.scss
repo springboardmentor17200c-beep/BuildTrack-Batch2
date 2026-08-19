@@ -1139,3 +1139,44 @@ table.data-table {
     align-items: flex-start;
   }
 }
+
+.row-avatar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  img {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid #bfdbfe;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+    flex-shrink: 0;
+  }
+
+  .avatar-placeholder {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #2563eb;
+    border: 1.5px solid #dbeafe;
+    font-size: 13.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3), 0 1px 3px rgba(37, 99, 235, 0.15);
+    letter-spacing: 0.5px;
+  }
+
+  .cell-title {
+    font-weight: 600;
+    color: var(--navy, #0f172a);
+    font-size: 13.5px;
+  }
+}
+

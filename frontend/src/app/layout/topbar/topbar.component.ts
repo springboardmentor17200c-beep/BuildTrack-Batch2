@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, computed, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NotificationItem } from '../../core/models/models';
@@ -69,21 +69,39 @@ export class TopbarComponent implements OnInit {
     public data: MockDataService,
     public notificationService: NotificationService,
     private router: Router,
+    private elementRef: ElementRef,
   ) {}
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!this.elementRef.nativeElement.contains(target)) {
+      this.showNotificationsPanel.set(false);
+      this.showResults.set(false);
+    }
+  }
+
   ngOnInit(): void {
-    if (this.auth.currentUser()) {
+    if (this.auth.getToken()) {
       this.refreshNotifications();
-      setInterval(() => this.refreshNotifications(), 30000);
+      setInterval(() => {
+        if (this.auth.getToken()) {
+          this.refreshNotifications();
+        }
+      }, 30000);
     }
   }
 
   refreshNotifications(): void {
-    this.notificationService.getUnreadCount().subscribe();
-    this.notificationService.getNotifications({ limit: 10 }).subscribe();
+    if (!this.auth.getToken()) return;
+    this.notificationService.getUnreadCount().subscribe({ error: () => {} });
+    this.notificationService.getNotifications({ limit: 10 }).subscribe({ error: () => {} });
   }
 
-  toggleNotifications(): void {
+  toggleNotifications(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.showNotificationsPanel.update((v) => !v);
     if (this.showNotificationsPanel()) {
       this.refreshNotifications();
@@ -149,6 +167,32 @@ export class TopbarComponent implements OnInit {
   openNotifications(): void {
     this.refreshNotifications();
     this.router.navigate(['/notifications']);
+  }
+
+  private parseDate(dateStr: string): Date {
+    if (!dateStr) return new Date();
+    let str = String(dateStr).trim();
+    if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+      str = str + 'Z';
+    }
+    const d = new Date(str);
+    return Number.isNaN(d.getTime()) ? new Date(dateStr) : d;
+  }
+
+  formatTime(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = this.parseDate(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   }
 }
 

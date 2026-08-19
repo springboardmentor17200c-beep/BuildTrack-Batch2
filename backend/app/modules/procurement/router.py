@@ -1194,7 +1194,7 @@ async def po_pdf(po_id: str, current_user=Depends(get_current_user), db=Depends(
 
 @router.delete("/purchase-orders/{po_id}")
 async def remove_po(po_id: str, current_user=Depends(get_current_user), db=Depends(get_database)):
-    require_role(current_user, "admin")
+    require_role(current_user, "project_manager")
     if not await delete_doc(db, "purchase_orders", po_id, current_user):
         raise HTTPException(status_code=404, detail="Purchase order not found")
     return {"message": "Purchase order deleted successfully"}

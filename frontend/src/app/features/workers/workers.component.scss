@@ -1,0 +1,56 @@
+.row-avatar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+
+  img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid #bfdbfe;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+    flex-shrink: 0;
+  }
+
+  .avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #2563eb;
+    border: 1.5px solid #dbeafe;
+    font-size: 13.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25), 0 1px 3px rgba(37, 99, 235, 0.12);
+    letter-spacing: 0.5px;
+  }
+
+  .worker-name-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+
+    .cell-title {
+      font-weight: 600;
+      color: var(--navy, #0f172a);
+      font-size: 13.5px;
+      line-height: 1.25;
+    }
+
+    .worker-code-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+    }
+  }
+}

@@ -8,15 +8,19 @@
     </div>
 
     <div class="toolbar">
-      <select
-        [value]="selectedProjectId()"
-        (change)="onProjectFilterChange($any($event.target).value)"
-      >
-        <option value="">Select a project</option>
-        <option *ngFor="let project of projects()" [value]="project.id">{{ project.name }}</option>
-      </select>
+      <div class="select-wrapper">
+        <i class="fa-solid fa-building select-icon"></i>
+        <select
+          class="project-select"
+          [value]="selectedProjectId()"
+          (change)="onProjectFilterChange($any($event.target).value)"
+        >
+          <option value="">Select a project</option>
+          <option *ngFor="let project of projects()" [value]="project.id">{{ project.name }}</option>
+        </select>
+      </div>
 
-      <button class="btn btn-primary" type="button" (click)="openAdd()" [disabled]="!selectedProjectId()">
+      <button class="btn btn-primary" type="button" (click)="openAdd()">
         <i class="fa-solid fa-plus"></i> Allocate Worker
       </button>
     </div>
@@ -44,7 +48,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let a of allocations()">
+          <tr *ngFor="let a of paginatedAllocations">
             <td class="cell-title">{{ a.workerName }}</td>
             <td>{{ a.role }}</td>
             <td>{{ a.startDate || '—' }}</td>
@@ -68,6 +72,25 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="pagination-bar" *ngIf="!loading() && allocations().length > 0">
+      <span>Showing {{ startItemIndex }}-{{ endItemIndex }} of {{ allocations().length }} allocations</span>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button [disabled]="currentPage() === 1" (click)="currentPage.set(currentPage() - 1)" title="Previous page">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button
+          *ngFor="let page of pagesList"
+          [class.active]="currentPage() === page"
+          (click)="currentPage.set(page)"
+        >
+          {{ page }}
+        </button>
+        <button [disabled]="currentPage() === totalPages" (click)="currentPage.set(currentPage() + 1)" title="Next page">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>
