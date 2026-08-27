@@ -8,7 +8,7 @@ from app.modules.auth.models import UserCreate
 
 
 async def get_user_by_email(db: AsyncIOMotorDatabase, email: str):
-    return await db.users.find_one({"email": email})
+    return await db.users.find_one({"email": {"$regex": f"^{str(email).strip()}$", "$options": "i"}})
 
 
 async def get_user_by_id(db: AsyncIOMotorDatabase, user_id: str):

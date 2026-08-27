@@ -9,7 +9,7 @@
       </div>
       <p class="crumb" style="margin-top:6px;">{{ project.category }} Project</p>
     </div>
-    <button class="btn btn-outline" type="button" (click)="openEdit()" *ngIf="!isReadOnly"><i class="fa-solid fa-pen"></i> Edit Project</button>
+    <button class="btn btn-outline" type="button" (click)="openEdit()" *ngIf="canEditProjectInfo"><i class="fa-solid fa-pen"></i> Edit Project</button>
   </div>
 
   <div class="tabs">
@@ -24,7 +24,13 @@
         <div class="panel-header"><h3>Project Information</h3></div>
         <div class="info-grid">
           <div><p class="info-label">Manager</p><p class="info-value">{{ project.manager }}</p></div>
-          <div><p class="info-label">Client</p><p class="info-value">{{ project.client || '-' }}</p></div>
+          <div>
+            <p class="info-label">Client</p>
+            <p class="info-value">
+              {{ project.client || '-' }}
+              <span *ngIf="project.clientEmail" style="display:block; color: var(--blue); font-size: 12px; margin-top: 2px;">{{ project.clientEmail }}</span>
+            </p>
+          </div>
           <div><p class="info-label">Start Date</p><p class="info-value">{{ project.startDate || '-' }}</p></div>
           <div><p class="info-label">End Date</p><p class="info-value">{{ project.endDate || '-' }}</p></div>
           <div><p class="info-label">Budget</p><p class="info-value">Rs {{ project.budget ? (project.budget | number) : '0' }}</p></div>
@@ -304,7 +310,7 @@
     <div class="panel">
       <div class="panel-header">
         <h3>Project Documents</h3>
-        <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)" *ngIf="!isReadOnly"><i class="fa-solid fa-upload"></i> Upload File</button>
+        <button class="btn btn-primary" type="button" (click)="showDocumentModal.set(true)" *ngIf="canUploadDocument"><i class="fa-solid fa-upload"></i> Upload File</button>
       </div>
       <div class="document-grid">
         <div class="document-card" *ngFor="let doc of paginatedDocuments">

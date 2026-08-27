@@ -11,7 +11,7 @@ import { MockDataService } from '../../core/services/mock-data.service';
   imports: [CommonModule],
   templateUrl: './my-tasks.component.html',
   styles: [`
-    .page { padding: 4px 0; }
+    .page { padding: 24px 28px 40px; }
     .panel { border: 1px solid var(--border); border-radius: 14px; background: #fff; }
     .task-list-row {
       display: flex;

@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserBase(BaseModel):
     email: EmailStr
-    full_name: str
+    full_name: Optional[str] = Field(default="User", alias="name")
     role: str = Field(
         ...,
         description="admin, manager, engineer, store_manager, finance, contractor, worker, client, vendor"
@@ -15,10 +15,15 @@ class UserBase(BaseModel):
         default="active",
         description="active, inactive, suspended, pending"
     )
+    avatar_url: Optional[str] = Field(default=None, alias="avatarUrl")
     vendor_id: Optional[str] = Field(
         default=None,
         description="Linked Vendor record ID for vendor users"
     )
+
+    class Config:
+        populate_by_name = True
+        extra = "allow"
 
 
 class UserCreate(UserBase):
@@ -34,8 +39,8 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: str = Field(alias="_id")
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
     class Config:
         populate_by_name = True

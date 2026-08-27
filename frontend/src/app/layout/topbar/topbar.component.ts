@@ -23,11 +23,17 @@ interface SearchResult {
 })
 export class TopbarComponent implements OnInit {
   @Input() title = 'Dashboard';
+  @Input() sidebarCollapsed = false;
   @Output() menuClick = new EventEmitter<void>();
 
   query = signal('');
   showResults = signal(false);
   showNotificationsPanel = signal(false);
+  showProfilePopup = signal(false);
+  isUploadingAvatar = signal(false);
+  uploadSuccessMessage = signal('');
+  uploadErrorMessage = signal('');
+  private profileCloseTimeout: any = null;
 
   results = computed<SearchResult[]>(() => {
     const term = this.query().trim().toLowerCase();
@@ -77,8 +83,112 @@ export class TopbarComponent implements OnInit {
     const target = event.target as HTMLElement;
     if (!this.elementRef.nativeElement.contains(target)) {
       this.showNotificationsPanel.set(false);
+      this.showProfilePopup.set(false);
       this.showResults.set(false);
     }
+  }
+
+  onProfileMouseEnter(): void {
+    if (this.profileCloseTimeout) {
+      clearTimeout(this.profileCloseTimeout);
+      this.profileCloseTimeout = null;
+    }
+    this.showProfilePopup.set(true);
+  }
+
+  onProfileMouseLeave(): void {
+    this.profileCloseTimeout = setTimeout(() => {
+      this.showProfilePopup.set(false);
+    }, 250);
+  }
+
+  toggleProfilePopup(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showProfilePopup.update((v) => !v);
+    if (this.showProfilePopup()) {
+      this.showNotificationsPanel.set(false);
+    }
+  }
+
+  getUserInitials(name?: string): string {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  getRoleBadgeColor(role?: string): string {
+    const r = (role || '').toLowerCase();
+    if (r.includes('admin')) return 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+    if (r.includes('manager')) return 'linear-gradient(135deg, #10b981, #059669)';
+    if (r.includes('engineer')) return 'linear-gradient(135deg, #f59e0b, #d97706)';
+    if (r.includes('contractor')) return 'linear-gradient(135deg, #8b5cf6, #6d28d9)';
+    if (r.includes('worker')) return 'linear-gradient(135deg, #ec4899, #be185d)';
+    if (r.includes('client')) return 'linear-gradient(135deg, #06b6d4, #0891b2)';
+    if (r.includes('vendor')) return 'linear-gradient(135deg, #f97316, #c2410c)';
+    return 'linear-gradient(135deg, #64748b, #475569)';
+  }
+
+  getRoleClass(role?: string): string {
+    const r = (role || '').toLowerCase();
+    if (r.includes('admin')) return 'role-admin';
+    if (r.includes('manager')) return 'role-manager';
+    if (r.includes('engineer')) return 'role-engineer';
+    if (r.includes('contractor')) return 'role-contractor';
+    if (r.includes('worker')) return 'role-worker';
+    if (r.includes('client')) return 'role-client';
+    if (r.includes('vendor')) return 'role-vendor';
+    return 'role-default';
+  }
+
+  onAvatarFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+      this.uploadErrorMessage.set('Please select an image file (JPG, PNG, WebP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.uploadErrorMessage.set('Image size should be less than 5MB.');
+      return;
+    }
+
+    this.isUploadingAvatar.set(true);
+    this.uploadErrorMessage.set('');
+    this.uploadSuccessMessage.set('');
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = reader.result as string;
+      this.auth.updateProfile({ avatar_url: base64Data }).subscribe({
+        next: () => {
+          this.isUploadingAvatar.set(false);
+          this.uploadSuccessMessage.set('Profile photo updated successfully!');
+          setTimeout(() => this.uploadSuccessMessage.set(''), 4000);
+        },
+        error: (err) => {
+          console.error('Failed to update avatar:', err);
+          this.isUploadingAvatar.set(false);
+          this.uploadErrorMessage.set('Failed to save profile picture. Please try again.');
+          setTimeout(() => this.uploadErrorMessage.set(''), 4000);
+        },
+      });
+    };
+    reader.onerror = () => {
+      this.isUploadingAvatar.set(false);
+      this.uploadErrorMessage.set('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  logout(): void {
+    this.showProfilePopup.set(false);
+    this.auth.logout();
   }
 
   ngOnInit(): void {

@@ -23,6 +23,18 @@ export class ProjectListComponent implements OnInit {
     return this.auth.currentUser()?.role === 'Worker';
   }
 
+  get isClientView(): boolean {
+    return this.auth.currentUser()?.role === 'Client';
+  }
+
+  get isContractorView(): boolean {
+    return this.auth.currentUser()?.role === 'Contractor';
+  }
+
+  get isReadOnlyView(): boolean {
+    return this.isWorkerView || this.isClientView || this.isContractorView;
+  }
+
   private myProjectIds = signal<string[] | null>(null);
   managers = signal<User[]>([]);
 
@@ -214,12 +226,32 @@ export class ProjectListComponent implements OnInit {
     if (this.isWorkerView) {
       const allowed = this.myProjectIds();
       list = allowed ? list.filter((p) => allowed.includes(p.id)) : [];
+    } else if (this.isClientView) {
+      const clientEmail = (this.auth.currentUser()?.email || '').trim().toLowerCase();
+      list = list.filter((p) =>
+        (p.clientEmail && p.clientEmail.trim().toLowerCase() === clientEmail) ||
+        (p.client && p.client.trim().toLowerCase() === clientEmail)
+      );
+    } else if (this.isContractorView) {
+      const user = this.auth.currentUser();
+      const email = (user?.email || '').trim().toLowerCase();
+      const name = (user?.name || '').trim().toLowerCase();
+      list = list.filter((p: any) =>
+        (p.contractor && (p.contractor.toLowerCase() === name || p.contractor.toLowerCase() === email)) ||
+        (p.contractorEmail && p.contractorEmail.toLowerCase() === email) ||
+        (p.contractor_id && p.contractor_id === user?.id) ||
+        (this.myProjectIds() && this.myProjectIds()!.includes(p.id))
+      );
     }
 
     // Search filter
     if (term) {
       list = list.filter(
-        (p) => p.name.toLowerCase().includes(term) || p.manager.toLowerCase().includes(term),
+        (p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.manager.toLowerCase().includes(term) ||
+          (p.client && p.client.toLowerCase().includes(term)) ||
+          (p.clientEmail && p.clientEmail.toLowerCase().includes(term)),
       );
     }
 
@@ -259,6 +291,7 @@ export class ProjectListComponent implements OnInit {
     endDate: [''],
     budget: [0, [Validators.required, Validators.min(0)]],
     client: [''],
+    clientEmail: ['', [Validators.email]],
     location: [''],
   });
 
@@ -285,7 +318,17 @@ export class ProjectListComponent implements OnInit {
   openAdd(): void {
     this.loadManagers();
     this.editingProject.set(null);
-    this.form.reset({ manager: '', category: 'Commercial', status: 'Not Started', startDate: this.today(), endDate: '', budget: 0, client: '', location: '' });
+    this.form.reset({
+      manager: '',
+      category: 'Commercial',
+      status: 'Not Started',
+      startDate: this.today(),
+      endDate: '',
+      budget: 0,
+      client: '',
+      clientEmail: '',
+      location: '',
+    });
     this.showAddModal.set(true);
   }
 
@@ -302,6 +345,7 @@ export class ProjectListComponent implements OnInit {
       endDate: this.toInputDate(project.endDate ?? ''),
       budget: project.budget ?? 0,
       client: project.client ?? '',
+      clientEmail: project.clientEmail ?? '',
       location: project.location ?? '',
     });
     this.showAddModal.set(true);
@@ -325,10 +369,11 @@ export class ProjectListComponent implements OnInit {
       status: v.status as ProjectStatus,
       progress: v.status === 'Completed' ? 100 : this.editingProject()?.progress ?? 0,
       startDate: v.startDate!,
-      endDate: v.endDate || undefined,
+      endDate: v.endDate ? v.endDate : '',
       budget: v.budget ?? 0,
-      client: v.client || undefined,
-      location: v.location || undefined,
+      client: v.client ? v.client.trim() : '',
+      clientEmail: v.clientEmail ? v.clientEmail.trim().toLowerCase() : '',
+      location: v.location ? v.location.trim() : '',
     };
     const editing = this.editingProject();
     if (editing) {

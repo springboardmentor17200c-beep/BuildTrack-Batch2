@@ -128,7 +128,7 @@
         <a routerLink="/projects" style="text-decoration: none; color: var(--blue); font-size: 13px; font-weight: 600;">View all projects →</a>
       </div>
       <div class="proj-list">
-        <div class="proj-row" *ngFor="let p of data.projects | slice:0:5">
+        <div class="proj-row" *ngFor="let p of visibleProjects | slice:0:5">
           <span class="thumb"><i class="fa-solid fa-building"></i></span>
           <div class="proj-row__text">
             <p class="cell-title">{{ p.name }}</p>
@@ -137,7 +137,7 @@
           <span class="badge" [ngClass]="statusBadgeClass(p.status)">{{ p.status }}</span>
           <span class="proj-row__pct">{{ p.progress || 0 }}%</span>
         </div>
-        <p *ngIf="!data.projects.length" style="padding: 24px; color: var(--muted);">
+        <p *ngIf="!visibleProjects.length" style="padding: 24px; color: var(--muted);">
           No projects yet.
         </p>
       </div>
@@ -149,7 +149,7 @@
         <a routerLink="/projects/milestones" style="text-decoration: none; color: var(--blue); font-size: 13px; font-weight: 600;">View all milestones →</a>
       </div>
       <div class="milestone-list">
-        <div class="milestone-row" *ngFor="let m of data.upcomingMilestones">
+        <div class="milestone-row" *ngFor="let m of upcomingMilestones">
           <span class="thumb"><i class="fa-regular fa-flag"></i></span>
           <div class="milestone-row__text">
             <p class="cell-title">{{ m.title }}</p>
@@ -157,7 +157,7 @@
           </div>
           <span class="milestone-date">{{ m.date }}</span>
         </div>
-        <p *ngIf="!data.upcomingMilestones.length" style="padding: 24px; color: var(--muted);">
+        <p *ngIf="!upcomingMilestones.length" style="padding: 24px; color: var(--muted);">
           No milestones yet.
         </p>
       </div>

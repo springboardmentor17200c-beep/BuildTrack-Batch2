@@ -14,11 +14,11 @@ import { NotificationService } from '../../core/services/notification.service';
   imports: [CommonModule, RouterLink],
   templateUrl: './worker-dashboard.component.html',
   styles: [`
-    .page { padding: 4px 0; }
+    .page { padding: 24px 28px 40px; }
 
     .stat-row {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 14px;
       margin-bottom: 18px;
     }
@@ -32,6 +32,7 @@ import { NotificationService } from '../../core/services/notification.service';
 
     .stat-card p { margin: 0; color: var(--muted); font-size: 12.5px; font-weight: 700; }
     .stat-card strong { display: block; margin-top: 6px; font-size: 26px; }
+    .stat-card .subtext { display: block; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
     .stat-card.present strong { color: #16a34a; }
     .stat-card.absent strong { color: #dc2626; }
 
@@ -83,6 +84,12 @@ export class WorkerDashboardComponent implements OnInit {
   workerId = signal<string | null>(null);
 
   todaysAttendanceStatus = signal<'present' | 'absent' | 'leave' | 'not_marked'>('not_marked');
+  monthlyAttendancePercentage = signal<number | null>(null);
+  monthlyAttendanceDetails = signal<{ present: number; total: number }>({ present: 0, total: 0 });
+  currentMonthName = computed(() => {
+    return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  });
+
   rawTasks = signal<any[]>([]);
 
   currentProjectName = signal<string>('');
@@ -122,11 +129,31 @@ export class WorkerDashboardComponent implements OnInit {
 
   private loadTodaysAttendance(workerId: string): void {
     const today = this.today();
+    const currentMonthPrefix = today.slice(0, 7); // 'YYYY-MM'
     this.workforceService.getAttendance({ workerId }).subscribe({
       next: (response: any) => {
         const list = Array.isArray(response) ? response : response?.items || response?.data || [];
         const todaysRecord = list.find((r: any) => String(r.date || '').slice(0, 10) === today);
         this.todaysAttendanceStatus.set(todaysRecord?.status || 'not_marked');
+
+        // Current month attendance calculation with daily deduplication
+        const monthRecords = list.filter((r: any) => String(r.date || '').slice(0, 7) === currentMonthPrefix);
+        const dayMap = new Map<string, string>();
+        for (const r of monthRecords) {
+          const d = String(r.date || '').slice(0, 10);
+          if (d && r.status) {
+            dayMap.set(d, String(r.status).toLowerCase());
+          }
+        }
+
+        let present = 0;
+        for (const st of dayMap.values()) {
+          if (st === 'present') present++;
+        }
+        const total = dayMap.size;
+        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+        this.monthlyAttendancePercentage.set(pct);
+        this.monthlyAttendanceDetails.set({ present, total });
       },
       error: (error) => console.error('Failed to load attendance', error),
     });

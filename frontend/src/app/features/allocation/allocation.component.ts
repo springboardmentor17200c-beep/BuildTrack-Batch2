@@ -31,10 +31,30 @@ export class AllocationComponent implements OnInit {
   showAddModal = signal(false);
   editingAllocation = signal<any | null>(null);
 
+  siteRoles = ['Site Engineer', 'Contractor', 'Project Manager', 'Worker'];
+  workerTrades = [
+    'General Laborer',
+    'Mason',
+    'Electrician',
+    'Plumber',
+    'Carpenter',
+    'Welder',
+    'Painter',
+    'Heavy Equipment Operator',
+    'Bar Bender',
+    'Tile Layer',
+    'Scaffolder',
+    'Rigger',
+    'Foreman / Supervisor',
+    'Other (Custom)',
+  ];
+
   form = this.fb.group({
     workerId: ['', Validators.required],
     projectId: ['', Validators.required],
-    role: [''],
+    siteRole: ['', Validators.required],
+    workerRole: ['General Laborer'],
+    customWorkerRole: [''],
     startDate: [this.today(), Validators.required],
     endDate: [''],
     status: ['ACTIVE', Validators.required],
@@ -184,7 +204,9 @@ export class AllocationComponent implements OnInit {
     this.form.reset({
       workerId: this.workers()[0]?.id || this.workers()[0]?._id || '',
       projectId: projId,
-      role: '',
+      siteRole: '',
+      workerRole: 'General Laborer',
+      customWorkerRole: '',
       startDate: this.today(),
       endDate: '',
       status: 'ACTIVE',
@@ -195,16 +217,59 @@ export class AllocationComponent implements OnInit {
 
   openEdit(allocation: any): void {
     this.editingAllocation.set(allocation);
+    const parsedRole = this.parseAllocationRole(allocation.role);
     this.form.reset({
       workerId: allocation.workerId,
       projectId: allocation.projectId,
-      role: allocation.role || '',
+      siteRole: parsedRole.siteRole,
+      workerRole: parsedRole.workerRole,
+      customWorkerRole: parsedRole.customWorkerRole,
       startDate: allocation.startDate,
       endDate: allocation.endDate || '',
       status: allocation.status,
     });
     this.errorMessage.set('');
     this.showAddModal.set(true);
+  }
+
+  computeFinalRole(val: any): string {
+    const siteRole = val.siteRole || 'Worker';
+    if (siteRole !== 'Worker') {
+      return siteRole;
+    }
+    const trade = val.workerRole === 'Other (Custom)'
+      ? (val.customWorkerRole?.trim() || 'Worker')
+      : (val.workerRole || 'General Laborer');
+    return `Worker - ${trade}`;
+  }
+
+  parseAllocationRole(roleStr?: string): { siteRole: string; workerRole: string; customWorkerRole: string } {
+    if (!roleStr || roleStr === '-') {
+      return { siteRole: 'Worker', workerRole: 'General Laborer', customWorkerRole: '' };
+    }
+
+    const trimmed = roleStr.trim();
+    if (trimmed === 'Site Engineer' || trimmed === 'Contractor' || trimmed === 'Project Manager') {
+      return { siteRole: trimmed, workerRole: 'General Laborer', customWorkerRole: '' };
+    }
+
+    if (trimmed.startsWith('Worker - ')) {
+      const trade = trimmed.replace('Worker - ', '').trim();
+      if (this.workerTrades.includes(trade)) {
+        return { siteRole: 'Worker', workerRole: trade, customWorkerRole: '' };
+      }
+      return { siteRole: 'Worker', workerRole: 'Other (Custom)', customWorkerRole: trade };
+    }
+
+    if (trimmed === 'Worker') {
+      return { siteRole: 'Worker', workerRole: 'General Laborer', customWorkerRole: '' };
+    }
+
+    if (this.workerTrades.includes(trimmed)) {
+      return { siteRole: 'Worker', workerRole: trimmed, customWorkerRole: '' };
+    }
+
+    return { siteRole: 'Worker', workerRole: 'Other (Custom)', customWorkerRole: trimmed };
   }
 
   closeAdd(): void {
@@ -224,13 +289,14 @@ export class AllocationComponent implements OnInit {
 
     this.saving.set(true);
     const v = this.form.getRawValue();
+    const finalRole = this.computeFinalRole(v);
     const editing = this.editingAllocation();
 
     if (editing?.id) {
       // Allocation update only accepts role/start_date/end_date/status —
       // worker_id/project_id can't be changed on an existing allocation.
       const payload = {
-        role: v.role || undefined,
+        role: finalRole,
         start_date: new Date(v.startDate!).toISOString(),
         end_date: v.endDate ? new Date(v.endDate).toISOString() : undefined,
         status: v.status,
@@ -250,7 +316,7 @@ export class AllocationComponent implements OnInit {
     const payload = {
       worker_id: v.workerId,
       project_id: v.projectId,
-      role: v.role || undefined,
+      role: finalRole,
       start_date: new Date(v.startDate!).toISOString(),
       end_date: v.endDate ? new Date(v.endDate).toISOString() : undefined,
       status: v.status,

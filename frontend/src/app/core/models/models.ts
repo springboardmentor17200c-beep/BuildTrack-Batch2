@@ -46,6 +46,7 @@ export interface Project {
   endDate?: string;
   budget?: number;
   client?: string;
+  clientEmail?: string;
   location?: string;
 }
 

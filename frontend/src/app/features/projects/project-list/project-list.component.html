@@ -1,6 +1,6 @@
 <div class="page">
   <div class="page-header">
-    <h1>{{ isWorkerView ? 'My Projects' : 'Projects' }}</h1>
+    <h1>{{ isReadOnlyView ? 'My Projects' : 'Projects' }}</h1>
     <div class="toolbar">
       <div class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -62,7 +62,7 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" (click)="openAdd()" *ngIf="!isWorkerView"><i class="fa-solid fa-plus"></i> New Project</button>
+      <button class="btn btn-primary" (click)="openAdd()" *ngIf="!isReadOnlyView"><i class="fa-solid fa-plus"></i> New Project</button>
     </div>
   </div>
 
@@ -90,11 +90,12 @@
         <thead>
           <tr>
             <th>Project Name</th>
+            <th>Client</th>
             <th>Manager</th>
             <th>Status</th>
             <th>Progress</th>
             <th>Start Date</th>
-            <th *ngIf="!isWorkerView">Actions</th>
+            <th *ngIf="!isReadOnlyView">Actions</th>
             <th></th>
           </tr>
         </thead>
@@ -102,6 +103,12 @@
           <tr *ngFor="let p of paginatedProjects">
             <td>
               <a [routerLink]="['/projects', p.id]" class="cell-title" style="color:inherit">{{ p.name }}</a>
+              <div class="cell-sub" *ngIf="p.category" style="color: var(--muted); font-size: 12px;">{{ p.category }}</div>
+            </td>
+            <td>
+              <div class="cell-title" *ngIf="p.client">{{ p.client }}</div>
+              <div class="cell-sub" *ngIf="p.clientEmail" style="color: var(--blue); font-size: 12px;">{{ p.clientEmail }}</div>
+              <span *ngIf="!p.client && !p.clientEmail" style="color: var(--muted); font-size: 12px;">-</span>
             </td>
             <td>{{ p.manager }}</td>
             <td><span class="badge" [ngClass]="statusBadgeClass(p.status)">{{ p.status }}</span></td>
@@ -112,7 +119,7 @@
               </div>
             </td>
             <td>{{ p.startDate }}</td>
-            <td *ngIf="!isWorkerView">
+            <td *ngIf="!isReadOnlyView">
               <div class="action-row">
                 <button class="icon-action" type="button" title="Edit project" (click)="openEdit(p)">
                   <i class="fa-solid fa-pen"></i>
@@ -125,7 +132,7 @@
             <td><a [routerLink]="['/projects', p.id]" class="link">View →</a></td>
           </tr>
           <tr *ngIf="filteredProjects.length === 0">
-            <td [attr.colspan]="isWorkerView ? 6 : 7" style="text-align:center; padding: 30px; color: var(--muted);">
+            <td [attr.colspan]="isReadOnlyView ? 7 : 8" style="text-align:center; padding: 30px; color: var(--muted);">
               No projects found matching the criteria.
             </td>
           </tr>
@@ -172,7 +179,7 @@
           <select id="pmanager" formControlName="manager">
             <option value="" disabled selected>Select Manager</option>
             <option value="Unassigned">Unassigned</option>
-            <option *ngFor="let m of managers()" [value]="getManagerName(m)">
+            <option *ngFor="let m of projectManagers()" [value]="getManagerName(m)">
               {{ getManagerName(m) }} ({{ m.email }})
             </option>
             <option *ngIf="form.get('manager')?.value && form.get('manager')?.value !== 'Unassigned' && !isManagerInList(form.get('manager')?.value)" [value]="form.get('manager')?.value">
@@ -183,13 +190,18 @@
         </div>
         <div class="modal-field-row">
           <div class="modal-field">
-            <label for="pclient">Client</label>
+            <label for="pclient">Client Name</label>
             <input id="pclient" type="text" formControlName="client" placeholder="e.g. ABC Developers" />
           </div>
           <div class="modal-field">
-            <label for="plocation">Location</label>
-            <input id="plocation" type="text" formControlName="location" placeholder="e.g. Kolkata" />
+            <label for="pclientEmail">Client Email</label>
+            <input id="pclientEmail" type="email" formControlName="clientEmail" placeholder="e.g. client@example.com" />
+            <p class="modal-error" *ngIf="form.get('clientEmail')?.touched && form.get('clientEmail')?.invalid">Invalid email format.</p>
           </div>
+        </div>
+        <div class="modal-field">
+          <label for="plocation">Location</label>
+          <input id="plocation" type="text" formControlName="location" placeholder="e.g. Kolkata" />
         </div>
         <div class="modal-field-row">
           <div class="modal-field">

@@ -7,6 +7,12 @@ import { TopbarComponent } from '../topbar/topbar.component';
 
 const TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
+  'worker-dashboard': 'Worker Dashboard',
+  'vendor-dashboard': 'Vendor Portal',
+  'my-tasks': 'My Tasks',
+  'my-attendance': 'My Attendance',
+  'my-schedule': 'My Schedule',
+  'my-projects': 'My Projects',
   projects: 'Projects',
   resources: 'Resources',
   inventory: 'Inventory',
@@ -15,6 +21,8 @@ const TITLES: Record<string, string> = {
   procurement: 'Procurement',
   reports: 'Reports & Analytics',
   analytics: 'Reports & Analytics',
+  notifications: 'Notifications',
+  settings: 'Settings',
 };
 
 @Component({
@@ -26,33 +34,47 @@ const TITLES: Record<string, string> = {
 })
 export class MainLayoutComponent {
   pageTitle = signal('Dashboard');
-  sidebarOpen = signal(false);
+  sidebarMobileOpen = signal(false);
+  sidebarCollapsed = signal(false); // Default OPEN (not shrunk)
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
   ) {
+    this.pageTitle.set(this.resolveTitle(this.router.url));
+
     this.router.events
       .pipe(
         filter((e) => e instanceof NavigationEnd),
-        map(() => {
-          const path = this.router.url.split('?')[0];
-          if (path.includes('vendor-dashboard')) return 'Vendor Portal';
-          const segment = path.split('/')[1] || 'dashboard';
-          return TITLES[segment] ?? 'BuildTrack';
-        }),
+        map(() => this.resolveTitle(this.router.url)),
       )
       .subscribe((title) => {
         this.pageTitle.set(title);
-        this.sidebarOpen.set(false);
+        this.sidebarMobileOpen.set(false);
       });
   }
 
-  toggleSidebar(): void {
-    this.sidebarOpen.update((v) => !v);
+  private resolveTitle(url: string): string {
+    const path = url.split('?')[0].replace(/^\/+/, '');
+    if (path.includes('vendor-dashboard')) return 'Vendor Portal';
+    if (path.includes('worker-dashboard')) return 'Worker Dashboard';
+    if (path.includes('my-tasks')) return 'My Tasks';
+    if (path.includes('my-attendance')) return 'My Attendance';
+    if (path.includes('my-schedule')) return 'My Schedule';
+    if (path.includes('my-projects')) return 'My Projects';
+    const segment = path.split('/')[0] || 'dashboard';
+    return TITLES[segment] ?? 'Dashboard';
   }
 
-  closeSidebar(): void {
-    this.sidebarOpen.set(false);
+  toggleSidebar(): void {
+    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+      this.sidebarMobileOpen.update((v) => !v);
+    } else {
+      this.sidebarCollapsed.update((v) => !v);
+    }
+  }
+
+  closeMobileSidebar(): void {
+    this.sidebarMobileOpen.set(false);
   }
 }

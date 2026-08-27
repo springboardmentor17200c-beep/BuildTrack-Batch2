@@ -1,15 +1,67 @@
 <div class="page">
   <p class="crumb"><a routerLink="/dashboard" class="link">Dashboard</a> &nbsp;/&nbsp; Reports</p>
+  
   <div class="page-header">
-    <h1>Reports &amp; Analytics</h1>
+    <div>
+      <h1>Reports &amp; Analytics</h1>
+      <p class="page-subtitle">Cumulative portfolio report &amp; analytics calculated till the selected date.</p>
+    </div>
+
     <div class="toolbar">
-      <button class="btn-filter"><i class="fa-regular fa-calendar"></i> {{ reportDateRange }}</button>
+      <div class="date-picker-wrap">
+        <label for="reportDate" class="date-label"><i class="fa-regular fa-calendar"></i> Report Till:</label>
+        <input
+          id="reportDate"
+          type="date"
+          class="date-input"
+          [ngModel]="selectedDate()"
+          [max]="todayStr"
+          (ngModelChange)="onDateChange($event)"
+          title="Select report date (future dates disabled)"
+        />
+      </div>
+
       <button class="btn btn-primary" type="button" (click)="downloadReport()">
-        <i class="fa-solid fa-download"></i> Download Report
+        <i class="fa-solid fa-download"></i> Export Report
       </button>
     </div>
   </div>
 
+  <!-- Quick Date Selector Pills -->
+  <div class="date-presets">
+    <button class="preset-btn" [class.active]="isOverall()" (click)="setOverallMode()">
+      <i class="fa-solid fa-chart-pie"></i> Overall (All Time)
+    </button>
+    <button class="preset-btn" [class.active]="isToday" (click)="setDateOffset(0)">
+      <i class="fa-solid fa-bolt"></i> Till Today (Live)
+    </button>
+    <button class="preset-btn" [class.active]="!isOverall() && daysInPast === 1" (click)="setDateOffset(1)">
+      Till Yesterday
+    </button>
+    <button class="preset-btn" [class.active]="!isOverall() && daysInPast === 7" (click)="setDateOffset(7)">
+      Till 7 Days Ago
+    </button>
+    <button class="preset-btn" [class.active]="!isOverall() && daysInPast === 30" (click)="setDateOffset(30)">
+      Till 30 Days Ago
+    </button>
+  </div>
+
+  <!-- Snapshot Status Banner -->
+  <div class="snapshot-banner" [class.live]="isToday || isOverall()" [class.historical]="!isToday && !isOverall()">
+    <div class="snapshot-banner__icon">
+      <i class="fa-solid" [ngClass]="isOverall() ? 'fa-chart-pie' : (isToday ? 'fa-circle-dot' : 'fa-clock-rotate-left')"></i>
+    </div>
+    <div class="snapshot-banner__text">
+      <h4 *ngIf="isOverall()">Showing Overall Portfolio Report &amp; Analytics (All-Time Portfolio Performance)</h4>
+      <h4 *ngIf="isToday">Showing Complete Report &amp; Analytics Till Current Date ({{ formattedDateDisplay }})</h4>
+      <h4 *ngIf="!isToday && !isOverall()">Showing Previous Report &amp; Analytics Till {{ formattedDateDisplay }} ({{ daysInPast }} days ago)</h4>
+      <p *ngIf="isOverall()">Lifetime overview aggregating total budgets, overall average completion progress, and project statuses.</p>
+      <p *ngIf="isToday">All figures and progress indicators reflect latest live database records up to today.</p>
+      <p *ngIf="!isToday && !isOverall()">Metrics and project statuses represent cumulative portfolio progress achieved till {{ formattedDateDisplay }}. Future dates cannot be selected.</p>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
   <div class="summary-strip">
     <div class="summary-item" *ngFor="let s of summary">
       <p class="summary-value">{{ s.value }}</p>
@@ -17,9 +69,12 @@
     </div>
   </div>
 
+  <!-- Charts Grid -->
   <div class="grid-2">
     <div class="panel">
-      <div class="panel-header"><h3>Budget vs Expense</h3></div>
+      <div class="panel-header">
+        <h3>Budget vs Expense ({{ formattedDateDisplay }})</h3>
+      </div>
       <div class="bar-legend">
         <span><i class="budget"></i>Budget</span>
         <span><i class="expense"></i>Expense</span>
@@ -55,7 +110,9 @@
     </div>
 
     <div class="panel">
-      <div class="panel-header"><h3>Project Progress</h3></div>
+      <div class="panel-header">
+        <h3>Project Progress ({{ isOverall() ? 'Overall Average' : formattedDateDisplay }})</h3>
+      </div>
       <div class="progress-donut-wrap">
         <div class="progress-donut" [style.background]="progressRingStyle">
           <div class="progress-donut__label">
@@ -70,6 +127,48 @@
           <div class="report-bar__track"><span class="progress" [style.width.%]="averageProgress"></span></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Projects Snapshot Table -->
+  <div class="panel" style="margin-top: 18px;">
+    <div class="panel-header">
+      <h3>Projects Progress Breakdown ({{ formattedDateDisplay }})</h3>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Status as of Date</th>
+            <th>Progress at Date</th>
+            <th>Budget</th>
+            <th>Start Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of historicalProjects()">
+            <td>
+              <a [routerLink]="['/projects', p.id]" class="cell-title">{{ p.name }}</a>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="getStatusClass(p.historicalStatus)">
+                {{ normalizeStatus(p.historicalStatus) }}
+              </span>
+            </td>
+            <td>
+              <div class="progress-row">
+                <div class="progress-mini">
+                  <span [style.width.%]="p.historicalProgress"></span>
+                </div>
+                <span>{{ p.historicalProgress }}%</span>
+              </div>
+            </td>
+            <td>Rs {{ p.budget | number }}</td>
+            <td>{{ p.startDate }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

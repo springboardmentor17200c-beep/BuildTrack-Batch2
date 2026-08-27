@@ -39,16 +39,15 @@ const ALL_ROLES: UserRole[] = [
 })
 export class SidebarComponent {
   @Input() open = false;
+  @Input() collapsed = false;
   @Output() linkClick = new EventEmitter<void>();
+  @Output() toggleCollapse = new EventEmitter<void>();
 
   private allNavItems: NavGroup[] = [
     { label: 'Dashboard', icon: 'fa-table-columns', route: '/dashboard', roles: INTERNAL_ROLES },
 
     // -----------------------------------------------------------
-    // WORKER-ONLY flat nav (the "Projects"/"Workers" groups below
-    // are gated away from Worker at the parent-item level, so a
-    // Worker needs its own top-level entries even where the
-    // underlying route is shared, e.g. /attendance).
+    // WORKER-ONLY flat nav
     // -----------------------------------------------------------
     { label: 'My Tasks', icon: 'fa-list-check', route: '/my-tasks', roles: ['Worker'] },
     { label: 'My Attendance', icon: 'fa-clock', route: '/attendance', roles: ['Worker'] },
@@ -73,13 +72,13 @@ export class SidebarComponent {
       label: 'Resources',
       icon: 'fa-truck-monster',
       route: '/resources',
-      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+      roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
       children: [
         {
           label: 'Equipment',
           icon: 'fa-truck',
           route: '/resources/equipment',
-          roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
         },
       ],
     },
@@ -87,13 +86,13 @@ export class SidebarComponent {
       label: 'Inventory',
       icon: 'fa-boxes-stacked',
       route: '/inventory',
-      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+      roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
       children: [
         {
           label: 'Stock Monitor',
           icon: 'fa-warehouse',
           route: '/inventory/stock-monitoring',
-          roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
         },
       ],
     },
@@ -101,25 +100,25 @@ export class SidebarComponent {
       label: 'Workers',
       icon: 'fa-helmet-safety',
       route: '/workers',
-      roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+      roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
       children: [
         {
           label: 'Attendance',
           icon: 'fa-clock',
           route: '/attendance',
-          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Worker'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor', 'Worker'],
         },
         {
           label: 'Shifts',
           icon: 'fa-calendar-days',
           route: '/workers/shift-scheduling',
-          roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
         },
         {
           label: 'Allocation',
           icon: 'fa-diagram-project',
           route: '/workers/allocation',
-          roles: ['Administrator', 'Project Manager', 'Site Engineer'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
         },
         {
           label: 'Payroll',
@@ -133,18 +132,18 @@ export class SidebarComponent {
       label: 'Procurement',
       icon: 'fa-cart-shopping',
       route: '/procurement',
-      roles: ['Administrator', 'Project Manager'],
+      roles: ['Administrator', 'Project Manager', 'Contractor'],
       children: [
-        {
-          label: 'Vendors',
-          icon: 'fa-address-book',
-          route: '/procurement/vendors',
-          roles: ['Administrator', 'Project Manager'],
-        },
         {
           label: 'Purchase Orders',
           icon: 'fa-file-invoice',
           route: '/procurement/purchase-orders',
+          roles: ['Administrator', 'Project Manager', 'Contractor'],
+        },
+        {
+          label: 'Vendors',
+          icon: 'fa-address-book',
+          route: '/procurement/vendors',
           roles: ['Administrator', 'Project Manager'],
         },
         {
@@ -157,7 +156,7 @@ export class SidebarComponent {
           label: 'Requests',
           icon: 'fa-file-circle-plus',
           route: '/procurement/request',
-          roles: ['Administrator', 'Project Manager'],
+          roles: ['Administrator', 'Project Manager', 'Site Engineer', 'Contractor'],
         },
       ],
     },
@@ -215,18 +214,18 @@ export class SidebarComponent {
       label: 'Reports',
       icon: 'fa-chart-column',
       route: '/reports',
-      roles: ['Administrator', 'Project Manager', 'Client'],
+      roles: ['Administrator', 'Project Manager', 'Contractor', 'Client'],
       children: [
-        {
-          label: 'Budget Analytics',
-          icon: 'fa-chart-pie',
-          route: '/analytics/budget',
-          roles: ['Administrator', 'Project Manager', 'Client'],
-        },
         {
           label: 'Progress Analytics',
           icon: 'fa-chart-line',
           route: '/analytics/progress',
+          roles: ['Administrator', 'Project Manager', 'Contractor', 'Client'],
+        },
+        {
+          label: 'Budget Analytics',
+          icon: 'fa-chart-pie',
+          route: '/analytics/budget',
           roles: ['Administrator', 'Project Manager', 'Client'],
         },
         {
@@ -251,7 +250,6 @@ export class SidebarComponent {
     },
   ];
 
-  
   navItems = computed(() => {
     const role = this.auth.currentUser()?.role;
     return this.allNavItems

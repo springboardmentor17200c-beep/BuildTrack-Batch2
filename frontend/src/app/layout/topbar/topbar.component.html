@@ -1,6 +1,8 @@
 <header class="topbar">
   <div class="topbar__title">
-    <button class="topbar__menu" (click)="menuClick.emit()"><i class="fa-solid fa-bars"></i></button>
+    <button class="topbar__menu" [class.desktop-visible]="sidebarCollapsed" (click)="menuClick.emit()" title="Toggle navigation menu">
+      <i class="fa-solid fa-bars"></i>
+    </button>
     <h2>{{ title }}</h2>
   </div>
 
@@ -77,8 +79,87 @@
       </div>
     </div>
 
-    <ng-container *ngIf="auth.currentUser() as user">
-      <img class="topbar__avatar" [src]="user.avatarUrl || 'assets/default-avatar.svg'" alt="" />
-    </ng-container>
+    <!-- Profile Wrapper with Hover Popover & Photo Upload -->
+    <div
+      class="topbar__profile-wrapper"
+      *ngIf="auth.currentUser() as user"
+      (mouseenter)="onProfileMouseEnter()"
+      (mouseleave)="onProfileMouseLeave()"
+    >
+      <button class="topbar__avatar-btn" type="button" (click)="toggleProfilePopup($event)" title="View Profile">
+        <img
+          *ngIf="user.avatarUrl"
+          class="topbar__avatar"
+          [src]="user.avatarUrl"
+          [alt]="user.name"
+        />
+        <div
+          *ngIf="!user.avatarUrl"
+          class="topbar__avatar-initials"
+          [style.background]="getRoleBadgeColor(user.role)"
+        >
+          {{ getUserInitials(user.name) }}
+        </div>
+      </button>
+
+      <!-- Profile Hover / Click Popover Card -->
+      <div class="profile-popover" *ngIf="showProfilePopup()">
+        <div class="profile-popover__header">
+          <div class="profile-avatar-container">
+            <img
+              *ngIf="user.avatarUrl"
+              class="profile-avatar-large"
+              [src]="user.avatarUrl"
+              [alt]="user.name"
+            />
+            <div
+              *ngIf="!user.avatarUrl"
+              class="profile-avatar-large-initials"
+              [style.background]="getRoleBadgeColor(user.role)"
+            >
+              {{ getUserInitials(user.name) }}
+            </div>
+
+            <!-- Camera Overlay for Photo Upload -->
+            <label class="avatar-upload-badge" title="Upload profile photo" [class.uploading]="isUploadingAvatar()">
+              <i class="fa-solid" [ngClass]="isUploadingAvatar() ? 'fa-spinner fa-spin' : 'fa-camera'"></i>
+              <input
+                type="file"
+                accept="image/*"
+                (change)="onAvatarFileSelected($event)"
+                style="display: none;"
+                [disabled]="isUploadingAvatar()"
+              />
+            </label>
+          </div>
+
+          <div class="profile-info">
+            <h4 class="profile-name">{{ user.name }}</h4>
+            <p class="profile-email">{{ user.email }}</p>
+            <span class="profile-role-badge" [ngClass]="getRoleClass(user.role)">
+              <i class="fa-solid fa-shield-halved"></i> {{ user.role }}
+            </span>
+          </div>
+        </div>
+
+        <div class="profile-popover__actions" *ngIf="uploadSuccessMessage() || uploadErrorMessage() || isUploadingAvatar()">
+          <p class="upload-feedback info" *ngIf="isUploadingAvatar()">
+            <i class="fa-solid fa-spinner fa-spin"></i> Uploading profile photo...
+          </p>
+          <p class="upload-feedback success" *ngIf="uploadSuccessMessage()">
+            <i class="fa-solid fa-circle-check"></i> {{ uploadSuccessMessage() }}
+          </p>
+          <p class="upload-feedback error" *ngIf="uploadErrorMessage()">
+            <i class="fa-solid fa-circle-exclamation"></i> {{ uploadErrorMessage() }}
+          </p>
+        </div>
+
+        <div class="profile-popover__footer">
+          <button class="btn-logout" type="button" (click)="logout()">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </header>

@@ -211,6 +211,7 @@ export class AuthService {
       email: user.email,
       role: this.toFrontendRole(user.role),
       status: this.toFrontendStatus(user.status),
+      avatarUrl: user.avatar_url || user.avatarUrl || undefined,
       vendorId: user.vendor_id,
       workerId: workerId,
     };
@@ -270,6 +271,65 @@ export class AuthService {
   getManagers(): Observable<User[]> {
     return this.http.get<BackendUser[]>(`${this.apiBase}/auth/managers`).pipe(
       map((users) => (users || []).map((u) => this.toFrontendUser(u))),
+    );
+  }
+
+  getUsers(): Observable<User[]> {
+    return this.http.get<BackendUser[]>(`${this.apiBase}/auth/users`).pipe(
+      map((users) => (users || []).map((u) => this.toFrontendUser(u))),
+    );
+  }
+
+  updateUser(userId: string, data: { name?: string; email?: string; role?: string; status?: string }): Observable<User> {
+    const payload: any = {};
+    if (data.name) payload.full_name = data.name;
+    if (data.email) payload.email = data.email;
+    if (data.role) payload.role = data.role;
+    if (data.status) payload.status = data.status;
+
+    return this.http.put<BackendUser>(`${this.apiBase}/auth/users/${userId}`, payload).pipe(
+      map((u) => this.toFrontendUser(u)),
+    );
+  }
+
+  deleteUser(userId: string, banEmail: boolean = true): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiBase}/auth/users/${userId}?ban_email=${banEmail}`);
+  }
+
+  setUserStatus(userId: string, statusValue: string): Observable<User> {
+    return this.http.post<BackendUser>(`${this.apiBase}/auth/users/${userId}/status?status_value=${statusValue}`, {}).pipe(
+      map((u) => this.toFrontendUser(u)),
+    );
+  }
+
+  updateProfile(data: {
+    name?: string;
+    full_name?: string;
+    email?: string;
+    avatar_url?: string;
+    current_password?: string;
+    new_password?: string;
+  }): Observable<{ message: string; user: User; access_token?: string; changes?: string[] }> {
+    return this.http.put<any>(`${this.apiBase}/auth/profile`, data).pipe(
+      tap((res) => {
+        if (res?.access_token) {
+          localStorage.setItem(TOKEN_KEY, res.access_token);
+        }
+        if (res?.user) {
+          const feUser = this.toFrontendUser(res.user);
+          if (data.avatar_url) {
+            feUser.avatarUrl = data.avatar_url;
+          }
+          localStorage.setItem(USER_KEY, JSON.stringify(feUser));
+          this.currentUser.set(feUser);
+        }
+      }),
+      map((res) => ({
+        message: res.message,
+        user: this.toFrontendUser(res.user),
+        access_token: res.access_token,
+        changes: res.changes,
+      })),
     );
   }
 

@@ -36,7 +36,18 @@ export class ProjectDetailsComponent {
   tabs = ['Overview', 'Milestones', 'Tasks', 'Resources', 'Documents', 'Reports'];
 
   get isReadOnly(): boolean {
-    return this.auth.currentUser()?.role === 'Worker';
+    const role = this.auth.currentUser()?.role;
+    return role === 'Worker' || role === 'Client';
+  }
+
+  get canEditProjectInfo(): boolean {
+    const role = this.auth.currentUser()?.role;
+    return role === 'Administrator' || role === 'Project Manager';
+  }
+
+  get canUploadDocument(): boolean {
+    const role = this.auth.currentUser()?.role;
+    return role === 'Administrator' || role === 'Project Manager' || role === 'Site Engineer' || role === 'Contractor' || role === 'Client';
   }
   project: Project = {
     id: '',

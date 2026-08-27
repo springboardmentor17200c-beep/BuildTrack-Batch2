@@ -120,8 +120,23 @@
         </div>
 
         <div class="modal-field">
-          <label for="alrole">Role on Site</label>
-          <input id="alrole" type="text" formControlName="role" placeholder="e.g. Site Supervisor" />
+          <label for="alsiterole">Role on Site</label>
+          <select id="alsiterole" formControlName="siteRole">
+            <option value="" disabled selected>Select your role on site</option>
+            <option *ngFor="let r of siteRoles" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+
+        <div class="modal-field" *ngIf="form.get('siteRole')?.value === 'Worker'">
+          <label for="alworkerrole">Worker Role / Trade</label>
+          <select id="alworkerrole" formControlName="workerRole">
+            <option *ngFor="let trade of workerTrades" [value]="trade">{{ trade }}</option>
+          </select>
+        </div>
+
+        <div class="modal-field" *ngIf="form.get('siteRole')?.value === 'Worker' && form.get('workerRole')?.value === 'Other (Custom)'">
+          <label for="alcustomrole">Specify Worker Role</label>
+          <input id="alcustomrole" type="text" formControlName="customWorkerRole" placeholder="e.g. Concrete Specialist" />
         </div>
 
         <div class="modal-field-row">

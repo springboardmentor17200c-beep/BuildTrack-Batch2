@@ -56,8 +56,4 @@ export class LoginComponent {
       },
     });
   }
-
-  continueWith(provider: 'google' | 'microsoft'): void {
-    this.errorMessage.set(`${provider === 'google' ? 'Google' : 'Microsoft'} sign-in will be added in Milestone 2.`);
-  }
 }

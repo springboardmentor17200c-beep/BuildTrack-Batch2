@@ -347,11 +347,11 @@ export class MockDataService {
 
   private collectionUrl(path: string): string {
     const modulePaths: Record<string, string> = {
-      projects: `${this.apiBase}/projects/`,
-      resources: `${this.apiBase}/resources/`,
-      inventory: `${this.apiBase}/inventory/`,
-      workers: `${this.apiBase}/workforce/workers/`,
-      attendance: `${this.apiBase}/workforce/attendance/`,
+      projects: `${this.apiBase}/projects`,
+      resources: `${this.apiBase}/resources`,
+      inventory: `${this.apiBase}/inventory`,
+      workers: `${this.apiBase}/workforce/workers`,
+      attendance: `${this.apiBase}/workforce/attendance`,
     };
 
     return modulePaths[path] ?? `${this.frontendDataBase}/${path}`;
@@ -393,6 +393,8 @@ export class MockDataService {
         name: project.name,
         category: project.category || 'Commercial',
         client: project.client || '',
+        client_email: project.clientEmail || '',
+        clientEmail: project.clientEmail || '',
         description: project.category || 'Commercial',
         project_manager_id: project.manager || project.managerId || 'unassigned',
         start_date: this.toIsoDate(project.startDate),
@@ -401,7 +403,7 @@ export class MockDataService {
         status: this.toBackendProjectStatus(project.status),
         location: project.location ?? '',
       };
-      return partial ? this.pick(mapped, ['name', 'category', 'client', 'description', 'project_manager_id', 'start_date', 'status', 'budget', 'end_date', 'location']) : mapped;
+      return partial ? this.pick(mapped, ['name', 'category', 'client', 'client_email', 'clientEmail', 'description', 'project_manager_id', 'start_date', 'status', 'budget', 'end_date', 'location']) : mapped;
     }
 
     if (path === 'resources') {
@@ -548,11 +550,12 @@ export class MockDataService {
       managerId: item.project_manager_id ?? item.managerId ?? '',
       manager: mgr,
       status: this.toProjectStatus(item.status),
-      progress: item.progress ?? this.progressFromStatus(item.status),
+      progress: item.progress !== undefined && item.progress !== null ? Number(item.progress) : this.progressFromStatus(item.status),
       startDate: this.formatDate(item.startDate ?? item.start_date),
       endDate: item.endDate ?? this.formatDate(item.end_date),
       budget: item.budget ?? 0,
       client: item.client ?? '',
+      clientEmail: item.clientEmail ?? item.client_email ?? '',
       location: item.location ?? '',
     };
   }

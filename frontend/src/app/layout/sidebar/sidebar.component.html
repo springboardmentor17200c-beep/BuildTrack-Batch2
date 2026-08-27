@@ -1,13 +1,18 @@
-<aside class="sidebar" [class.open]="open">
+<aside class="sidebar" [class.open]="open" [class.sidebar--collapsed]="collapsed">
   <div class="sidebar__brand">
-    <span class="sidebar__mark">
+    <span class="sidebar__mark" (click)="toggleCollapse.emit()" style="cursor: pointer;" title="Toggle Sidebar">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M3 21h18" stroke="white" stroke-width="2" stroke-linecap="round" />
         <path d="M5 21V9l6-5 6 5v12" stroke="white" stroke-width="2" stroke-linejoin="round" />
         <path d="M10 21v-6h4v6" stroke="white" stroke-width="2" stroke-linejoin="round" />
       </svg>
     </span>
-    <span class="sidebar__name">Build<b>Track</b></span>
+    <span class="sidebar__name" *ngIf="!collapsed">Build<b>Track</b></span>
+    
+    <button type="button" class="sidebar__toggle-btn" (click)="toggleCollapse.emit()" [attr.aria-label]="collapsed ? 'Expand sidebar' : 'Shrink sidebar'" [title]="collapsed ? 'Expand sidebar' : 'Shrink sidebar'">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+
     <button class="sidebar__close" (click)="linkClick.emit()" aria-label="Close menu">
       <i class="fa-solid fa-xmark"></i>
     </button>
@@ -17,23 +22,25 @@
     <div
       class="sidebar__group"
       routerLinkActive="group-active"
-      [class.menu-open]="isGroupOpen(item.label)"
+      [class.menu-open]="!collapsed && isGroupOpen(item.label)"
       *ngFor="let item of navItems()"
     >
       <div class="sidebar__parent-row">
         <a
           [routerLink]="item.route"
+          [queryParams]="item.queryParams || null"
           routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
+          [routerLinkActiveOptions]="{ exact: false }"
           class="sidebar__link sidebar__link--parent"
           (click)="linkClick.emit()"
+          [title]="collapsed ? item.label : ''"
         >
           <i class="fa-solid" [ngClass]="item.icon"></i>
-          <span>{{ item.label }}</span>
+          <span class="sidebar__link-text" *ngIf="!collapsed">{{ item.label }}</span>
         </a>
 
         <button
-          *ngIf="item.children?.length"
+          *ngIf="item.children?.length && !collapsed"
           type="button"
           class="sidebar__toggle"
           (click)="toggleGroup(item.label)"
@@ -43,7 +50,7 @@
         </button>
       </div>
 
-      <div class="sidebar__children" *ngIf="item.children?.length">
+      <div class="sidebar__children" *ngIf="item.children?.length && !collapsed">
         <a
           *ngFor="let child of item.children"
           [routerLink]="child.route"
@@ -59,24 +66,27 @@
     </div>
   </nav>
 
-  <a
-    *ngIf="canSeeSettings()"
-    routerLink="/settings"
-    routerLinkActive="active"
-    class="sidebar__link sidebar__settings"
-    (click)="linkClick.emit()"
-  >
-    <i class="fa-solid fa-gear"></i>
-    <span>Settings</span>
-  </a>
+  <!-- Pinned Bottom Navigation Item: Settings -->
+  <div class="sidebar__bottom-nav">
+    <a
+      routerLink="/settings"
+      routerLinkActive="active"
+      class="sidebar__link sidebar__link--bottom"
+      (click)="linkClick.emit()"
+      [title]="collapsed ? 'Settings' : ''"
+    >
+      <i class="fa-solid fa-gear"></i>
+      <span class="sidebar__link-text" *ngIf="!collapsed">Settings</span>
+    </a>
+  </div>
 
   <div class="sidebar__profile" *ngIf="auth.currentUser() as user">
-    <img [src]="user.avatarUrl || 'assets/default-avatar.svg'" alt="" />
-    <div>
+    <img [src]="user.avatarUrl || 'assets/default-avatar.svg'" [alt]="user.name" [title]="collapsed ? user.name + ' (' + user.role + ')' : ''" />
+    <div *ngIf="!collapsed">
       <p class="name">{{ user.name }}</p>
       <p class="role">{{ user.role }}</p>
     </div>
-    <button class="logout" (click)="auth.logout()" title="Sign out">
+    <button class="logout" (click)="auth.logout()" [title]="'Sign out (' + user.name + ')'">
       <i class="fa-solid fa-arrow-right-from-bracket"></i>
     </button>
   </div>

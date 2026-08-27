@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { MockDataService } from '../../core/services/mock-data.service';
-import { ProjectStatus } from '../../core/models/models';
+import { Project, ProjectStatus } from '../../core/models/models';
 
 interface StatCard {
   label: string;
@@ -54,17 +54,79 @@ export class DashboardComponent implements OnInit {
     this.data.refresh();
   }
 
+  // ─── Visible Projects (Filtered for Client role) ───────────────────────────
+
+  get visibleProjects(): Project[] {
+    const user = this.auth.currentUser();
+    if (user?.role === 'Client') {
+      const email = (user.email || '').trim().toLowerCase();
+      return this.data.projects.filter(
+        (p) =>
+          (p.clientEmail && p.clientEmail.trim().toLowerCase() === email) ||
+          (p.client && p.client.trim().toLowerCase() === email),
+      );
+    }
+    return this.data.projects;
+  }
+
   // ─── Stat Cards ─────────────────────────────────────────────────────────────
 
   get stats(): StatCard[] {
-    const totalBudget = this.data.projects.reduce((sum, p) => sum + (p.budget ?? 0), 0);
+    const projects = this.visibleProjects;
+    const totalBudget = projects.reduce((sum, p) => sum + (p.budget ?? 0), 0);
     const activeCount = this.countStatus('In Progress');
+    const isClient = this.auth.currentUser()?.role === 'Client';
+
+    if (isClient) {
+      const avgProgress = projects.length > 0
+        ? Math.round(projects.reduce((acc, p) => acc + (p.progress ?? 0), 0) / projects.length)
+        : 0;
+
+      return [
+        {
+          label: 'My Projects',
+          value: String(projects.length),
+          delta: `${projects.length} Assigned`,
+          trend: 'up',
+          icon: 'fa-building',
+          bg: 'var(--blue-light)',
+          color: 'var(--blue)',
+        },
+        {
+          label: 'Active Projects',
+          value: String(activeCount),
+          delta: `${activeCount} in progress`,
+          trend: 'up',
+          icon: 'fa-diagram-project',
+          bg: 'var(--green-bg)',
+          color: 'var(--green)',
+        },
+        {
+          label: 'Average Progress',
+          value: `${avgProgress}%`,
+          delta: 'Milestone completion',
+          trend: 'up',
+          icon: 'fa-list-check',
+          bg: 'var(--purple-bg)',
+          color: 'var(--purple)',
+        },
+        {
+          label: 'Total Budget',
+          value: totalBudget ? `Rs ${totalBudget.toLocaleString('en-IN')}` : 'Rs 0',
+          delta: 'Allocated Project Budget',
+          trend: 'up',
+          icon: 'fa-indian-rupee-sign',
+          bg: 'var(--amber-bg)',
+          color: 'var(--amber)',
+        },
+      ];
+    }
 
     return [
       {
         label: 'Total Projects',
-        value: String(this.data.projects.length),
-        delta: this.monthComparisonText(this.data.projects.length, Math.max(0, this.data.projects.length - 1)),
+        value: String(projects.length),
+        delta: this.monthComparisonText(projects.length, Math.max(0, projects.length - 1)),
         trend: 'up',
         icon: 'fa-building',
         bg: 'var(--blue-light)',
@@ -82,7 +144,7 @@ export class DashboardComponent implements OnInit {
       {
         label: 'Total Workers',
         value: String(this.data.workers.length),
-        delta: this.monthComparisonText(this.data.workers.length, Math.max(0, this.data.workers.length - 1)),
+        delta: `${this.totalMonthlyAttendancePct}% monthly attendance`,
         trend: 'up',
         icon: 'fa-helmet-safety',
         bg: 'var(--purple-bg)',
@@ -100,6 +162,18 @@ export class DashboardComponent implements OnInit {
     ];
   }
 
+  get upcomingMilestones(): Array<{ project: string; title: string; date: string }> {
+    const visibleNames = new Set(this.visibleProjects.map((p) => p.name));
+    return this.data.upcomingMilestones.filter((m) => visibleNames.has(m.project));
+  }
+
+  get totalMonthlyAttendancePct(): number {
+    const workers = this.data.workers;
+    if (!workers || workers.length === 0) return 0;
+    const sum = workers.reduce((acc, w) => acc + (w.attendancePct ?? 0), 0);
+    return Math.round(sum / workers.length);
+  }
+
   private monthComparisonText(current: number, previous: number): string {
     if (!current && !previous) return '0% vs last month';
     if (!previous) return '100% vs last month';
@@ -110,7 +184,7 @@ export class DashboardComponent implements OnInit {
   // ─── Donut chart ─────────────────────────────────────────────────────────────
 
   get statusLegend() {
-    const total = this.data.projects.length;
+    const total = this.visibleProjects.length;
     return [
       { label: 'Completed',   color: '#16a34a', count: this.countStatus('Completed') },
       { label: 'In Progress', color: '#2563eb', count: this.countStatus('In Progress') },
@@ -123,7 +197,7 @@ export class DashboardComponent implements OnInit {
   }
 
   get donutStyle(): string {
-    if (!this.data.projects.length) {
+    if (!this.visibleProjects.length) {
       return 'conic-gradient(#e2e8f0 0 100%)';
     }
     let start = 0;
@@ -159,7 +233,7 @@ export class DashboardComponent implements OnInit {
     const countsByStatus = statuses.map((status) =>
       months.map((month) => {
         const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
-        return this.data.projects.filter((p) => {
+        return this.visibleProjects.filter((p) => {
           const start = this.parseProjectDate(p.startDate);
           return start <= monthEnd && p.status === status;
         }).length;
@@ -200,7 +274,7 @@ export class DashboardComponent implements OnInit {
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   private countStatus(status: ProjectStatus): number {
-    return this.data.projects.filter((p) => p.status === status).length;
+    return this.visibleProjects.filter((p) => p.status === status).length;
   }
 
   statusBadgeClass(status: string): string {

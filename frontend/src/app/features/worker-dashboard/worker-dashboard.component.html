@@ -1,8 +1,4 @@
 <div class="page">
-  <div class="page-header">
-    <h1>Worker Dashboard</h1>
-  </div>
-
   <div class="loading" *ngIf="loading()">Loading your dashboard...</div>
 
   <ng-container *ngIf="!loading()">
@@ -15,14 +11,27 @@
         <div class="stat-card" [ngClass]="{ present: todaysAttendanceStatus() === 'present', absent: todaysAttendanceStatus() === 'absent' }">
           <p>Today's Attendance</p>
           <strong>{{ attendanceLabel() }}</strong>
+          <span class="subtext">Status for today</span>
+        </div>
+        <div class="stat-card">
+          <p>{{ currentMonthName() }} Attendance</p>
+          <strong style="color: var(--blue);">{{ monthlyAttendancePercentage() !== null ? monthlyAttendancePercentage() + '%' : 'N/A' }}</strong>
+          <span class="subtext" *ngIf="monthlyAttendanceDetails().total > 0">
+            {{ monthlyAttendanceDetails().present }} of {{ monthlyAttendanceDetails().total }} recorded days
+          </span>
+          <span class="subtext" *ngIf="monthlyAttendanceDetails().total === 0">
+            No entries this month
+          </span>
         </div>
         <div class="stat-card">
           <p>Assigned Tasks</p>
           <strong>{{ assignedCount() }}</strong>
+          <span class="subtext">Active assignments</span>
         </div>
         <div class="stat-card">
           <p>Completed Tasks</p>
-          <strong>{{ completedCount() }}</strong>
+          <strong style="color: #16a34a;">{{ completedCount() }}</strong>
+          <span class="subtext">Finished tasks</span>
         </div>
       </div>
 

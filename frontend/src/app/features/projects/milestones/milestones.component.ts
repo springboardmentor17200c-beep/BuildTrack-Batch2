@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import { MockDataService } from '../../../core/services/mock-data.service';
+import { Project } from '../../../core/models/models';
 
 @Component({
   selector: 'app-milestones',
@@ -82,27 +84,44 @@ import { MockDataService } from '../../../core/services/mock-data.service';
   `],
 })
 export class MilestonesComponent {
+  private readonly auth = inject(AuthService);
   constructor(public data: MockDataService) {}
 
   readonly pageSize = 10;
   currentPage = signal(1);
 
+  get visibleProjects(): Project[] {
+    const user = this.auth.currentUser();
+    if (user?.role === 'Client') {
+      const email = (user.email || '').trim().toLowerCase();
+      return this.data.projects.filter(
+        (p) =>
+          (p.clientEmail && p.clientEmail.trim().toLowerCase() === email) ||
+          (p.client && p.client.trim().toLowerCase() === email),
+      );
+    }
+    return this.data.projects;
+  }
+
   get milestoneRows() {
-    const stored = this.data.milestones.map((milestone) => {
-      const project = this.data.getProjectById(milestone.projectId);
-      return {
-        title: milestone.title,
-        project: project?.name ?? 'Unassigned Project',
-        dueDate: milestone.dueDate,
-        status: milestone.status,
-        progress: milestone.progress,
-        owner: project?.manager ?? 'Project team',
-      };
-    });
+    const visibleProjIds = new Set(this.visibleProjects.map((p) => p.id));
+    const stored = this.data.milestones
+      .filter((milestone) => visibleProjIds.has(milestone.projectId))
+      .map((milestone) => {
+        const project = this.data.getProjectById(milestone.projectId);
+        return {
+          title: milestone.title,
+          project: project?.name ?? 'Unassigned Project',
+          dueDate: milestone.dueDate,
+          status: milestone.status,
+          progress: milestone.progress,
+          owner: project?.manager ?? 'Project team',
+        };
+      });
 
     if (stored.length) return stored;
 
-    return this.data.projects.flatMap((project) => [
+    return this.visibleProjects.flatMap((project) => [
       {
         title: 'Site readiness',
         project: project.name,
