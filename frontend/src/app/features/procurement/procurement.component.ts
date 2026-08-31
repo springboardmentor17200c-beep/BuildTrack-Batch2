@@ -663,13 +663,13 @@ export class ProcurementComponent implements OnInit {
   getQRImageUrl(): string {
     const item = this.selectedItem();
     const invId = this.getId(item) || this.paymentForm.get('invoice_id')?.value;
-    return `http://127.0.0.1:8000/api/v1/procurement/invoices/${invId}/qr`;
+    return `${environment.apiBaseUrl}/procurement/invoices/${invId}/qr`;
   }
 
   getMobileCheckoutUrl(): string {
     const item = this.selectedItem();
     const invId = this.getId(item) || this.paymentForm.get('invoice_id')?.value;
-    return `http://127.0.0.1:8000/api/v1/procurement/pay-scan/${invId}`;
+    return `${environment.apiBaseUrl}/procurement/pay-scan/${invId}`;
   }
 
   openApprovalModal(request: MaterialRequest): void {
@@ -1334,7 +1334,7 @@ export class ProcurementComponent implements OnInit {
     // Detect network-level failures (backend unreachable) which Angular reports
     // as status 0 with "Unknown Error". Give a clear, actionable message.
     if (err?.status === 0) {
-      const message = `${context}: Cannot reach the backend server at http://127.0.0.1:8000. Make sure the backend is running (cd backend && .venv\\Scripts\\Activate && uvicorn app.main:app --reload).`;
+      const message = `${context}: Cannot reach the backend server configured for this environment. For local development, make sure the backend is running (cd backend && .venv\\Scripts\\Activate && uvicorn app.main:app --reload).`;
       this.error.set(message);
       this.notificationService.error(message);
       return;

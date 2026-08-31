@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -49,6 +49,20 @@ class Settings(BaseSettings):
         if not value.startswith("/"):
             return f"/{value}"
         return value.rstrip("/") or "/api/v1"
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        if self.app_env.lower() != "production":
+            return self
+
+        if self.debug:
+            raise ValueError("APP_DEBUG must be false when APP_ENV=production")
+        if self.jwt_secret_key == "change-this-secret-before-production":
+            raise ValueError("JWT_SECRET_KEY must be supplied when APP_ENV=production")
+        if "*" in self.cors_origins:
+            raise ValueError("BACKEND_CORS_ORIGINS must not allow '*' in production")
+
+        return self
 
     @property
     def cors_origins(self) -> list[str]:
